@@ -1,0 +1,92 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "wpp://contracts/team-assistant-output.json",
+  "title": "Team Assistant output (SPEC §30, §43, §44)",
+  "schemaVersion": "1.0.0",
+  "description": "Internal-only assistant. It NEVER sends messages and NEVER sets price/deadline — it produces drafts and estimates for humans to accept, edit or discard.",
+  "type": "object",
+  "required": ["kind"],
+  "additionalProperties": false,
+  "properties": {
+    "kind": { "enum": ["SUMMARY", "EXPLAIN_FAILURE", "COMPLEXITY_ESTIMATE", "PRICE_DEADLINE_DRAFT", "STITCH_PROMPT", "TASK_DRAFTS", "CLIENT_CHANGE_SUMMARY"] },
+    "summaryMd": { "type": ["string", "null"] },
+    "explanationMd": { "type": ["string", "null"], "description": "Plain-language explanation of what failed and what to do (SPEC §42 'explain WHY')." },
+    "complexity": {
+      "type": ["object", "null"],
+      "properties": {
+        "level": { "enum": ["LOW", "MEDIUM", "HIGH", "VERY_HIGH"] },
+        "estimatedHoursRange": { "type": "array", "items": { "type": "number" }, "minItems": 2, "maxItems": 2 },
+        "featureBreakdown": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": { "feature": { "type": "string" }, "complexity": { "enum": ["LOW", "MEDIUM", "HIGH"] }, "notes": { "type": "string" } }
+          }
+        },
+        "riskFactors": { "type": "array", "items": { "type": "string" } },
+        "disclaimer": { "const": "Estimate only; final price and deadline are set by the human team." }
+      }
+    },
+    "draftMessage": {
+      "type": ["object", "null"],
+      "description": "Draft for a human to review and send manually (§30).",
+      "properties": {
+        "locale": { "enum": ["uz", "ru", "en"] },
+        "text": { "type": "string", "maxLength": 950 },
+        "containsPrice": { "type": "boolean" },
+        "humanAgentTagRequested": { "type": "boolean", "description": "True when the draft must be sent with the human_agent tag because the window is closed." }
+      },
+      "required": ["locale", "text"]
+    },
+    "stitchPrompt": {
+      "type": ["object", "null"],
+      "properties": {
+        "prompt": { "type": "string" },
+        "specVersion": { "type": "integer" },
+        "outdated": { "type": "boolean", "description": "Set true when the spec version moved past the version this prompt was generated from (§44)." }
+      }
+    },
+    "taskDrafts": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["type", "title", "reason"],
+        "properties": {
+          "type": { "enum": ["HUMAN_REVIEW", "PRICE_DECISION", "DEADLINE_DECISION", "CLIENT_SILENT", "SCOPE_CHANGE", "MANUAL_SEND", "DELIVERY_PREP", "OTHER"] },
+          "title": { "type": "string" },
+          "description": { "type": "string" },
+          "reason": { "type": "string" },
+          "priority": { "enum": ["CRITICAL", "MAJOR", "MINOR"] }
+        }
+      }
+    },
+    "changeSummary": {
+      "type": ["object", "null"],
+      "properties": {
+        "whatChanged": { "type": "array", "items": { "type": "string" } },
+        "impact": { "type": "array", "items": { "type": "string" } },
+        "affectedRequirements": { "type": "array", "items": { "type": "string" } }
+      }
+    }
+  },
+  "exampleValid": {
+    "kind": "PRICE_DEADLINE_DRAFT",
+    "draftMessage": {
+      "locale": "uz",
+      "text": "Assalomu alaykum! Restoran sayti uchun narx — 6 000 000 so'm, muddat — 10 ish kuni. Tasdiqlasangiz, ishni boshlaymiz.",
+      "containsPrice": true,
+      "humanAgentTagRequested": false
+    },
+    "complexity": {
+      "level": "MEDIUM",
+      "estimatedHoursRange": [18, 26],
+      "featureBreakdown": [{ "feature": "Menu with categories", "complexity": "LOW" }],
+      "riskFactors": ["Client keeps changing menu data"],
+      "disclaimer": "Estimate only; final price and deadline are set by the human team."
+    }
+  },
+  "exampleInvalid": {
+    "kind": "SEND_MESSAGE",
+    "draftMessage": { "locale": "uz", "text": "", "containsPrice": "yes" }
+  }
+}

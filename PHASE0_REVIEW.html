@@ -1,0 +1,286 @@
+<!DOCTYPE html>
+<html lang="uz">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>WPP — Phase 0 hisoboti va arxitektura taklifi</title>
+<style>
+  :root{
+    --bg:#0b1020; --bg2:#111834; --card:#151d3b; --card2:#1a2447;
+    --ink:#e8ecf8; --muted:#9aa6c8; --line:#243059;
+    --a:#5b8cff; --a2:#7c5cff; --ok:#2fbf71; --warn:#f0b429; --bad:#ff5d73; --info:#38bdf8;
+    --mono:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;
+  }
+  *{box-sizing:border-box}
+  html{scroll-behavior:smooth}
+  body{margin:0;background:linear-gradient(180deg,#080c18,#0b1020 300px,#0b1020);color:var(--ink);
+       font:15px/1.6 -apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Inter,Arial,sans-serif}
+  .wrap{max-width:1120px;margin:0 auto;padding:0 20px 80px}
+  header.hero{padding:56px 0 28px;border-bottom:1px solid var(--line);margin-bottom:8px}
+  .kicker{display:inline-flex;align-items:center;gap:8px;color:var(--a);font-weight:600;letter-spacing:.08em;
+          text-transform:uppercase;font-size:12px;background:rgba(91,140,255,.12);border:1px solid rgba(91,140,255,.35);
+          padding:6px 10px;border-radius:999px}
+  h1{font-size:34px;line-height:1.2;margin:16px 0 10px;letter-spacing:-.02em}
+  h1 span{background:linear-gradient(90deg,var(--a),var(--a2));-webkit-background-clip:text;background-clip:text;color:transparent}
+  .sub{color:var(--muted);max-width:820px;font-size:16px}
+  .meta{display:flex;flex-wrap:wrap;gap:10px;margin-top:18px}
+  .chip{font-size:12.5px;color:var(--muted);border:1px solid var(--line);background:var(--card);
+        padding:6px 10px;border-radius:999px}
+  nav.toc{position:sticky;top:0;z-index:5;background:rgba(11,16,32,.92);backdrop-filter:blur(8px);
+          border-bottom:1px solid var(--line);padding:10px 0;margin-bottom:26px}
+  nav.toc .in{max-width:1120px;margin:0 auto;padding:0 20px;display:flex;gap:8px;flex-wrap:wrap}
+  nav.toc a{color:var(--muted);text-decoration:none;font-size:13px;padding:6px 10px;border-radius:8px;border:1px solid transparent}
+  nav.toc a:hover{color:var(--ink);background:var(--card);border-color:var(--line)}
+  section{margin:44px 0}
+  h2{font-size:22px;margin:0 0 6px;letter-spacing:-.01em}
+  h2 .n{color:var(--a);font-family:var(--mono);font-size:15px;margin-right:8px}
+  h3{font-size:16px;margin:26px 0 8px}
+  p{color:#cdd6ee}
+  .lead{color:var(--muted);margin:0 0 18px}
+  .grid{display:grid;gap:14px}
+  @media(min-width:820px){.g2{grid-template-columns:1fr 1fr}.g3{grid-template-columns:repeat(3,1fr)}}
+  .card{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:16px 18px}
+  .card h4{margin:0 0 6px;font-size:15px}
+  .card p{margin:0;color:var(--muted);font-size:14px}
+  .tag{display:inline-block;font-size:11.5px;font-weight:700;padding:3px 8px;border-radius:999px;letter-spacing:.02em}
+  .t-ok{background:rgba(47,191,113,.14);color:#5fe0a0;border:1px solid rgba(47,191,113,.35)}
+  .t-warn{background:rgba(240,180,41,.14);color:#ffd166;border:1px solid rgba(240,180,41,.35)}
+  .t-bad{background:rgba(255,93,115,.14);color:#ff8ea0;border:1px solid rgba(255,93,115,.35)}
+  .t-info{background:rgba(56,189,248,.14);color:#7dd3fc;border:1px solid rgba(56,189,248,.35)}
+  .t-mut{background:rgba(154,166,200,.12);color:#b9c3de;border:1px solid rgba(154,166,200,.3)}
+  table{width:100%;border-collapse:collapse;font-size:14px;margin:10px 0;background:var(--card);
+        border:1px solid var(--line);border-radius:12px;overflow:hidden}
+  th,td{padding:10px 12px;text-align:left;border-bottom:1px solid var(--line);vertical-align:top}
+  th{background:var(--card2);color:#c7d1ee;font-size:12.5px;text-transform:uppercase;letter-spacing:.05em}
+  tr:last-child td{border-bottom:none}
+  code,.mono{font-family:var(--mono);font-size:13px;background:rgba(91,140,255,.1);border:1px solid rgba(91,140,255,.2);
+             padding:1px 6px;border-radius:6px}
+  pre{background:#0d1428;border:1px solid var(--line);border-radius:12px;padding:16px;overflow:auto;font-family:var(--mono);
+      font-size:13px;line-height:1.5;color:#cfd8f5}
+  .flow{display:flex;flex-wrap:wrap;gap:8px;align-items:center;margin:14px 0}
+  .node{background:var(--card2);border:1px solid var(--line);border-radius:10px;padding:8px 12px;font-size:13px;font-weight:600}
+  .node.hi{border-color:rgba(91,140,255,.5);background:rgba(91,140,255,.12)}
+  .node.human{border-color:rgba(240,180,41,.5);background:rgba(240,180,41,.1)}
+  .arrow{color:var(--muted)}
+  ul{padding-left:20px;color:#cdd6ee}
+  li{margin:6px 0}
+  .qa{border-left:3px solid var(--a);padding:10px 14px;background:var(--card);border-radius:0 12px 12px 0;margin:10px 0}
+  .qa b{display:block;margin-bottom:2px}
+  .pill{font-size:12px;font-weight:700;padding:2px 8px;border-radius:999px;margin-left:6px}
+  .cost{font-family:var(--mono);color:#9ef0c0}
+  footer{border-top:1px solid var(--line);margin-top:56px;padding-top:18px;color:var(--muted);font-size:13px}
+  a{color:#9db8ff}
+  .kv{display:grid;grid-template-columns:190px 1fr;gap:6px 14px;font-size:14px}
+  .kv div:nth-child(odd){color:var(--muted)}
+</style>
+</head>
+<body>
+<div class="wrap">
+
+<header class="hero">
+  <span class="kicker">Phase 0 · Hisobot · Tasdiqlash kutilmoqda</span>
+  <h1>AI-Powered Website Production Pipeline<br><span>arxitektura va stack taklifi</span></h1>
+  <p class="sub">Instagram DM → Requirements AI → Spetsifikatsiya → Mijoz tasdiqi → Spec Auditor → Coding Agent → Code Checker (real ishga tushirib tekshirish) → Team Panel → inson jamoasi. Ichki ishlab chiqarish vositasi (SaaS emas, SPEC §2).</p>
+  <div class="meta">
+    <span class="chip">📅 2026-10-07</span>
+    <span class="chip">📄 SPEC v2 (1899 satr) asosida</span>
+    <span class="chip">✅ 18/18 deliverable tayyor</span>
+    <span class="chip">⛔ Kod hali yozilmagan — SPEC §55A.3 talabi bo'yicha</span>
+  </div>
+</header>
+
+<nav class="toc"><div class="in">
+  <a href="#holat">Holat</a>
+  <a href="#tizim">Tizim</a>
+  <a href="#stack">Stack</a>
+  <a href="#sm">State machine</a>
+  <a href="#db">Ma'lumotlar bazasi</a>
+  <a href="#meta">Instagram/Meta</a>
+  <a href="#xatar">Xatarlar</a>
+  <a href="#savol">Savollar</a>
+  <a href="#keyingi">Keyingi qadam</a>
+</div></nav>
+
+<!-- ============ 1. HOLAT ============ -->
+<section id="holat">
+  <h2><span class="n">01</span>Phase 0 holati — nima qilindi</h2>
+  <p class="lead">SPEC §56 ro'yxatidagi barcha 18 ta majburiy hujjat, stack taklifi (alternativalar, xarajat, xatarlar bilan), Meta qoidalarining joriy rasmiy hujjatlardan tekshiruvi va qarorlar jurnali yozildi. Kod yo'q — bu Phase 0 ta'rifi bo'yicha to'g'ri.</p>
+  <div class="grid g3">
+    <div class="card"><h4>📐 Arxitektura <span class="tag t-ok">tayyor</span></h4><p>docs/01–02: tizim va komponent arxitekturasi, 4 jarayon, 17 modul.</p></div>
+    <div class="card"><h4>🗄️ DB + State machine <span class="tag t-ok">tayyor</span></h4><p>docs/03–05: 40+ jadval, 23 holat, to'liq o'tishlar jadvali, guard'lar.</p></div>
+    <div class="card"><h4>🤖 Agentlar <span class="tag t-ok">tayyor</span></h4><p>docs/06 + 8 ta mashina o'qiydigan JSON Schema (docs/contracts).</p></div>
+    <div class="card"><h4>🔌 API + Instagram <span class="tag t-ok">tayyor</span></h4><p>docs/07–08: endpointlar, webhook imzo tekshiruvi, 24 soat oynasi.</p></div>
+    <div class="card"><h4>🛡️ Xavfsizlik <span class="tag t-ok">tayyor</span></h4><p>docs/10: RBAC, prompt-injection himoyasi, sandbox qoidalari.</p></div>
+    <div class="card"><h4>🧪 Test + Deploy <span class="tag t-ok">tayyor</span></h4><p>docs/14–15: test piramidasi, VPS deploy, backup/restore drill.</p></div>
+  </div>
+
+  <h3>Tekshiruv natijalari (haqiqiy, da'vo emas)</h3>
+  <table>
+    <tr><th>Tekshiruv</th><th>Usul</th><th>Natija</th></tr>
+    <tr><td>8 agent kontrakti yaroqli JSON</td><td class="mono">python json.load(docs/contracts/*.json)</td><td><span class="tag t-ok">8/8 valid</span></td></tr>
+    <tr><td>18 deliverable mavjudligi</td><td class="mono">scripts/check-docs.mjs</td><td><span class="tag t-ok">OK</span></td></tr>
+    <tr><td>SPEC v2 repo ildizida</td><td class="mono">SPEC.md (1899 satr, CRLF→LF)</td><td><span class="tag t-ok">OK</span></td></tr>
+    <tr><td>Meta qoidalari joriy rasmiy hujjatlardan</td><td>developers.facebook.com (16–28-sentabr 2026 yangilangan)</td><td><span class="tag t-ok">tasdiqlangan</span></td></tr>
+    <tr><td>Muhit imkoniyatlari</td><td class="mono">node 20 · 2 vCPU · 1.9GB RAM · Docker yo'q · Postgres yo'q · Chromium yo'q</td><td><span class="tag t-warn">cheklovlar hujjatlashtirildi</span></td></tr>
+  </table>
+</section>
+
+<!-- ============ 2. TIZIM ============ -->
+<section id="tizim">
+  <h2><span class="n">02</span>Tizim qanday ishlaydi</h2>
+  <p class="lead">Bitta markaziy Orchestrator ishlarni boshqaradi. Agentlar bir-birini chaqirmaydi: vazifa oladi → ishlaydi → bazaga yozadi → SUCCESS/FAILED/NEEDS_REVIEW qaytaradi (SPEC §4).</p>
+  <div class="flow">
+    <span class="node">Mijoz (IG DM)</span><span class="arrow">→</span>
+    <span class="node hi">Conversation Engine</span><span class="arrow">→</span>
+    <span class="node hi">Requirements AI</span><span class="arrow">→</span>
+    <span class="node hi">Specification AI</span><span class="arrow">→</span>
+    <span class="node human">Mijoz tasdiqi (1 marta)</span><span class="arrow">→</span>
+    <span class="node hi">Spec Auditor</span><span class="arrow">→</span>
+    <span class="node hi">Coding Agent</span><span class="arrow">→</span>
+    <span class="node hi">Code Checker (runtime)</span><span class="arrow">→</span>
+    <span class="node human">Team Panel / inson</span><span class="arrow">→</span>
+    <span class="node human">Narx + muddat (inson)</span><span class="arrow">→</span>
+    <span class="node">Yetkazish</span>
+  </div>
+
+  <div class="grid g2">
+    <div class="card"><h4>🧩 Modular monolith — 4 jarayon</h4>
+      <p><span class="mono">api</span> (REST + webhook + preview) · <span class="mono">worker</span> (orchestrator + agentlar) · <span class="mono">coderunner</span> (build + Playwright tekshiruv) · <span class="mono">panel</span> (Next.js). Bitta Postgres, bitta Caddy. Mikroservis yo'q.</p></div>
+    <div class="card"><h4>⚙️ Navbat = Postgres jadvali</h4>
+      <p>Holat o'zgarishi va keyingi ish <b>bitta tranzaksiyada</b> yoziladi → ish yo'qolmaydi va ikki marta bajarilmaydi (SPEC §4, §41). Redis shart emas; kelajakda BullMQ'ga almashtirish izolyatsiya qilingan.</p></div>
+    <div class="card"><h4>🔒 §10A bazada majburlangan</h4>
+      <p><span class="mono">CLIENT_CONFIRMED</span> statusi faqat mijozning haqiqiy xabar ID siga bog'langan holda yoziladi — CHECK constraint. AI taxmini hech qachon "mijoz tasdiqladi" bo'lib ko'rinmaydi (SPEC §53).</p></div>
+    <div class="card"><h4>🧪 Simulator kanal — kritik qaror</h4>
+      <p>Meta App Review haftalab davom etadi. Shuning uchun P1–P7 bosqichlari Meta'siz ham to'liq ishlaydi va test qilinadi: simulyator kanali orqali butun zanjir haydaladi (D-013).</p></div>
+  </div>
+</section>
+
+<!-- ============ 3. STACK ============ -->
+<section id="stack">
+  <h2><span class="n">03</span>Texnologiya stacki taklifi <span class="tag t-warn">tasdiqlash kerak</span></h2>
+  <p class="lead">Asosiy mezon: Coding Agent yaratgan saytni <b>haqiqatan o'rnatib, build qilib, brauzerda sinab ko'rish</b> (SPEC §25A) — bu bitta til (TypeScript) va Playwright bilan eng tabiiy bajariladi.</p>
+  <table>
+    <tr><th>Qatlam</th><th>Tanlov</th><th>Nega</th></tr>
+    <tr><td>API / orchestrator</td><td><b>Fastify 5 + Zod 4</b></td><td>Sxema-validatsiya va OpenAPI avtomatik; yengil</td></tr>
+    <tr><td>Ma'lumotlar bazasi</td><td><b>PostgreSQL 16</b> (+ PGlite dev/CI uchun)</td><td>JSONB, versiyalash, SKIP LOCKED navbat</td></tr>
+    <tr><td>ORM/migratsiya</td><td><b>Drizzle</b></td><td>SQL-migratsiyalar, PGlite↔Postgres bir xil kod</td></tr>
+    <tr><td>Team Panel</td><td><b>Next.js 16</b></td><td>Server-render, thin client, tez</td></tr>
+    <tr><td>Runtime tekshiruv</td><td><b>Playwright</b> (+ axe-core)</td><td>§25A talabi: E2E, responsive, konsol/link tekshiruv</td></tr>
+    <tr><td>Navbat</td><td>Postgres jadval (SKIP LOCKED)</td><td>Tranzaksion enqueue; alohida servis yo'q</td></tr>
+    <tr><td>Deploy</td><td>1 ta VPS + Docker Compose + Caddy</td><td>Ichki vosita uchun yetarli; oddiy backup/restore</td></tr>
+  </table>
+
+  <h3>Alternativalar (nega tavsiya etilmadi)</h3>
+  <div class="grid g3">
+    <div class="card"><h4>Python core (FastAPI)</h4><p>AI ekotizimi kuchli, lekin 2 til + Redis/Celery kerak bo'ladi; generated saytlar baribir Node talab qiladi. Zaxira variant.</p></div>
+    <div class="card"><h4>Next.js-only</h4><p>Tez boshlanadi, lekin webhook + uzoq joblar + brauzer tekshiruvi bitta processda — §4 talabiga zid.</p></div>
+    <div class="card"><h4>Temporal.io</h4><p>Durability zo'r, ammo ortiqcha infratuzilma va DB-as-truth modelini murakkablashtiradi. Phase 8 uchun qayta ko'riladi.</p></div>
+  </div>
+
+  <h3>Xarajat prognozi</h3>
+  <table>
+    <tr><th>Modda</th><th>Oylik</th><th>Izoh</th></tr>
+    <tr><td>VPS (4 vCPU / 8GB)</td><td class="cost">$18–40</td><td>Hetzner-sinf yoki mahalliy provayder</td></tr>
+    <tr><td>Backup + domen + TLS</td><td class="cost">$2–4</td><td>pg_dump + artifact sync</td></tr>
+    <tr><td>Meta / Instagram API</td><td class="cost">$0</td><td>App Review va Business Verification bepul</td></tr>
+    <tr><td>LLM (1 loyiha)</td><td class="cost">$1.2 – $4.6</td><td>Model tanloviga qarab (arzon → kuchli)</td></tr>
+    <tr><td>LLM (oyiga ~40 loyiha)</td><td class="cost">$100–150</td><td>Aralash routing bilan; har run bazada o'lchanadi</td></tr>
+  </table>
+</section>
+
+<!-- ============ 4. STATE MACHINE ============ -->
+<section id="sm">
+  <h2><span class="n">04</span>Loyiha holatlari (state machine)</h2>
+  <p class="lead">SPEC §3 dagi 23 holat aynan saqlandi. Har bir o'tish guard (shart) va majburiy yon-effektlar bilan jadvalda yozilgan — docs/05.</p>
+  <pre>NEW → INTAKE → REQUIREMENTS_IN_PROGRESS → REQUIREMENTS_COMPLETE
+    → SPEC_GENERATING → CLIENT_REVIEW → (CLIENT_CHANGES_REQUESTED ⇄ qayta)
+    → CLIENT_APPROVED → SPEC_AUDIT → READY_FOR_BUILD → BUILDING
+    → CODE_AUDIT → TEAM_REVIEW → PRICE_PENDING → DEADLINE_PENDING
+    → IN_DEVELOPMENT → READY_FOR_DELIVERY → COMPLETED
+    + BLOCKED / FAILED  (har qanday bosqichda to'xtatish, sabab bilan)</pre>
+  <div class="grid g2">
+    <div class="card"><h4>♻️ Cheksiz looplar to'xtatiladi</h4><p>Spec audit va Code check — maksimum 3 urinish; so'ng <b>BLOCKED</b> + inson uchun vazifa. Hisoblagichlar bazada saqlanadi, restart ularni nolga qaytarmaydi (§21, §26).</p></div>
+    <div class="card"><h4>✋ Inson faqat kerak joyda</h4><p>Narx/muddat faqat inson tomonidan (API AI yozishini rad etadi); critical xavfsizlik topilsa avtomatika darhol to'xtaydi (§30, §42).</p></div>
+  </div>
+</section>
+
+<!-- ============ 5. DB ============ -->
+<section id="db">
+  <h2><span class="n">05</span>Ma'lumotlar bazasi — versiyalash qonuni</h2>
+  <p class="lead">Hech narsa o'chirilmaydi yoki ustiga yozilmaydi (SPEC §34). Requirements v1, Spec v1, Build v1 — hammasi tarixda qoladi.</p>
+  <div class="grid g3">
+    <div class="card"><h4>Asosiy jadvallar</h4><p class="mono">clients · conversations · messages · projects · project_state_transitions · jobs · events</p></div>
+    <div class="card"><h4>Versiyalar</h4><p class="mono">requirement_versions → requirement_fields → field_status_history · spec_versions → spec_requirements (REQ→SPEC-REQ→AC) · builds → code_checks → verification_results</p></div>
+    <div class="card"><h4>Audit izi</h4><p class="mono">agent_runs (har AI chaqiruvi + token/narx) · team_actions · webhook_events · loop_counters · artifacts</p></div>
+  </div>
+  <p style="margin-top:12px">Jami <b>40+ jadval</b>, DDL darajasida yozilgan: <span class="mono">docs/03_database_schema.md</span>. ERD: <span class="mono">docs/04_entity_relationships.md</span>.</p>
+</section>
+
+<!-- ============ 6. META ============ -->
+<section id="meta">
+  <h2><span class="n">06</span>Instagram / Meta — tekshirilgan haqiqatlar</h2>
+  <p class="lead">SPEC §31A talab qilgan 8 savol joriy rasmiy hujjatlar bo'yicha tekshirildi (16–28-sentabr 2026 yangilangan sahifalar). To'liq: docs/19.</p>
+  <table>
+    <tr><th>Mavzu</th><th>Topilma</th><th>Dizayn oqibati</th></tr>
+    <tr><td>Akkaunt turi</td><td>Faqat <b>Professional</b> (Business/Creator); Instagram Login yo'lida Facebook Page shart emas</td><td>IG Login yo'li tanlandi (FB Login — zaxira adapter)</td></tr>
+    <tr><td>Ruxsatlar</td><td class="mono">instagram_business_basic + instagram_business_manage_messages</td><td>App Review + Business Verification kerak — <b>kritik yo'l</b></td></tr>
+    <tr><td>Xabar oynasi</td><td><b>24 soat</b> (mijoz yozgach); Click-to-Direct reklamada 7 kungacha; <span class="mono">human_agent</span> tegi bilan inson uchun 7 kun</td><td>Oyna soati bazada saqlanadi; panelda ogohlantirish; yopiq bo'lsa — fallback vazifa</td></tr>
+    <tr><td>Narx yuborish</td><td>Oynadan tashqarida faqat <b>human_agent</b> tegi (App Review talab, faqat inson yozgan xabar)</td><td>Narx/muddat drafti inson tasdig'i bilan yuboriladi</td></tr>
+    <tr><td>Webhook</td><td>HTTPS + <span class="mono">X-Hub-Signature-256</span> imzo tekshiruvi shart; takroriy yetkazishni dedupe qilish kerak; tarix saqlanmaydi</td><td>Imzo tekshiruvi + <span class="mono">webhook_events</span> unique indeks</td></tr>
+    <tr><td>Token</td><td>1 soat → 60 kun (long-lived) → refresh (≥24 soatdan keyin); muddati o'tsa qayta login</td><td>Kunlik refresh job + panel ogohlantirishi</td></tr>
+    <tr><td>Rate limit</td><td>~100/s matn, 10/s media, 750/soat comment-reply</td><td>O'z tomondan 30 xabar/daqiqa cheklov</td></tr>
+    <tr><td>Boshqa</td><td>Guruh xabari yo'q; Requests papkasi 30 kunda so'nadi; o'qildi belgisi faqat javobdan keyin</td><td>Kontent va UI shu qoidalarga moslanadi</td></tr>
+  </table>
+  <p><span class="tag t-bad">Diqqat</span> App Review + Business Verification <b>bir necha hafta</b> vaqt oladi va rad etilishi mumkin. Shu sabab simulyator kanali orqali ishlab chiqish mustaqil davom etadi, lekin <b>jonli</b> Instagram ishga tushishi bu tasdiqqa bog'liq.</p>
+</section>
+
+<!-- ============ 7. XATARLAR ============ -->
+<section id="xatar">
+  <h2><span class="n">07</span>Asosiy xatarlar (qisqacha)</h2>
+  <div class="grid g2">
+    <div class="card"><h4>A1 · Meta tasdiqi kechikishi <span class="tag t-bad">yuqori</span></h4><p>Yechim: simulyator kanali, App Review'ni 1-haftada topshirish, FB-Login zaxira adapteri.</p></div>
+    <div class="card"><h4>B4 · Checker noto'g'ri PASS berishi <span class="tag t-warn">o'rta</span></h4><p>Yechim: dalil talab qilinadi (test natijalari, skrinshot, konsol loglar); ishga tushira olmasa — FAIL.</p></div>
+    <div class="card"><h4>B5 · Prompt-injection <span class="tag t-warn">o'rta</span></h4><p>Yechim: mijoz matni faqat DATA blokida, agentlarda yon-effekt tool yo'q, chiqish JSON-sxema bilan tekshiriladi.</p></div>
+    <div class="card"><h4>C3 · Build'lar resurs yeyishi <span class="tag t-warn">o'rta</span></h4><p>Yechim: coderunner alohida konteyner, 1 CPU/900MB/15daq limit, bir vaqtda ≤2 build.</p></div>
+  </div>
+  <p style="margin-top:10px">To'liq reyestr (A1–A9, B1–B9, C1–C9, D1–D4): <span class="mono">docs/16_known_risks.md</span>.</p>
+</section>
+
+<!-- ============ 8. SAVOLLAR ============ -->
+<section id="savol">
+  <h2><span class="n">08</span>Sizdan javob kerak (blocking savollar)</h2>
+  <div class="qa"><b>Q1 · Stack tasdiqlanadimi?</b>Taklif: TypeScript monorepo (Fastify + Postgres + Next.js + Playwright). Alternativalar: Python core / Next-only / Temporal. <span class="pill t-warn">javob kerak</span></div>
+  <div class="qa"><b>Q2 · Instagram Login yo'li tanlanadimi?</b>Taklif: Instagram API with Instagram Login (Facebook Page shart emas). <span class="pill t-warn">javob kerak</span></div>
+  <div class="qa"><b>Q3 · Meta tasdiq jarayoniga kim mas'ul?</b>Business Verification, App Review arizasi, screencast, privacy policy — bir kishi tayinlanishi kerak (kritik yo'l).</div>
+  <div class="qa"><b>Q4 · LLM provayder(lar) va limit?</b>Qaysi agent uchun qaysi model; kunlik xarajat chegarasi (taklif: $10/kun).</div>
+  <div class="qa"><b>Q5 · Mijoz muloqoti tili?</b>O'zbek (default) + ruscha so'rov bo'lsa; sayt kontenti ham.</div>
+  <div class="qa"><b>Q6 · Hosting qayerda?</b>Mahalliy provayder yoki EU VPS; domen nomi.</div>
+  <p class="lead" style="margin-top:14px">Qolgan 16 savol (retention/PII, rollar, veb-sayt turlari tartibi, panel tili va h.k.) + SPEC ichidagi 6 ta noaniqlik yechimi: <span class="mono">docs/17_open_questions.md</span>.</p>
+</section>
+
+<!-- ============ 9. KEYINGI ============ -->
+<section id="keyingi">
+  <h2><span class="n">09</span>Keyingi qadam</h2>
+  <div class="grid g2">
+    <div class="card"><h4>1️⃣ Tasdiqlang</h4><p>Arxitektura + stack tasdiqlangach (SPEC §55A.3), Phase 1 boshlanadi: Instagram gateway + suhbatlar + state machine yadrosi + simulyator.</p></div>
+    <div class="card"><h4>2️⃣ Parallel treklarni 1-haftada boshlang</h4><p>Meta ariza/verification, test IG akkaunt, LLM kalitlari, hosting — bular kodga bog'liq emas, lekin jonli ishga tushishning kritik yo'lida.</p></div>
+  </div>
+  <h3>Repo xaritasi</h3>
+  <div class="kv">
+    <div>SPEC.md</div><div>Master spetsifikatsiya (v2) — yagona haqiqat manbai</div>
+    <div>docs/01–19</div><div>Phase 0 deliverable'lari (arxitektura → xatarlar → stack → Meta)</div>
+    <div>docs/contracts/</div><div>8 ta agent I/O JSON sxemasi (validatsiya qilingan)</div>
+    <div>docs/phases/</div><div>Har bosqich uchun ish qo'riqchisi fayllari (COMMON_RULES)</div>
+    <div>DECISIONS.md</div><div>21 ta qaror (D-001…D-021), sabablari bilan</div>
+    <div>PHASE_REPORTS/phase0.md</div><div>Rasmiy hisobot: nima qurildi, qanday tekshirildi, nima qolmadi</div>
+  </div>
+  <p style="margin-top:16px"><b>Holat:</b> <span class="tag t-ok">Phase 0 yakunlandi</span> — <span class="tag t-warn">stack va arxitektura tasdiqi kutilmoqda</span>. Tasdiqsiz kod yozilmaydi (SPEC §55A.3).</p>
+</section>
+
+<footer>
+  WPP · Phase 0 hisoboti · 2026-10-07 · Barcha hujjatlar repo ichida (<code>/docs</code>) · Bu sahifa tashqi resurslarsiz, oflayn ham ochiladi.
+</footer>
+
+</div>
+</body>
+</html>

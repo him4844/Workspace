@@ -1,0 +1,136 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "wpp://contracts/code-check-output.json",
+  "title": "Code Checker output (SPEC §25, §25A, §26)",
+  "schemaVersion": "1.0.0",
+  "description": "Runtime verification is MANDATORY (§25A). A build that could not be built or started is FAIL regardless of other findings. Every requirement records HOW it was verified.",
+  "type": "object",
+  "required": ["status", "buildSucceeded", "appStarted", "requirementsChecked", "requirementsPassed", "requirementsFailed", "verification", "criticalIssues", "majorIssues", "minorIssues", "missingFeatures", "securityIssues"],
+  "additionalProperties": false,
+  "properties": {
+    "status": { "enum": ["PASS", "FAIL"] },
+    "buildSucceeded": { "type": "boolean" },
+    "appStarted": { "type": "boolean" },
+    "requirementsChecked": { "type": "integer", "minimum": 0 },
+    "requirementsPassed": { "type": "integer", "minimum": 0 },
+    "requirementsFailed": { "type": "integer", "minimum": 0 },
+    "verification": {
+      "type": "object",
+      "required": ["runtimeTested", "staticOnly", "notVerified"],
+      "additionalProperties": false,
+      "properties": {
+        "runtimeTested": { "type": "integer", "minimum": 0 },
+        "staticOnly": { "type": "integer", "minimum": 0 },
+        "notVerified": { "type": "integer", "minimum": 0 }
+      }
+    },
+    "perRequirement": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["specRequirementCode", "result", "method"],
+        "additionalProperties": false,
+        "properties": {
+          "specRequirementCode": { "type": "string" },
+          "result": { "enum": ["PASS", "PARTIAL", "FAIL"] },
+          "method": { "enum": ["RUNTIME_TESTED", "STATIC_ONLY", "NOT_VERIFIED"] },
+          "evidence": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "required": ["kind"],
+              "properties": {
+                "kind": { "enum": ["e2e-test", "unit-test", "screenshot", "console-log", "network-log", "code-ref", "manual-command"] },
+                "name": { "type": "string" },
+                "path": { "type": "string" }
+              }
+            }
+          },
+          "note": { "type": ["string", "null"] }
+        }
+      }
+    },
+    "criticalIssues": { "type": "array", "items": { "$ref": "#/$defs/finding" } },
+    "majorIssues": { "type": "array", "items": { "$ref": "#/$defs/finding" } },
+    "minorIssues": { "type": "array", "items": { "$ref": "#/$defs/finding" } },
+    "missingFeatures": { "type": "array", "items": { "$ref": "#/$defs/finding" } },
+    "securityIssues": { "type": "array", "items": { "$ref": "#/$defs/finding" } },
+    "responsiveChecks": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["viewport", "result"],
+        "properties": {
+          "viewport": { "type": "string", "pattern": "^\\d+x\\d+$" },
+          "result": { "enum": ["PASS", "FAIL"] },
+          "notes": { "type": "string" }
+        }
+      }
+    },
+    "consoleErrors": { "type": "integer", "minimum": 0 },
+    "brokenLinks": { "type": "integer", "minimum": 0 },
+    "missingAssets": { "type": "integer", "minimum": 0 },
+    "criticalSecurityIssue": { "type": "boolean", "description": "If true, automation stops immediately (§42)." },
+    "recommendations": { "type": "array", "items": { "type": "string" } }
+  },
+  "allOf": [
+    {
+      "if": { "properties": { "buildSucceeded": { "const": false } } },
+      "then": { "properties": { "status": { "const": "FAIL" } } }
+    }
+  ],
+  "$defs": {
+    "finding": {
+      "type": "object",
+      "required": ["kind", "severity", "title"],
+      "additionalProperties": false,
+      "properties": {
+        "kind": { "enum": ["MISSING_FEATURE", "BROKEN_FLOW", "UI", "RESPONSIVE", "AUTH", "AUTHORIZATION", "DB", "INTEGRATION", "PAYMENT", "SECURITY", "ERROR_HANDLING", "LOADING_STATE", "EMPTY_STATE", "UI_BACKEND_SEPARATION", "RUNTIME", "BUILD"] },
+        "severity": { "enum": ["CRITICAL", "MAJOR", "MINOR"] },
+        "title": { "type": "string" },
+        "description": { "type": "string" },
+        "specRequirementCode": { "type": ["string", "null"] },
+        "evidencePath": { "type": ["string", "null"] },
+        "suggestedFix": { "type": ["string", "null"] },
+        "location": { "type": ["string", "null"] }
+      }
+    }
+  },
+  "exampleValid": {
+    "status": "FAIL",
+    "buildSucceeded": true,
+    "appStarted": true,
+    "requirementsChecked": 42,
+    "requirementsPassed": 38,
+    "requirementsFailed": 4,
+    "verification": { "runtimeTested": 35, "staticOnly": 7, "notVerified": 0 },
+    "perRequirement": [
+      { "specRequirementCode": "SPEC-REQ-004", "result": "FAIL", "method": "RUNTIME_TESTED", "evidence": [{ "kind": "e2e-test", "name": "checkout.spec.ts", "path": "evidence/e2e/checkout.xml" }], "note": "Payment callback 404 on confirm step." }
+    ],
+    "criticalIssues": [],
+    "majorIssues": [ { "kind": "PAYMENT", "severity": "MAJOR", "title": "Payment callback missing", "description": "Confirmation endpoint returns 404 after provider redirect.", "specRequirementCode": "SPEC-REQ-004", "suggestedFix": "Implement POST /api/payments/callback." } ],
+    "minorIssues": [],
+    "missingFeatures": [],
+    "securityIssues": [],
+    "responsiveChecks": [ { "viewport": "390x844", "result": "PASS" }, { "viewport": "768x1024", "result": "PASS" }, { "viewport": "1440x900", "result": "PASS" } ],
+    "consoleErrors": 0,
+    "brokenLinks": 0,
+    "missingAssets": 0,
+    "criticalSecurityIssue": false,
+    "recommendations": ["Add callback test to the acceptance suite."]
+  },
+  "exampleInvalid": {
+    "status": "PASS",
+    "buildSucceeded": false,
+    "appStarted": false,
+    "requirementsChecked": 0,
+    "requirementsPassed": 0,
+    "requirementsFailed": 0,
+    "verification": { "runtimeTested": 0 },
+    "criticalIssues": [],
+    "majorIssues": [],
+    "minorIssues": [],
+    "missingFeatures": [],
+    "securityIssues": []
+  }
+}

@@ -1,0 +1,38 @@
+# Target reverse proxy (docs/15_deployment_strategy.md). Replace panel.example.com with the real domain.
+# Instagram webhook URL will be: https://panel.example.com/webhooks/instagram  (or a dedicated api. subdomain)
+
+panel.example.com {
+	encode zstd gzip
+
+	# Previews: static, cookieless, sandboxed (docs/10 §6)
+	handle /preview/* {
+		reverse_proxy api:3000
+	}
+
+	# API + webhooks + simulator(dev only; disabled in prod by env)
+	handle /api/* {
+		reverse_proxy api:3000
+	}
+	handle /webhooks/* {
+		reverse_proxy api:3000
+	}
+	handle /healthz {
+		reverse_proxy api:3000
+	}
+
+	# Team Panel
+	handle {
+		reverse_proxy panel:3100
+	}
+
+	header {
+		Strict-Transport-Security "max-age=31536000; includeSubDomains"
+		X-Content-Type-Options "nosniff"
+		Referrer-Policy "strict-origin-when-cross-origin"
+		-Server
+	}
+
+	log {
+		output file /data/access.log
+	}
+}
