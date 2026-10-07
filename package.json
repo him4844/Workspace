@@ -1,18 +1,36 @@
 {
   "name": "wpp",
-  "version": "0.0.0",
+  "version": "0.1.0",
   "private": true,
-  "description": "AI-powered website production pipeline (internal tool). Phase 0: architecture only — no feature code yet.",
-  "workspaces": [
-    "apps/*",
-    "packages/*"
-  ],
+  "type": "module",
+  "description": "AI-powered website production pipeline (internal tool). Phase 1: Instagram gateway, conversations, simulator channel, state-machine core.",
   "engines": {
     "node": ">=20.11 <25"
   },
   "scripts": {
-    "verify": "echo \"[Phase 0] No implementation yet. Architecture and stack await approval — see PHASE_REPORTS/phase0.md\"",
-    "docs:check": "node scripts/check-docs.mjs",
-    "repo:init": "sh scripts/init-repo.sh"
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "migrate": "tsx scripts/migrate.ts",
+    "seed": "tsx scripts/seed.ts",
+    "api": "tsx apps/api/src/index.ts",
+    "worker": "tsx apps/worker/src/index.ts",
+    "dev": "tsx scripts/dev.ts",
+    "simulate": "tsx scripts/simulate-conversation.ts",
+    "inspect": "tsx scripts/inspect.ts",
+    "verify": "npm run typecheck && npm run test && node scripts/check-docs.mjs"
+  },
+  "dependencies": {
+    "@electric-sql/pglite": "^0.5.8",
+    "drizzle-orm": "^0.45.3",
+    "fastify": "^5.12.5",
+    "pino": "^10.4.0",
+    "zod": "^4.6.5"
+  },
+  "devDependencies": {
+    "@types/node": "^24.0.0",
+    "tsx": "^4.20.0",
+    "typescript": "^5.9.3",
+    "vitest": "^4.1.11"
   }
 }

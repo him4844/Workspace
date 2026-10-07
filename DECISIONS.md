@@ -12,7 +12,7 @@ Reasoning: v2 changes client approval to a single event at the Client Summary, u
 Reasoning: each phase's acceptance test is the next phase's prerequisite (§47), but Meta App Review latency is weeks and independent of development (§31A). So: development sequential; Meta review / IG account / design tokens / LLM keys / hosting run in parallel from week 1. Status: ACCEPTED → `docs/13_mvp_plan.md` §0.
 
 **D-003 | 2026-10-07 | Stack: TypeScript monorepo — Fastify + Zod (API), Drizzle + PostgreSQL (data), Next.js (panel), Playwright (runtime checks), Postgres-backed job queue.**
-Reasoning: the Coding Agent's output is JS/TS, so one language removes a translation layer and lets install/build/test run natively (§22, §25A); Playwright is the strongest tool for mandatory runtime verification; Postgres as queue + store gives transactional enqueue and idempotency by construction (§4, §41). Alternatives (Python core, Next-only, Temporal) documented. Status: **PROPOSED — requires human approval (§55A.3)** → `docs/18_stack_proposal.md`.
+Reasoning: the Coding Agent's output is JS/TS, so one language removes a translation layer and lets install/build/test run natively (§22, §25A); Playwright is the strongest tool for mandatory runtime verification; Postgres as queue + store gives transactional enqueue and idempotency by construction (§4, §41). Alternatives (Python core, Next-only, Temporal) documented. Status: **ACCEPTED 2026-10-07 — human approved Option A** (§55A.3 gate passed) → `docs/18_stack_proposal.md`.
 
 **D-004 | 2026-10-07 | PGlite for dev/CI instead of requiring Docker/Postgres locally.**
 Reasoning: the current dev sandbox has no Docker/Postgres; PGlite is real Postgres (WASM) so SQL semantics stay close, and CI additionally runs the same integration suite against Postgres 16 to catch drift (risk C2). Status: ACCEPTED → `docs/18`, `docs/14`.
@@ -39,7 +39,7 @@ Reasoning: §3 is explicit; §30 describes the human decision content, not a req
 Reasoning: §42 requires stopping with an explanation, not losing the pipeline position. Status: ACCEPTED → `docs/05` T30–T32.
 
 **D-012 | 2026-10-07 | Instagram integration path: **Instagram API with Instagram Login** (`graph.instagram.com`, permissions `instagram_business_basic` + `instagram_business_manage_messages`); FB-Login route stays as a documented adapter fallback.**
-Reasoning: no Facebook Page dependency; simpler OAuth; Meta's current documented path for professional accounts. Status: **PROPOSED (Q2)** → `docs/08`.
+Reasoning: no Facebook Page dependency; simpler OAuth; Meta's current documented path for professional accounts. Status: **PROPOSED — path decision deferred (Q2 answered "unknown"): Meta app submission will pick the route; both adapters stay behind one interface** → `docs/08`.
 
 **D-013 | 2026-10-07 | A first-class **simulator channel** ships in Phase 1 and every phase is testable without Meta access.**
 Reasoning: Meta messaging requires App Review + Business Verification (weeks, rejectable). Without a simulator, Phases 1–7 would be blocked on an external gate. It also makes E2E tests deterministic (fake clock, injected messages). Status: ACCEPTED → `docs/08` §8.
@@ -67,6 +67,15 @@ Reasoning: dev sandbox and a modest VPS cannot host unbounded builds; runaway AI
 
 **D-021 | 2026-10-07 | A local git repository is initialized with the Phase 0 commit; `scripts/init-repo.sh` re-creates identity/config for fresh clones.**
 Reasoning: the teams' repository is the deliverable surface (§Phase 0 acceptance: "architecture documents committed to the repository"). Verified empirically that git keeps working even if `.git/config` is stripped during workspace transfer, so local commits are safe to keep; the init script restores user identity and hooks on the team's machine. Status: ACCEPTED → `scripts/init-repo.sh`.
+
+**D-022 | 2026-10-07 | With `DB_DRIVER=pglite` the orchestrator loop runs inside the API process (`EMBEDDED_WORKER` forced on); separate worker processes are only used with PostgreSQL.**
+Reasoning: Phase 1 finding — PGlite is an embedded WASM Postgres that holds the data dir for one process only; a second process aborts on open AND a long-running process keeps a snapshot view, so a separately started worker silently sees stale data (verified live: API inserted a job, the standalone worker never claimed it; a third process crashed). `scripts/dev.ts` therefore starts one process in dev and two only for Postgres. Status: ACCEPTED → `docs/12`, `docs/15`, `PHASE_REPORTS/phase1.md`.
+
+**D-023 | 2026-10-07 | Outbound messages that carry no `project_id` are attached to the conversation's open project by the outbound service before any task/event is written.**
+Reasoning: Phase 1 test finding — a human-authored message created outside the panel had `project_id = NULL`, so the blocked-send escalation task (SPEC §31A) was invisible in project-scoped queries. Resolving `message.project_id ?? conversation's open project` keeps every escalation attached to the project that owns the conversation. Status: ACCEPTED → `apps/worker/src/services/outbound.ts`.
+
+**D-024 | 2026-10-07 | `jobs_idem_uq` is a plain unique index (not partial); `ON CONFLICT (idempotency_key)` relies on it for job enqueue idempotency.**
+Reasoning: Phase 1 finding — a partial index (`WHERE idempotency_key IS NOT NULL`) cannot be inferred by `ON CONFLICT (idempotency_key)`, so every enqueue outside a test failed with "no unique or exclusion constraint matching the ON CONFLICT specification". Postgres treats NULLs as distinct, so a plain unique index still allows many keyless jobs. Status: ACCEPTED → `db/migrations/0001_init.sql`.
 
 ---
 

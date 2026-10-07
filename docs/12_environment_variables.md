@@ -84,6 +84,7 @@ Legend: **R** required, **O** optional, **D** dev-only.
 
 | Var | R/O | Default | Purpose |
 |---|---|---|---|
+| `EMBEDDED_WORKER` | O | `false` | run the orchestrator loop inside the API process. Forced **on** when `DB_DRIVER=pglite` — PGlite is an embedded single-process Postgres and a second process cannot open the same data dir (Phase 1 finding, D-022) |
 | `WORKER_CONCURRENCY` | O | `2` | parallel jobs (sandbox: 1–2) |
 | `JOB_POLL_INTERVAL_MS` | O | `5000` | orchestrator poll |
 | `JOB_LEASE_SECONDS` | O | `120` | lease/heartbeat |

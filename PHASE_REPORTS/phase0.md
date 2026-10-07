@@ -1,7 +1,7 @@
 # PHASE 0 REPORT — Architecture & Stack
 
 **Phase file:** `docs/phases/00_phase0_architecture_and_stack.md` · **Report per:** `docs/phases/00_COMMON_RULES.md`
-**Date:** 2026-10-07 · **Status:** COMPLETE — **awaiting human approval before Phase 1** (§55A.3).
+**Date:** 2026-10-07 · **Status:** COMPLETE — **APPROVED by the human team on 2026-10-07** (stack Option A accepted; Phase 1 authorised; IG route deferred to Meta submission; mixed LLM providers, auditor on a separate provider). Phase 1 started the same day.
 
 > Per the phase definition, this phase writes **no application code**; the repository skeleton contains configuration and documentation only.
 
@@ -71,4 +71,4 @@ On approval:
 2. Start **Phase 1** (`docs/phases/01_phase1_instagram_and_conversations.md`): webhook + conversation engine + simulator + state-machine core + project/client creation, with tests that actually run.
 3. Simultaneously kick off the parallel tracks (Meta app/verification, test IG account, LLM keys) since those are on the critical path for *live* use.
 
-**STOP — awaiting explicit approval of the architecture and stack before any implementation (SPEC §55A.3).**
+**APPROVAL RECORDED 2026-10-07.** Answers: Q1 = Option A (TypeScript monorepo) ✅; Q2 = start Phase 1 immediately ✅; Q3 = IG route decided before Meta submission; Q4 = mixed LLM providers (auditor independent) ✅. → Phase 1 underway (`PHASE_REPORTS/phase1.md`).

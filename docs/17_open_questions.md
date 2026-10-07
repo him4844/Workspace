@@ -8,10 +8,10 @@ Format: `Q# | question | why it matters | proposed default (if any) | needed by`
 
 | # | Question | Why it matters | Proposed default | Needed by |
 |---|---|---|---|---|
-| Q1 | **Approve the stack?** Option A TS monorepo (recommended) vs B Python core vs C Next-only vs D Temporal | Everything downstream depends on it (§55A.3) | Option A | immediately |
-| Q2 | **Meta path choice: Instagram Login route vs Facebook Login route?** (We recommend IG Login: no FB Page needed) | Webhook signature secret, token type, permission names differ; affects the adapter | Instagram Login (`graph.instagram.com`) | Phase 1 |
+| Q1 | ~~Approve the stack?~~ **ANSWERED 2026-10-07: Option A (TypeScript monorepo) approved.** | — | — | closed |
+| Q2 | **Meta path choice: Instagram Login vs Facebook Login?** — **answered "unknown": decide before the Meta app submission.** Until then both adapters share one interface; default implementation targets IG Login. | Webhook signature secret, token type, permission names differ | IG Login (`graph.instagram.com`) pending decision | before Meta submission |
 | Q3 | Who owns **Business Verification + App Review** submission (legal entity, screencast, privacy policy URL)? | Platform rule; weeks of external latency (risk A1) | Assign one named person now | Phase 1 start |
-| Q4 | **LLM provider(s) and API keys** — which provider for which agent? Budget cap? | P2 cannot run without keys; cost/quality trade-off | OpenAI for coding, Anthropic for audit, cheap model for requirements; $10/day cap | Phase 2 |
+| Q4 | ~~LLM provider(s)~~ **ANSWERED 2026-10-07: mixed providers via OpenRouter-capable client; Spec Auditor on a DIFFERENT provider than the Spec/Coding agent (independence)** — keys still needed. Budget cap default $10/day. | — | per-agent config rows; fake provider until keys exist | keys before live P2 |
 | Q5 | Client-facing **language(s)** for messages and generated sites (uz/ru/en)? | Questionnaire phrasing, summary text, design copy | Uzbek default + Russian on request; message templates per locale | Phase 2 |
 | Q6 | Hosting: local/UZ VPS vs Hetzner/EU (data-protection & latency considerations)? Domain name? | Deployment + webhook URL + backups | EU VPS from the stack proposal; panel subdomain | Phase 5 |
 
