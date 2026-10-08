@@ -66,6 +66,7 @@ async function tickAll() {
 /** Pull the deferred resume jobs forward: a human would simply wait the few seconds. */
 async function advance() {
   await tickAll();
+  await parkSpecJobs();
   for (let i = 0; i < 6; i += 1) {
     const rows = await db.select().from(schema.jobs)
       .where(and(eq(schema.jobs.status, 'PENDING'), eq(schema.jobs.type, 'REQUIREMENTS_TURN')));
@@ -75,6 +76,20 @@ async function advance() {
       await db.update(schema.jobs).set({ runAt: new Date(Date.now() - 1000) }).where(eq(schema.jobs.id, job.id));
     }
     await tickAll();
+    await parkSpecJobs();
+  }
+}
+
+/**
+ * This demo stops at the Phase-2 boundary. Completing the requirements queues the Phase-3
+ * SPEC_GENERATE hand-off; the demo leaves it pending and prints it (run `npm run simulate:phase3`
+ * to see that job execute).
+ */
+async function parkSpecJobs() {
+  const rows = await db.select().from(schema.jobs)
+    .where(and(eq(schema.jobs.status, 'PENDING'), eq(schema.jobs.type, 'SPEC_GENERATE')));
+  for (const job of rows) {
+    await db.update(schema.jobs).set({ runAt: new Date(Date.now() + 3_600_000) }).where(eq(schema.jobs.id, job.id));
   }
 }
 
@@ -146,5 +161,8 @@ const jobs = await queueRepo.jobStats(db);
 console.log(`jobs: ${JSON.stringify(jobs)}`);
 
 rmSync(artifactsRoot, { recursive: true, force: true });
+const handoff = (await db.select().from(schema.jobs).where(eq(schema.jobs.projectId, projectId)))
+  .find((job) => job.type === 'SPEC_GENERATE');
+console.log(`\nPhase-3 hand-off queued: ${handoff ? `${handoff.type} (${handoff.status}) — next phase picks it up` : 'none'}`);
 console.log('\nDONE — the requirements set is complete, persisted and inspectable (npm run inspect for a persisted DB).');
 await handle.close();

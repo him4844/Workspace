@@ -1,0 +1,91 @@
+
+> wpp@0.1.0 verify
+> npm run typecheck && npm run test && node scripts/check-docs.mjs
+
+
+> wpp@0.1.0 typecheck
+> tsc --noEmit
+
+
+> wpp@0.1.0 test
+> vitest run
+
+
+[1m[30m[46m RUN [49m[39m[22m [36mv4.1.11 [39m[90m/home/user/ai-website-pipeline[39m
+
+(node:7145) [FSTDEP023] FastifyDeprecation: disableRequestLogging option is deprecated. Use the logController option with disableRequestLogging or isLogDisabled override instead. The disableRequestLogging top-level option will be removed in `fastify@6`.
+(Use `node --trace-warnings ...` to show where the warning was created)
+ [32m✓[39m tests/e2e/spec-approval.test.ts [2m([22m[2m9 tests[22m[2m)[22m[33m 53055[2mms[22m[39m
+     [33m[2m✓[22m[39m requirements completion generates a traceable specification, sends the summary, and locks the approved version after the two-step approval [33m 7455[2mms[22m[39m
+     [33m[2m✓[22m[39m a change request produces a new version and never edits the locked one (§19, §34, §35) [33m 5606[2mms[22m[39m
+     [33m[2m✓[22m[39m a broken specification becomes a human task instead of a wrong approval (§16, §19, §42) [33m 5518[2mms[22m[39m
+     [33m[2m✓[22m[39m an unclear reply gets exactly one clarification per round and never becomes an approval (§18, §21) [33m 5609[2mms[22m[39m
+     [33m[2m✓[22m[39m the specification is generated only once per requirements version (§14) [33m 5426[2mms[22m[39m
+     [33m[2m✓[22m[39m a client message during review never restarts the requirements interview (§18) [33m 5532[2mms[22m[39m
+     [33m[2m✓[22m[39m the API refuses in-place edits of a locked specification and offers the change-request path (§19, §35) [33m 6474[2mms[22m[39m
+     [33m[2m✓[22m[39m waiting too long for the client decision produces one reminder, then a human task (§21) [33m 5587[2mms[22m[39m
+     [33m[2m✓[22m[39m a failed model run opens a human task and leaves the project in a state a human can act on (docs/06 §5) [33m 5845[2mms[22m[39m
+ [32m✓[39m tests/e2e/requirements-interview.test.ts [2m([22m[2m11 tests[22m[2m)[22m[33m 42168[2mms[22m[39m
+     [33m[2m✓[22m[39m a restaurant conversation reaches REQUIREMENTS_COMPLETE with an inspectable, persisted requirements set [33m 7637[2mms[22m[39m
+     [33m[2m✓[22m[39m the website type is detected from the conversation, not from the first message alone (§7) [33m 5963[2mms[22m[39m
+     [33m[2m✓[22m[39m an unrecoverable model failure reaches a human instead of looping (docs/06 §5, §42) [33m 2226[2mms[22m[39m
+     [33m[2m✓[22m[39m a contradiction between two client answers is clarified before completion (§8B) [33m 6251[2mms[22m[39m
+     [33m[2m✓[22m[39m a vague answer becomes UNCLEAR and is clarified, never silently accepted (§8A) [33m 6027[2mms[22m[39m
+     [33m[2m✓[22m[39m the agent cannot declare the interview complete on its own word (§10) [33m 2117[2mms[22m[39m
+     [33m[2m✓[22m[39m CLIENT_CONFIRMED without a real client message is rejected and recorded (§10A) [33m 2248[2mms[22m[39m
+     [33m[2m✓[22m[39m a malformed answer is repaired exactly once, then succeeds (docs/06 §5) [33m 2251[2mms[22m[39m
+     [33m[2m✓[22m[39m prompt injection stays data: flagged for the team, treated as ordinary content (§38) [33m 2480[2mms[22m[39m
+     [33m[2m✓[22m[39m the interview stops at the configured question cap and hands the case to a human (§21) [33m 2716[2mms[22m[39m
+     [33m[2m✓[22m[39m an unanswered question is reminded twice and then escalated to the team (§10 inactivity) [33m 2250[2mms[22m[39m
+ [32m✓[39m tests/unit/requirements-core.test.ts [2m([22m[2m24 tests[22m[2m)[22m[32m 14[2mms[22m[39m
+ [32m✓[39m tests/unit/spec-core.test.ts [2m([22m[2m22 tests[22m[2m)[22m[32m 18[2mms[22m[39m
+ [32m✓[39m tests/integration/ingest.test.ts [2m([22m[2m10 tests[22m[2m)[22m[33m 21017[2mms[22m[39m
+     [33m[2m✓[22m[39m creates client, conversation, project and job on first contact [33m 3075[2mms[22m[39m
+     [33m[2m✓[22m[39m reports the conversation with an accurate message count [33m 2042[2mms[22m[39m
+     [33m[2m✓[22m[39m is idempotent for a replayed message (same mid) [33m 2167[2mms[22m[39m
+     [33m[2m✓[22m[39m keeps two clients completely separate (SPEC §32) [33m 2056[2mms[22m[39m
+     [33m[2m✓[22m[39m reuses the open project for follow-up messages in the same conversation [33m 1948[2mms[22m[39m
+     [33m[2m✓[22m[39m records the window expiry from the client message timestamp (SPEC §31A) [33m 1947[2mms[22m[39m
+     [33m[2m✓[22m[39m applies the explicit state machine: T01 create + T02 → INTAKE [33m 1980[2mms[22m[39m
+     [33m[2m✓[22m[39m dedupes raw webhook events at the event level (SPEC §41) [33m 1985[2mms[22m[39m
+     [33m[2m✓[22m[39m stores raw inbound attachments without exploding on unknown kinds [33m 1894[2mms[22m[39m
+     [33m[2m✓[22m[39m persists every message with timestamps and actor information [33m 1922[2mms[22m[39m
+ [32m✓[39m tests/e2e/simulated-conversation.test.ts [2m([22m[2m5 tests[22m[2m)[22m[33m 11291[2mms[22m[39m
+     [33m[2m✓[22m[39m answers a client through the worker loop and records the whole story [33m 3186[2mms[22m[39m
+     [33m[2m✓[22m[39m a busy conversation (two rapid messages) still gets exactly one reply per turn [33m 2075[2mms[22m[39m
+     [33m[2m✓[22m[39m retrying the same job does not produce a second reply [33m 2006[2mms[22m[39m
+     [33m[2m✓[22m[39m blocks an out-of-window send and raises a human task (SPEC §31A) [33m 2017[2mms[22m[39m
+     [33m[2m✓[22m[39m parks a job whose project state does not allow it, then releases it after the state changes [33m 2005[2mms[22m[39m
+ [32m✓[39m tests/unit/config-validation.test.ts [2m([22m[2m9 tests[22m[2m)[22m[33m 3349[2mms[22m[39m
+ [32m✓[39m tests/unit/state-machine.test.ts [2m([22m[2m17 tests[22m[2m)[22m[32m 31[2mms[22m[39m
+(node:7235) [FSTDEP023] FastifyDeprecation: disableRequestLogging option is deprecated. Use the logController option with disableRequestLogging or isLogDisabled override instead. The disableRequestLogging top-level option will be removed in `fastify@6`.
+(Use `node --trace-warnings ...` to show where the warning was created)
+(node:7235) [FSTDEP023] FastifyDeprecation: disableRequestLogging option is deprecated. Use the logController option with disableRequestLogging or isLogDisabled override instead. The disableRequestLogging top-level option will be removed in `fastify@6`.
+(node:7235) [FSTDEP023] FastifyDeprecation: disableRequestLogging option is deprecated. Use the logController option with disableRequestLogging or isLogDisabled override instead. The disableRequestLogging top-level option will be removed in `fastify@6`.
+(node:7235) [FSTDEP023] FastifyDeprecation: disableRequestLogging option is deprecated. Use the logController option with disableRequestLogging or isLogDisabled override instead. The disableRequestLogging top-level option will be removed in `fastify@6`.
+(node:7235) [FSTDEP023] FastifyDeprecation: disableRequestLogging option is deprecated. Use the logController option with disableRequestLogging or isLogDisabled override instead. The disableRequestLogging top-level option will be removed in `fastify@6`.
+(node:7235) [FSTDEP023] FastifyDeprecation: disableRequestLogging option is deprecated. Use the logController option with disableRequestLogging or isLogDisabled override instead. The disableRequestLogging top-level option will be removed in `fastify@6`.
+(node:7235) [FSTDEP023] FastifyDeprecation: disableRequestLogging option is deprecated. Use the logController option with disableRequestLogging or isLogDisabled override instead. The disableRequestLogging top-level option will be removed in `fastify@6`.
+ [32m✓[39m tests/integration/webhook-http.test.ts [2m([22m[2m7 tests[22m[2m)[22m[33m 16157[2mms[22m[39m
+     [33m[2m✓[22m[39m GET verification handshake echoes the challenge [33m 3431[2mms[22m[39m
+     [33m[2m✓[22m[39m accepts a signed event, persists it, and enqueues work [33m 2210[2mms[22m[39m
+     [33m[2m✓[22m[39m rejects an unsigned request and writes nothing [33m 2233[2mms[22m[39m
+     [33m[2m✓[22m[39m rejects a payload signed with the wrong secret [33m 2073[2mms[22m[39m
+     [33m[2m✓[22m[39m a duplicate delivery creates no new message, project or job [33m 2068[2mms[22m[39m
+     [33m[2m✓[22m[39m records a security alert for a forged signature [33m 1990[2mms[22m[39m
+     [33m[2m✓[22m[39m handles a batch with several entries independently [33m 2150[2mms[22m[39m
+ [32m✓[39m tests/unit/llm-free-only.test.ts [2m([22m[2m11 tests[22m[2m)[22m[32m 22[2mms[22m[39m
+ [32m✓[39m tests/unit/security-and-window.test.ts [2m([22m[2m11 tests[22m[2m)[22m[32m 7[2mms[22m[39m
+(node:7268) [FSTDEP023] FastifyDeprecation: disableRequestLogging option is deprecated. Use the logController option with disableRequestLogging or isLogDisabled override instead. The disableRequestLogging top-level option will be removed in `fastify@6`.
+(Use `node --trace-warnings ...` to show where the warning was created)
+(node:7268) [FSTDEP023] FastifyDeprecation: disableRequestLogging option is deprecated. Use the logController option with disableRequestLogging or isLogDisabled override instead. The disableRequestLogging top-level option will be removed in `fastify@6`.
+ [32m✓[39m tests/integration/requirements-api.test.ts [2m([22m[2m2 tests[22m[2m)[22m[33m 6103[2mms[22m[39m
+     [33m[2m✓[22m[39m returns the version, every field with its §10A status, and the pending state [33m 3498[2mms[22m[39m
+     [33m[2m✓[22m[39m requires the internal token and a real project [33m 2603[2mms[22m[39m
+
+[2m Test Files [22m [1m[32m12 passed[39m[22m[90m (12)[39m
+[2m      Tests [22m [1m[32m138 passed[39m[22m[90m (138)[39m
+[2m   Start at [22m 14:26:45
+[2m   Duration [22m 158.00s[2m (transform 755ms, setup 0ms, import 3.03s, tests 153.23s, environment 1ms)[22m
+
+OK: 23 docs present, contracts valid JSON

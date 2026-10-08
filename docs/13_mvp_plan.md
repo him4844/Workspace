@@ -73,6 +73,16 @@ Assuming one experienced full-stack dev + this AI-assistant workflow, part-time 
 
 Meta App Review (track A) should be filed in week 1–2 so that approval lands before the slice is complete.
 
+## 4b. Status (2026-10-08)
+
+| Phase | State |
+|---|---|
+| P0 Architecture & stack | ✅ approved, committed `dc9a9a9` |
+| P1 Instagram + conversations | ✅ committed `068c5f4` |
+| P2 Requirements Agent | ✅ committed `5503187`, verified 96/96 |
+| P3 Specification + client approval | ✅ implemented (spec agent, audits §16/§17/§19, v1→v2 versioning, two-step approval, LOCK + change requests) — pending the human phase gate |
+| P4–P8 | not started; **free-only constraint (D-029) applies to every provider choice** |
+
 ## 5. Risks to this plan
 
 See `16_known_risks.md` — top three: Meta approval latency (mitigated by simulator), LLM output quality on the coding agent (mitigated by loop caps + checker), and sandbox resource limits for builds (mitigated by concurrency caps and the dedicated coderunner).

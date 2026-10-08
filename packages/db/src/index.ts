@@ -18,6 +18,7 @@ export * as requirementsRepo from './repositories/requirements.js';
 export * as questionnairesRepo from './repositories/questionnaires.js';
 export * as agentConfigRepo from './repositories/agentConfig.js';
 export * as artifactsRepo from './repositories/artifacts.js';
+export * as specsRepo from './repositories/specs.js';
 
 // ---- flat exports (projects & state machine) ----
 export {
@@ -72,3 +73,13 @@ export { getActiveAgentConfig, recordLlmUsage, sumCostSince } from './repositori
 export type { AgentConfigVersionRow } from './repositories/agentConfig.js';
 export { createArtifact, getArtifact, listArtifacts } from './repositories/artifacts.js';
 export type { ArtifactRow } from './repositories/artifacts.js';
+export {
+  createSpecVersion, getSpecVersion, listSpecVersions, getCurrentSpecVersion, getLockedSpecVersion,
+  setSpecStatus, markSummarySent, markApprovalRequested, setSpecArtifact, lockSpecVersion,
+  supersedeSpecVersion, insertSpecRequirements, insertAcceptanceCriteria, listSpecRequirements,
+  listAcceptanceCriteria, recordClientApproval, getApprovalForMessage, listClientApprovals,
+  createChangeRequest, listChangeRequests, updateChangeRequestStatus, listSpecSnapshot, countSpecVersions,
+} from './repositories/specs.js';
+export type {
+  SpecVersionRow, SpecRequirementRow, AcceptanceCriterionRow, ClientApprovalRow, ChangeRequestRow, SpecSnapshot,
+} from './repositories/specs.js';

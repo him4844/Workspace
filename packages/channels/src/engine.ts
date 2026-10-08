@@ -10,7 +10,7 @@
  */
 import type { Db, Executor } from '@wpp/db';
 import { obsRepo, channelsRepo, identityRepo, projectsRepo, queueRepo } from '@wpp/db';
-import { computeWindowExpiry, detectProjectTypeHint, type ChannelType } from '@wpp/core';
+import { computeWindowExpiry, detectProjectTypeHint, type ChannelType, type JobType, type ProjectState } from '@wpp/core';
 import type { ConversationEvent } from './events.js';
 
 export interface IngestResult {
@@ -27,7 +27,12 @@ export interface IngestResult {
 
 export interface IngestOptions {
   /** job to schedule for this turn; Phase 1 uses ECHO_REPLY, Phase 2 switches to REQUIREMENTS_TURN */
-  turnJobType?: 'ECHO_REPLY' | 'REQUIREMENTS_TURN';
+  turnJobType?: JobType;
+  /**
+   * Phase 3: the job that answers a client message depends on the project's state — during
+   * CLIENT_REVIEW the client is answering the specification summary, not the questionnaire.
+   */
+  turnJobTypeByState?: Partial<Record<ProjectState, JobType>>;
   /** when true, no follow-up job is enqueued (used by replay/tests) */
   skipJobs?: boolean;
 }
@@ -40,12 +45,18 @@ export async function ingestInboundEvent(
     channel: ChannelType;
     event: ConversationEvent;
     /** which job answers this turn: ECHO_REPLY without an LLM, REQUIREMENTS_TURN with one (§5) */
-    turnJobType?: 'ECHO_REPLY' | 'REQUIREMENTS_TURN';
+    turnJobType?: JobType;
+  /**
+   * Phase 3: the job that answers a client message depends on the project's state — during
+   * CLIENT_REVIEW the client is answering the specification summary, not the questionnaire.
+   */
+  turnJobTypeByState?: Partial<Record<ProjectState, JobType>>;
   },
   options: IngestOptions = {},
 ): Promise<IngestResult> {
   const { orgId, connectionId, channel, event } = params;
-  const turnJobType = params.turnJobType ?? options.turnJobType ?? 'ECHO_REPLY';
+  const defaultTurnJob = params.turnJobType ?? options.turnJobType ?? 'ECHO_REPLY';
+  const stateJobMap = params.turnJobTypeByState ?? options.turnJobTypeByState;
 
   return db.transaction(async (tx: Executor) => {
     // 1. identity resolution (creates the client on first contact)
@@ -153,6 +164,7 @@ export async function ingestInboundEvent(
     // 8. schedule the next turn (idempotent per message)
     let jobId: string | undefined;
     if (!options.skipJobs) {
+      const turnJobType = stateJobMap?.[project.state as ProjectState] ?? defaultTurnJob;
       const { job } = await queueRepo.enqueueJob(tx, {
         orgId,
         type: turnJobType,

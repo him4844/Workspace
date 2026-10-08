@@ -137,3 +137,105 @@ export function zodErrorsToMessages(error: z.ZodError): string[] {
     return `${path}: ${issue.message}`;
   });
 }
+
+// ------------------------------------------------------------------ specification (§14–§19)
+
+/** SPEC-REQ / AC codes are fixed-width ids so traceability stays machine-readable (§16). */
+const SPEC_REQ_CODE = /^SPEC-REQ-\d{3,}$/;
+const AC_CODE = /^AC-\d{3,}$/;
+
+export const AcceptanceCriterionSchema = z.strictObject({
+  code: z.string().regex(AC_CODE),
+  text: z.string().min(10).max(600),
+  testable: z.boolean(),
+  verificationHint: z.enum(['E2E', 'API', 'VISUAL', 'MANUAL', 'STATIC']).optional(),
+});
+
+export const SpecRequirementSchema = z.strictObject({
+  code: z.string().regex(SPEC_REQ_CODE),
+  originReqField: z.string().nullable().optional(),
+  originMessageIds: z.array(z.string()).max(20).optional(),
+  section: z.string().min(1).max(120),
+  title: z.string().min(3).max(160),
+  description: z.string().min(10).max(2000),
+  priority: z.enum(['MUST', 'NICE_TO_HAVE', 'LATER']),
+  acceptanceCriteria: z.array(AcceptanceCriterionSchema).min(1).max(12),
+  verificationExpectation: z.string().max(400).nullable().optional(),
+});
+
+export const ClientSummarySchema = z.strictObject({
+  markdown: z.string().min(40).max(3500),
+  assumptionsShown: z.array(z.string().max(300)).max(20),
+  approveLabel: z.string().max(40).optional(),
+  requestChangesLabel: z.string().max(40).optional(),
+});
+
+export const SpecificationOutputSchema = z.strictObject({
+  spec: z.strictObject({
+    meta: z.strictObject({
+      projectType: z.string().min(1),
+      generatedFromRequirementsVersion: z.number().int().min(1),
+      sectionsIncluded: z.array(z.string()).optional(),
+      sectionsOmitted: z.array(z.string()).optional(),
+    }),
+    overview: z.string().nullable().optional(),
+    businessGoals: z.array(z.string()).optional(),
+    targetUsers: z.array(z.string()).optional(),
+    sitemap: z.array(z.string()).optional(),
+    pages: z
+      .array(z.strictObject({ name: z.string().min(1), purpose: z.string().min(3), sections: z.array(z.string()).optional() }))
+      .optional(),
+    requirements: z.array(SpecRequirementSchema).min(1),
+    nonFunctional: z.record(z.string(), z.unknown()).nullable().optional(),
+    integrations: z.array(z.string()).optional(),
+    databaseNotes: z.string().nullable().optional(),
+    deploymentRequirements: z.string().nullable().optional(),
+    definitionOfDone: z.array(z.string()).optional(),
+    knownAssumptions: z.array(z.string()).optional(),
+    openQuestions: z.array(
+      z.strictObject({ question: z.string().min(5), blocking: z.boolean(), relatedField: z.string().nullable().optional() }),
+    ),
+    futureScope: z.array(z.string()).optional(),
+  }),
+  clientSummary: ClientSummarySchema,
+}).superRefine((value, ctx) => {
+  // §17: an acceptance criterion that is not testable is not an acceptance criterion.
+  for (const [index, req] of value.spec.requirements.entries()) {
+    if (req.priority === 'MUST' && req.acceptanceCriteria.every((ac) => !ac.testable)) {
+      ctx.addIssue({
+        code: 'custom',
+        path: ['spec', 'requirements', index, 'acceptanceCriteria'],
+        message: `${req.code} is MUST but has no testable acceptance criterion (§17)`,
+      });
+    }
+  }
+  const codes = value.spec.requirements.map((r) => r.code);
+  if (new Set(codes).size !== codes.length) {
+    ctx.addIssue({ code: 'custom', path: ['spec', 'requirements'], message: 'duplicate SPEC-REQ codes' });
+  }
+});
+
+export type SpecificationOutput = z.infer<typeof SpecificationOutputSchema>;
+export type SpecRequirement = z.infer<typeof SpecRequirementSchema>;
+export type AcceptanceCriterion = z.infer<typeof AcceptanceCriterionSchema>;
+
+// ------------------------------------------------------------------ client intent (§18, §19)
+
+export const ClientIntentSchema = z.strictObject({
+  intent: z.enum(['APPROVE', 'REQUEST_CHANGES', 'ANSWER', 'QUESTION', 'SMALL_TALK', 'UNCLEAR', 'INJECTION_SUSPECTED']),
+  confidence: z.number().min(0).max(1),
+  changeItems: z
+    .array(
+      z.strictObject({
+        description: z.string().min(3).max(600),
+        likelyFieldPath: z.string().nullable().optional(),
+        likelySpecSection: z.string().nullable().optional(),
+      }),
+    )
+    .max(20)
+    .optional(),
+  clarificationNeeded: z.string().max(400).nullable().optional(),
+  language: z.string().max(12).optional(),
+});
+
+export type ClientIntent = z.infer<typeof ClientIntentSchema>;

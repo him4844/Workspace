@@ -8,7 +8,7 @@ import { and, asc, eq, sql } from 'drizzle-orm';
 import { z } from 'zod';
 import { buildSimulatorPayload, ingestInboundEvent, parseInstagramWebhook } from '@wpp/channels';
 import { schema, queueRepo, identityRepo } from '@wpp/db';
-import { getConnectionForChannel, getDefaultOrgId, turnJobType } from '../services/context.js';
+import { getConnectionForChannel, getDefaultOrgId, turnJobType, turnJobTypeByState } from '../services/context.js';
 import type { AppDeps } from '../app.js';
 
 const InboundSchema = z.object({
@@ -54,6 +54,7 @@ export async function registerSimulatorRoutes(app: FastifyInstance, deps: AppDep
       channel: 'SIMULATOR',
       event: events[0]!,
       turnJobType: turnJobType(config),
+      turnJobTypeByState: turnJobTypeByState(config),
     });
     return reply.send({ ok: true, data: result });
   });

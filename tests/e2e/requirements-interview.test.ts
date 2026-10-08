@@ -62,21 +62,32 @@ describe('phase 2 requirements interview (end to end)', () => {
     });
   }
 
-  async function tickAll(): Promise<void> {
-    await tick({
-      db: ctx.handle.db, config: ctx.config, logger: silentLogger(),
-      workerId: 'test-worker', llm, artifactsRoot,
-    });
+  /** One job per call — a single tick would follow the Phase-3 hand-off immediately. */
+  async function tickAll(): Promise<{ empty: boolean }> {
+    return tick(
+      {
+        db: ctx.handle.db, config: ctx.config, logger: silentLogger(),
+        workerId: 'test-worker', llm, artifactsRoot,
+      },
+      { maxJobs: 1 },
+    );
   }
 
   /**
    * Run every runnable job, then pull deferred resume jobs forward: the §10
    * minimum-question-interval guard exists exactly for a client answering within seconds,
    * which is what a test does.
+   *
+   * Phase 3 note: completing the requirements now hands over to the Specification Agent. These
+   * tests are about the interview, so they hold that hand-off in the queue (docs/14 §3: one phase's
+   * acceptance suite keeps observing that phase's boundary) — `tests/e2e/spec-approval.test.ts`
+   * runs the same boundary to the end.
    */
   async function advance(): Promise<void> {
-    await tickAll();
-    for (let i = 0; i < 6; i += 1) {
+    for (let i = 0; i < 300; i += 1) {
+      const { empty } = await tickAll();
+      await parkSpecJobs();
+      if (!empty) continue;
       const rows = await ctx.handle.db
         .select()
         .from(schema.jobs)
@@ -86,7 +97,17 @@ describe('phase 2 requirements interview (end to end)', () => {
       for (const job of future) {
         await ctx.handle.db.update(schema.jobs).set({ runAt: new Date(Date.now() - 1000) }).where(eq(schema.jobs.id, job.id));
       }
-      await tickAll();
+    }
+  }
+
+  /** Keep the Phase-3 hand-off job pending (it is asserted, just not executed here). */
+  async function parkSpecJobs(): Promise<void> {
+    const rows = await ctx.handle.db
+      .select()
+      .from(schema.jobs)
+      .where(and(eq(schema.jobs.status, 'PENDING'), eq(schema.jobs.type, 'SPEC_GENERATE')));
+    for (const job of rows) {
+      await ctx.handle.db.update(schema.jobs).set({ runAt: new Date(Date.now() + 3_600_000) }).where(eq(schema.jobs.id, job.id));
     }
   }
 
@@ -224,6 +245,12 @@ describe('phase 2 requirements interview (end to end)', () => {
     const asked = await projectsRepo.getLoopCounter(ctx.handle.db, projectId, 'requirements', 'questions_asked');
     expect(asked).toBe(turns);
     expect(asked).toBeLessThanOrEqual(40);
+
+    // 10b. Phase 3 hand-off: the completed requirements queue exactly one SPEC_GENERATE (§14)
+    const handoff = (await ctx.handle.db.select().from(schema.jobs).where(eq(schema.jobs.projectId, projectId)))
+      .filter((j) => j.type === 'SPEC_GENERATE');
+    expect(handoff).toHaveLength(1);
+    expect(handoff[0]!.idempotencyKey).toBe(`spec-generate:${snapshot.version!.id}`);
 
     // 11. the §10 minimum-interval guard deferred at least one question instead of spamming
     const jobs = await ctx.handle.db.select().from(schema.jobs).where(eq(schema.jobs.projectId, projectId));

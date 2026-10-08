@@ -47,21 +47,11 @@ export function sanitizeClientContent(text: string, maxChars = 4000): string {
  * Heuristic used ONLY to raise `injectionSuspected` for team visibility (§38).
  * It never changes behaviour: the message stays ordinary content either way.
  */
-const INJECTION_PATTERNS: RegExp[] = [
-  /ignore\s+(all\s+)?(previous|prior|above)\s+instructions/i,
-  /disregard\s+(your\s+)?(rules|instructions)/i,
-  /you\s+are\s+now\s+/i,
-  /system\s*prompt/i,
-  /reveal\s+(your\s+)?(instructions|prompt|api\s*key|secret)/i,
-  /(ko'rsatma|qoidalar)(ingizni|ni)?\s+(unut|tashla|e'tiborsiz)/i,
-  /игнорируй\s+(все\s+)?(предыдущие\s+)?(инструкции|правила)/i,
-  /выведи\s+(свой\s+)?(промпт|инструкции|ключ)/i,
-];
-
-export function looksLikeInjection(text: string): boolean {
-  const t = text ?? '';
-  return INJECTION_PATTERNS.some((re) => re.test(t));
-}
+/**
+ * §38 — client text is untrusted. The patterns live in `@wpp/core` (single source of truth);
+ * this re-export keeps the prompt-assembly call sites in this package unchanged.
+ */
+export { looksLikeInjection, looksLikeInjectionClientSafe } from '@wpp/core';
 
 export interface PromptBlocks {
   systemInstructions: string;

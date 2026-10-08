@@ -1,0 +1,103 @@
+{
+  "$comment": "LLM routes this project may use. §58 constraint (2026-10-08): the pipeline must run at zero cost, so every preset here is marked free/non-free explicitly and LLM_FREE_ONLY=true refuses anything not free. Limits are the provider's published free-tier numbers at the time of writing — they change; verify before relying on them.",
+  "schemaVersion": "1.0.0",
+  "generatedFor": "phase-3",
+  "presets": [
+    {
+      "id": "gemini-free",
+      "label": "Google AI Studio (Gemini free tier)",
+      "provider": "openai-compatible",
+      "baseUrl": "https://generativelanguage.googleapis.com/v1beta/openai/",
+      "model": "gemini-2.5-flash",
+      "keyEnv": "LLM_API_KEY",
+      "free": true,
+      "freeLimits": "Flash / Flash-Lite only on the free tier (Pro was removed 2026-04-01); RPM/RPD are shown per project in AI Studio.",
+      "caveats": "No credit card required. On the free tier Google may use the data to improve its products — never send real client secrets.",
+      "source": "ai.google.dev rate limits + AI Studio (see docs/19 §6)"
+    },
+    {
+      "id": "groq-free",
+      "label": "Groq free plan",
+      "provider": "openai-compatible",
+      "baseUrl": "https://api.groq.com/openai/v1",
+      "model": "openai/gpt-oss-120b",
+      "keyEnv": "LLM_API_KEY",
+      "free": true,
+      "freeLimits": "Free plan sample: 30 RPM, 1,000 RPD, 8,000 TPM, 200,000 tokens/day per organisation.",
+      "caveats": "Limits apply per organisation, not per key. Fastest of the free options.",
+      "source": "groq.com/pricing + console rate limits (docs/19 §6)"
+    },
+    {
+      "id": "openrouter-free",
+      "label": "OpenRouter :free models",
+      "provider": "openrouter",
+      "baseUrl": "https://openrouter.ai/api/v1",
+      "model": "openrouter/free",
+      "keyEnv": "LLM_API_KEY",
+      "free": true,
+      "freeLimits": "20 RPM and 50 requests/day per account; 1,000/day only after a one-time $10 top-up (paid → not used here).",
+      "caveats": "The free roster rotates weekly; some upstream providers may train on prompts. Prefer an explicit ':free' model id over the router when reproducibility matters.",
+      "source": "openrouter.ai/docs limits (docs/19 §6)"
+    },
+    {
+      "id": "ollama-local",
+      "label": "Local model (Ollama / LM Studio / llama.cpp)",
+      "provider": "openai-compatible",
+      "baseUrl": "http://127.0.0.1:11434/v1",
+      "model": "qwen3.5:4b",
+      "keyEnv": "LLM_API_KEY",
+      "free": true,
+      "freeLimits": "Unlimited; bounded only by the machine (≈ the model file size in RAM, CPU-only is usable at 16 GB with a 4B Q4 model).",
+      "caveats": "No network, no data leaves the machine — the best option for real client data. Slower and weaker than hosted free tiers.",
+      "source": "ollama.com (OpenAI-compatible endpoint on :11434)"
+    },
+    {
+      "id": "scripted",
+      "label": "Scripted client persona (dev/CI/demo)",
+      "provider": "scripted",
+      "baseUrl": null,
+      "model": "scripted-client-persona",
+      "keyEnv": null,
+      "free": true,
+      "freeLimits": "No network calls at all.",
+      "caveats": "Not an AI: the deterministic persona of packages/testing. Used by tests and demos (D-025).",
+      "source": "packages/testing/src/persona.ts"
+    },
+    {
+      "id": "none",
+      "label": "No LLM configured",
+      "provider": "none",
+      "baseUrl": null,
+      "model": null,
+      "keyEnv": null,
+      "free": true,
+      "freeLimits": "No calls.",
+      "caveats": "Agent jobs fail fast with REQUIREMENTS_AGENT_NOT_CONFIGURED / SPEC_AGENT_NOT_CONFIGURED instead of pretending.",
+      "source": "apps/worker/src/services/llm.ts"
+    },
+    {
+      "id": "openai-paid",
+      "label": "OpenAI (paid)",
+      "provider": "openai",
+      "baseUrl": "https://api.openai.com/v1",
+      "model": "gpt-5-mini",
+      "keyEnv": "LLM_API_KEY",
+      "free": false,
+      "freeLimits": null,
+      "caveats": "Blocked while LLM_FREE_ONLY=true. Enabling it needs an explicit LLM_FREE_ONLY=false and a budget decision.",
+      "source": "openai.com/api/pricing"
+    },
+    {
+      "id": "anthropic-paid",
+      "label": "Anthropic (paid)",
+      "provider": "anthropic",
+      "baseUrl": "https://api.anthropic.com",
+      "model": "claude-sonnet-4-5",
+      "keyEnv": "LLM_API_KEY",
+      "free": false,
+      "freeLimits": null,
+      "caveats": "Blocked while LLM_FREE_ONLY=true. Phase 4 requires the Spec Auditor on a *different* provider — a free second route is needed there.",
+      "source": "anthropic.com/pricing"
+    }
+  ]
+}

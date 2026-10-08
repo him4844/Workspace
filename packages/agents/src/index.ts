@@ -11,3 +11,4 @@ export * from './prompt.js';
 export * from './runtime.js';
 export * from './contracts.js';
 export * from './requirements/agent.js';
+export * from './spec/agent.js';

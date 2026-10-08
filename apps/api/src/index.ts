@@ -22,7 +22,7 @@ async function main(): Promise<void> {
   const embeddedWorker = config.EMBEDDED_WORKER || config.DB_DRIVER === 'pglite';
   if (embeddedWorker) {
     const workerId = `embedded-${uuidv7().slice(0, 8)}`;
-    const resolved = await resolveLlmClient(config);
+    const resolved = await resolveLlmClient(config, logger);
     logger.info({ workerId, llm: resolved?.defaultProvider ?? 'none', model: resolved?.defaultModel ?? null }, 'embedded worker loop starting');
     void runLoop(
       { db: handle.db, config, logger, workerId, llm: resolved?.client ?? null, artifactsRoot: 'data' },

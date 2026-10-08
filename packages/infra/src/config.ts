@@ -58,6 +58,10 @@ const ConfigSchema = z.object({
   EMBEDDED_WORKER: bool(false),
   // ---- LLM providers (SPEC §51, D-015). 'none' = run without AI (Phase 1 behaviour).
   LLM_PROVIDER: z.enum(['none', 'scripted', 'openai', 'openrouter', 'openai-compatible', 'anthropic']).default('none'),
+  /** id from config/llm-presets.json — makes the free/paid decision explicit instead of guessed from the URL */
+  LLM_PRESET: z.string().optional(),
+  /** §58: the pipeline must run at zero cost, so paid routes are refused unless this is deliberately turned off */
+  LLM_FREE_ONLY: bool(true),
   LLM_API_KEY: z.string().optional(),
   LLM_BASE_URL: z.string().optional(),
   LLM_MODEL: z.string().optional(),

@@ -61,7 +61,9 @@ Legend: **R** required, **O** optional, **D** dev-only.
 | `LLM_BASE_URL` | O | OpenAI-compatible gateway / proxy / self-hosted endpoint |
 | `LLM_MODEL` | O | default model for agents that do not pin one in `agent_config_versions` |
 | `REQUIREMENTS_LLM_PROVIDER` / `REQUIREMENTS_LLM_MODEL` | O | per-agent override (SPEC §51); the Spec Auditor must point at a *different* provider than the main agents |
-| `LLM_DAILY_BUDGET_USD` | D | `10` — runaway-cost guard (§26) |
+| `LLM_PRESET` | O | named route from `config/llm-presets.json` (`gemini-free`, `groq-free`, `openrouter-free`, `ollama-local`, `scripted`, `none`, `openai-paid`, `anthropic-paid`); when set, its base URL and model are the defaults (env still overrides) |
+| `LLM_FREE_ONLY` | D | `true` — **the project is free-only** (D-029): a route that is not marked `free` in the presets file, and whose host is not a documented free tier or a local/LAN address, is refused and the platform runs with no LLM instead of spending money |
+| `LLM_DAILY_BUDGET_USD` | D | `10` — runaway-cost guard (§26); with `LLM_FREE_ONLY=true` the realistic spend is $0 |
 | `AGENT_MAX_REPAIRS` | D | `1` — the single repair attempt of §49 |
 | `OPENAI_API_KEY` / `ANTHROPIC_API_KEY` | — | **not read by the code today**: the factory only reads `LLM_API_KEY`. Kept in this table as the names an operator would expect; adopt them (as aliases) if they are preferred over the generic key |
 | `OPENROUTER_API_KEY` | O | OpenRouter adapter |

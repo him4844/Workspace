@@ -37,6 +37,7 @@ export const taskStatusEnum = pgEnum('task_status', ['OPEN', 'IN_PROGRESS', 'BLO
 export const eventTypeEnum = pgEnum('event_type', [
   'PROJECT_CREATED', 'STATE_CHANGED', 'MESSAGE_INBOUND', 'MESSAGE_OUTBOUND', 'MESSAGE_SEND_BLOCKED',
   'REQUIREMENTS_COMPLETE', 'PROJECT_TYPE_DETECTED', 'SPEC_GENERATED', 'SPEC_LOCKED', 'SPEC_AUDIT_RESULT', 'BUILD_STARTED', 'BUILD_FINISHED',
+  'SPEC_TRACEABILITY_FAILED', 'SPEC_SUMMARY_INCONSISTENT',
   'CODE_CHECK_RESULT', 'TASK_CREATED', 'TASK_STATUS_CHANGED', 'APPROVAL_RECORDED', 'CHANGE_REQUEST', 'AGENT_RUN_FINISHED',
   'HUMAN_ACTION', 'SECURITY_ALERT', 'SYSTEM_ERROR', 'WEBHOOK_RECEIVED', 'WEBHOOK_DUPLICATE',
 ]);
@@ -462,10 +463,114 @@ export const configValues = pgTable('config_values', {
   updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
 });
 
+
+// ---------------------------------------------------------------- Phase 3: specification (§14–§19)
+
+export const specStatusEnum = pgEnum('spec_status', ['DRAFT', 'IN_REVIEW', 'CHANGES_REQUESTED', 'APPROVED', 'LOCKED', 'SUPERSEDED']);
+export const approvalDecisionEnum = pgEnum('approval_decision', ['APPROVE', 'REQUEST_CHANGES']);
+export const changeRequestStatusEnum = pgEnum('change_request_status', ['REQUESTED', 'ANALYZING', 'APPROVED', 'REJECTED', 'IMPLEMENTING', 'COMPLETED']);
+
+export const specVersions = pgTable('spec_versions', {
+  id: text('id').primaryKey(),
+  orgId: text('org_id').notNull().references(() => organizations.id),
+  projectId: text('project_id').notNull().references(() => projects.id),
+  version: integer('version').notNull(),
+  status: specStatusEnum('status').notNull().default('DRAFT'),
+  requirementVersionId: text('requirement_version_id').references(() => requirementVersions.id),
+  spec: jsonb('spec').notNull(),
+  specArtifactId: text('spec_artifact_id').references(() => artifacts.id),
+  clientSummaryMd: text('client_summary_md'),
+  clientSummaryArtifactId: text('client_summary_artifact_id').references(() => artifacts.id),
+  summarySentAt: timestamp('summary_sent_at', { withTimezone: true }),
+  summaryMessageId: text('summary_message_id'),
+  approvalRequestedAt: timestamp('approval_requested_at', { withTimezone: true }),
+  approvalMessageId: text('approval_message_id'),
+  changeRequestText: text('change_request_text'),
+  createdByRunId: text('created_by_run_id').references(() => agentRuns.id),
+  lockedAt: timestamp('locked_at', { withTimezone: true }),
+  lockedByMemberId: text('locked_by_member_id').references(() => teamMembers.id),
+  createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+  updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
+}, (t) => ({
+  projectVersionUq: uniqueIndex('spec_versions_project_version_uq').on(t.projectId, t.version),
+  projectIx: index('spec_versions_project_ix').on(t.projectId, t.createdAt),
+}));
+
+export const specRequirements = pgTable('spec_requirements', {
+  id: text('id').primaryKey(),
+  specVersionId: text('spec_version_id').notNull().references(() => specVersions.id, { onDelete: 'cascade' }),
+  code: text('code').notNull(),
+  originReqField: text('origin_req_field'),
+  originMessageIds: jsonb('origin_message_ids').notNull().default([]),
+  section: text('section').notNull(),
+  title: text('title').notNull(),
+  description: text('description').notNull(),
+  priority: priorityLevelEnum('priority').notNull(),
+  verificationExpectation: text('verification_expectation'),
+  createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+}, (t) => ({
+  versionCodeUq: uniqueIndex('spec_requirements_version_code_uq').on(t.specVersionId, t.code),
+  originIx: index('spec_requirements_origin_ix').on(t.originReqField),
+}));
+
+export const acceptanceCriteria = pgTable('acceptance_criteria', {
+  id: text('id').primaryKey(),
+  specVersionId: text('spec_version_id').notNull().references(() => specVersions.id, { onDelete: 'cascade' }),
+  specReqCode: text('spec_req_code').notNull(),
+  code: text('code').notNull(),
+  text: text('text').notNull(),
+  testable: boolean('testable').notNull().default(true),
+  verificationHint: text('verification_hint'),
+  createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+}, (t) => ({
+  versionCodeUq: uniqueIndex('acceptance_criteria_version_code_uq').on(t.specVersionId, t.code),
+  reqIx: index('acceptance_criteria_req_ix').on(t.specVersionId, t.specReqCode),
+}));
+
+export const clientApprovals = pgTable('client_approvals', {
+  id: text('id').primaryKey(),
+  orgId: text('org_id').notNull().references(() => organizations.id),
+  projectId: text('project_id').notNull().references(() => projects.id),
+  specVersionId: text('spec_version_id').notNull().references(() => specVersions.id),
+  decision: approvalDecisionEnum('decision').notNull(),
+  sourceMessageId: text('source_message_id').notNull().references(() => messages.id),
+  confidence: numeric('confidence', { precision: 4, scale: 3 }).notNull().default('1.000'),
+  classification: text('classification').notNull().default('KEYWORD'),
+  changeItems: jsonb('change_items').notNull().default([]),
+  rawText: text('raw_text'),
+  createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+}, (t) => ({
+  messageUq: uniqueIndex('client_approvals_message_uq').on(t.sourceMessageId),
+  projectIx: index('client_approvals_project_ix').on(t.projectId, t.createdAt),
+}));
+
+export const changeRequests = pgTable('change_requests', {
+  id: text('id').primaryKey(),
+  orgId: text('org_id').notNull().references(() => organizations.id),
+  projectId: text('project_id').notNull().references(() => projects.id),
+  specVersionId: text('spec_version_id').references(() => specVersions.id),
+  requestedChange: text('requested_change').notNull(),
+  source: text('source').notNull(),
+  reason: text('reason'),
+  affectedRequirements: jsonb('affected_requirements').notNull().default([]),
+  affectedSpecSections: jsonb('affected_spec_sections').notNull().default([]),
+  potentialImpact: text('potential_impact'),
+  status: changeRequestStatusEnum('status').notNull().default('REQUESTED'),
+  resultingSpecVersionId: text('resulting_spec_version_id').references(() => specVersions.id),
+  createdByMemberId: text('created_by_member_id').references(() => teamMembers.id),
+  decidedByMemberId: text('decided_by_member_id').references(() => teamMembers.id),
+  decidedAt: timestamp('decided_at', { withTimezone: true }),
+  createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+  updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
+}, (t) => ({
+  projectIx: index('change_requests_project_ix').on(t.projectId, t.createdAt),
+}));
+
 export const schema = {
   organizations, teamMembers, sessions, teamActions,
   clients, clientIdentities, channelConnections, webhookEvents,
   conversations, conversationState, projects, projectStateTransitions, loopCounters,
   messages, jobs, jobAttempts, idempotencyKeys, events, agentRuns,
   tasks, artifacts, configValues,
+  specVersions, specRequirements, acceptanceCriteria, clientApprovals, changeRequests,
 };

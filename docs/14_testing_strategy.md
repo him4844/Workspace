@@ -108,7 +108,17 @@ Any phase is only "done" when `verify` is green **and** the phase's acceptance s
 
 ---
 
-## 9. Status after Phase 2 (2026-10-08) — what actually exists
+## 9. Status after Phase 3 (2026-10-08) — what actually exists
+
+Specification Agent, the deterministic audits (§16/§17/§19), versioning (§34), the two-step client
+approval (§18/§19, D-030) and the lock + change-request path (§35) exist end to end; `npm run
+simulate:phase3` and `tests/e2e/spec-approval.test.ts` drive them, and the dev console shows the
+specification panel (version, status, approval step, traceability, version history, change requests).
+The audits are real gates: an un-traceable specification never reaches the client (D-031).
+Phase-3 evidence is stored in `PHASE_REPORTS/evidence/` (`phase3-verify.txt`, `phase3-simulate.txt`,
+`phase3-live-run.txt` — the live run reached v2 `LOCKED` with 31/31 traceability over real HTTP).
+
+## 9.1 Status after Phase 2 (2026-10-08) — what actually exists
 
 | Layer | File(s) | Tests |
 |---|---|---|
@@ -120,18 +130,26 @@ Any phase is only "done" when `verify` is green **and** the phase's acceptance s
 | Integration — requirements inspection API | `tests/integration/requirements-api.test.ts` | 2 |
 | E2E — Phase-1 slice (echo, parking, blocked send) | `tests/e2e/simulated-conversation.test.ts` | 5 |
 | E2E — Phase-2 requirements interview (11 scenarios incl. §8A vague, §8B contradiction, §10A bogus source, repair, injection, caps, inactivity) | `tests/e2e/requirements-interview.test.ts` | 11 |
+| Unit — specification core (§16 traceability, §17 testability, §18/§19 summary consistency, §34/§35 lock rules, §18 intent) | `tests/unit/spec-core.test.ts` | 22 |
+| Unit — free-only routing + preset catalogue (D-029) | `tests/unit/llm-free-only.test.ts` | 11 |
+| E2E — Phase-3 specification + two-step client approval (9 scenarios incl. change→v2, traceability failure, unclear reply, replay idempotency, locked-edit 409, approval reminder, model failure) | `tests/e2e/spec-approval.test.ts` | 9 |
 
-`vitest run` = **9 files / 96 tests**, `tsc --noEmit` clean. The scripted provider is the default in
+`vitest run` = **12 files / 138 tests**, `tsc --noEmit` clean. The scripted provider is the default in
 tests (`packages/testing`), so the suite is deterministic and offline; the same provider can be
 selected in the running system with `LLM_PROVIDER=scripted` for demos (D-025).
 
-**Live acceptance drivers (not part of `vitest run`, both quoted in `PHASE_REPORTS/phase2.md`):**
+**Live acceptance drivers (not part of `vitest run`, quoted in `PHASE_REPORTS/phase2.md` and `phase3.md`):**
 
 ```bash
 npm run simulate:requirements   # in-memory: seeds config/ + one restaurant DM → REQUIREMENTS_COMPLETE
+npm run simulate:phase3         # in-memory: interview → spec v1 → summary → change → v2 → approval → LOCKED
 npm run dev                     # LLM_PROVIDER=scripted …: API :3000 + embedded worker (PGlite, D-022)
 npm run demo:live               # drives the RUNNING API over HTTP (simulator channel) and prints the result
 ```
+
+Phase-3 E2E tests run the pipeline one job per `tick` (`maxJobs: 1`): a single tick would follow the
+requirements hand-off straight into the specification job, and each test decides what the specification
+agent sees and when it runs (§14).
 
 Operational note: stop the dev server (`npm run dev`) before the suite — with the API+worker process
 alive the fork workers can die under memory pressure (`Worker exited unexpectedly`), which looks like a

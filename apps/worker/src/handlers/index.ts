@@ -7,6 +7,8 @@ import { identityRepo, obsRepo, projectsRepo } from '@wpp/db';
 import { WppError, type JobType } from '@wpp/core';
 import { sendOutboundMessage } from '../services/outbound.js';
 import { requirementsTurn } from './requirements.js';
+import { specGenerate, specRevise } from './spec.js';
+import { clientApprovalTimeout, clientIntentParse } from './clientIntent.js';
 import { inactivityCheck } from './inactivity.js';
 import type { HandlerContext } from '../orchestrator.js';
 
@@ -87,11 +89,11 @@ export const HANDLERS: Partial<Record<JobType, JobHandler>> = {
   ECHO_REPLY: echoReply,
   SEND_OUTBOUND: sendOutbound,
   REQUIREMENTS_TURN: requirementsTurn,
-  SPEC_GENERATE: notImplemented('Phase 3'),
-  SPEC_REVISE: notImplemented('Phase 3'),
+  SPEC_GENERATE: specGenerate,
+  SPEC_REVISE: specRevise,
   SPEC_AUDIT: notImplemented('Phase 4'),
-  CLIENT_INTENT_PARSE: notImplemented('Phase 3'),
-  CLIENT_APPROVAL_TIMEOUT: notImplemented('Phase 3'),
+  CLIENT_INTENT_PARSE: clientIntentParse,
+  CLIENT_APPROVAL_TIMEOUT: clientApprovalTimeout,
   BUILD_RUN: notImplemented('Phase 5'),
   CODE_CHECK: notImplemented('Phase 6'),
   INACTIVITY_CHECK: inactivityCheck,
@@ -99,3 +101,4 @@ export const HANDLERS: Partial<Record<JobType, JobHandler>> = {
 };
 
 export { echoReply, sendOutbound };
+export { specGenerate, specRevise, clientIntentParse, clientApprovalTimeout };

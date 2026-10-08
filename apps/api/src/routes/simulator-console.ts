@@ -12,8 +12,9 @@ import { and, desc, eq } from 'drizzle-orm';
 import {
   findIdentity, getProject, getArtifact, getConversation,
   listCurrentRequirementSnapshot, listContradictions, listOpenTasks, listMessages,
-  projectsRepo, schema,
+  projectsRepo, schema, specsRepo,
 } from '@wpp/db';
+import { assertSpecWritable, deriveApprovalStep } from '@wpp/core';
 import { readArtifact } from '@wpp/infra';
 import type { AppDeps } from '../app.js';
 
@@ -72,6 +73,15 @@ const PAGE = `<!doctype html>
     <h2>Open human tasks</h2><div id="tasks" class="tag">—</div>
     <h2>Internal summary</h2><pre id="sum">—</pre>
     <h2>Worker / jobs</h2><pre id="jobs">—</pre>
+    <h2>Specification (Phase 3)</h2>
+    <div class="tag" id="specmeta">—</div>
+    <div class="tag">Bosqich: <b id="specstep">—</b></div>
+    <div class="tag">Versiya: <b id="specver">—</b></div>
+    <div class="tag">Tasdiq: <b id="specappr">—</b></div>
+    <div class="tag">Traceability: <b id="spectrace">—</b></div>
+    <table id="specreqs"><tbody></tbody></table>
+    <h2>Mijozga yuborilgan qisqacha tavsif</h2><pre id="specsum">—</pre>
+    <h2>Versiyalar / change requests</h2><pre id="specvers">—</pre><pre id="speccr">—</pre>
   </section>
 </main>
 <script type="module">
@@ -135,6 +145,49 @@ async function refresh(){
   document.getElementById('contra').textContent = d.requirements.contradictions.filter(x=>x.status==='OPEN').length + ' ochiq / ' + d.requirements.contradictions.length;
   document.getElementById('tasks').textContent = d.openTasks.length ? d.openTasks.map(t=>t.type + ' — ' + t.title + ' (jarima: ' + t.reason + ')').join(' | ') : 'yo‘q';
   document.getElementById('sum').textContent = d.requirements.summary ? d.requirements.summary.markdown : '—';
+  renderSpec(d.specification);
+}
+
+const STEP_LABEL = {
+  SEND_SUMMARY: '1-qadam: xulosa yuborilishi kerak',
+  AWAIT_SUMMARY_ACK: '1-qadam yuborildi — mijoz xulosani o‘qimoqda',
+  SEND_APPROVAL_REQUEST: '2-qadam: tasdiq savoli yuborilishi kerak',
+  AWAIT_DECISION: '2-qadam yuborildi — mijoz qarori kutilmoqda',
+  DECIDED: 'qaror qabul qilindi',
+};
+
+function renderSpec(spec){
+  const body = document.getElementById('specreqs').querySelector('tbody');
+  if(!spec){
+    document.getElementById('specmeta').textContent = 'Hali spetsifikatsiya yo‘q — talablar tugagach avtomatik yaratiladi (§14)';
+    for (const id of ['specstep','specver','specappr','spectrace','specsum','specvers','speccr']) document.getElementById(id).textContent = '—';
+    body.innerHTML = '';
+    return;
+  }
+  document.getElementById('specmeta').textContent =
+    'v' + spec.version + ' · ' + spec.status + (spec.editable ? ' (tahrirlash mumkin)' : ' (qulflangan — faqat change request)')
+    + (spec.artifact ? ' · sha256 ' + String(spec.artifact.sha256).slice(0,12) + '… ' + spec.artifact.sizeBytes + 'B' : '');
+  document.getElementById('specstep').textContent = STEP_LABEL[spec.approvalStep] || spec.approvalStep;
+  document.getElementById('specver').textContent =
+    'joriy v' + spec.version + ' · jami ' + spec.versions.length
+    + (spec.changeRequestText ? ' · o‘zgarish: ' + String(spec.changeRequestText).slice(0,60) : '');
+  document.getElementById('specappr').textContent = spec.approvals.length
+    ? spec.approvals.map(a => a.decision + ' (' + a.classification + ', ' + Math.round(a.confidence*100) + '%, mijoz xabari ' + String(a.sourceMessageId).slice(0,8) + ')').join(' | ')
+    : 'yo‘q';
+  document.getElementById('spectrace').textContent =
+    spec.requirements.filter(r=>r.originReqField).length + '/' + spec.requirements.length + ' maydon bilan bog‘langan · AC: '
+    + spec.requirements.reduce((n,r)=>n+r.acceptanceCriteria.length,0);
+  body.innerHTML = spec.requirements.map(r =>
+    '<tr><td>' + r.code + '</td><td>' + (r.originReqField || '— (AI)') + '</td><td>' + r.priority + '</td><td>'
+    + (r.acceptanceCriteria.map(ac => ac.code + (ac.testable ? '' : ' (testable emas)')).join(', ') || '—') + '</td></tr>').join('');
+  document.getElementById('specsum').textContent = spec.summaryMarkdown || '—';
+  document.getElementById('specvers').textContent = spec.versions.map(v =>
+    'v' + v.version + '  ' + v.status + (v.changeRequestText ? '  ← ' + String(v.changeRequestText).slice(0,50) : '')
+    + '  xulosa:' + (v.summarySentAt ? 'yuborilgan' : '—') + '  tasdiq savoli:' + (v.approvalRequestedAt ? 'yuborilgan' : '—')
+    + '  qulf:' + (v.lockedAt ? 'LOCKED' : '—')).join('\n');
+  document.getElementById('speccr').textContent = spec.changeRequests.length
+    ? spec.changeRequests.map(c => c.status + ' — ' + String(c.requestedChange).slice(0,70)).join('\n')
+    : 'change request yo‘q';
 }
 
 document.getElementById('f').addEventListener('submit', async (e)=>{
@@ -183,6 +236,25 @@ export async function registerSimulatorConsoleRoutes(app: FastifyInstance, deps:
     ]);
     const summaryArtifact = snapshot.version?.summaryArtifactId ? await getArtifact(db, snapshot.version.summaryArtifactId) : null;
 
+    // Phase 3: the specification side of the project — version, lock, traceability, approvals.
+    const specVersions = await specsRepo.listSpecVersions(db, id);
+    const currentSpec = specVersions.filter((v) => v.status !== 'SUPERSEDED').at(-1) ?? null;
+    const specSnapshot = currentSpec ? await specsRepo.listSpecSnapshot(db, currentSpec.id) : null;
+    const specArtifact = currentSpec?.specArtifactId ? await getArtifact(db, currentSpec.specArtifactId) : null;
+    const approvals = await specsRepo.listClientApprovals(db, id);
+    const changeRequests = await specsRepo.listChangeRequests(db, id);
+    const specRequirements = specSnapshot?.requirements ?? [];
+    const traceability = specRequirements.map((r) => ({
+      code: r.code,
+      originReqField: r.originReqField,
+      section: r.section,
+      title: r.title,
+      priority: r.priority,
+      acceptanceCriteria: (specSnapshot?.acceptanceCriteria ?? [])
+        .filter((ac) => ac.specReqCode === r.code)
+        .map((ac) => ({ code: ac.code, text: ac.text, testable: ac.testable })),
+    }));
+
     return reply.send({
       ok: true,
       data: {
@@ -201,6 +273,46 @@ export async function registerSimulatorConsoleRoutes(app: FastifyInstance, deps:
           contradictions: contradictions.map((c) => ({ fieldA: c.fieldA, fieldB: c.fieldB, status: c.status, severity: c.severity })),
           summary: summaryArtifact ? { path: summaryArtifact.path, markdown: readArtifact(summaryArtifact.path) } : null,
         },
+        specification: currentSpec
+          ? {
+              version: currentSpec.version,
+              status: currentSpec.status,
+              editable: assertSpecWritable(currentSpec.status).ok,
+              approvalStep: deriveApprovalStep({
+                summarySentAt: currentSpec.summarySentAt,
+                approvalRequestedAt: currentSpec.approvalRequestedAt,
+                decidedAt: currentSpec.status === 'LOCKED' ? currentSpec.lockedAt : null,
+              }),
+              summarySentAt: currentSpec.summarySentAt,
+              approvalRequestedAt: currentSpec.approvalRequestedAt,
+              lockedAt: currentSpec.lockedAt,
+              changeRequestText: currentSpec.changeRequestText,
+              requirements: traceability,
+              traceabilityCoverage: specRequirements.length > 0
+                ? specRequirements.filter((r) => r.originReqField).length / specRequirements.length
+                : 1,
+              summaryMarkdown: currentSpec.clientSummaryMd,
+              artifact: currentSpec.specArtifactId
+                ? { id: currentSpec.specArtifactId, path: specArtifact?.path ?? null, sha256: specArtifact?.sha256 ?? null, sizeBytes: specArtifact?.sizeBytes ?? null }
+                : null,
+              versions: specVersions.map((v) => ({
+                version: v.version,
+                status: v.status,
+                createdAt: v.createdAt,
+                changeRequestText: v.changeRequestText,
+                summarySentAt: v.summarySentAt,
+                approvalRequestedAt: v.approvalRequestedAt,
+                lockedAt: v.lockedAt,
+              })),
+              approvals: approvals.map((a) => ({
+                decision: a.decision, sourceMessageId: a.sourceMessageId, confidence: Number(a.confidence),
+                classification: a.classification, changeItems: a.changeItems, createdAt: a.createdAt,
+              })),
+              changeRequests: changeRequests.map((c) => ({
+                id: c.id, requestedChange: c.requestedChange, source: c.source, status: c.status, createdAt: c.createdAt,
+              })),
+            }
+          : null,
         openTasks: tasks.filter((t) => t.status === 'OPEN').map((t) => ({ id: t.id, type: t.type, title: t.title, priority: t.priority, reason: t.reason, createdAt: t.createdAt })),
       },
     });

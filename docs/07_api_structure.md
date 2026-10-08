@@ -153,6 +153,21 @@
 | GET | `/api/v1/messages`, `/api/v1/jobs`, `/api/v1/agent-runs` | operational views for humans before the panel exists |
 | POST | `/api/v1/conversations/:id/send` | internal human/dev send (window guard + §31A escalation still apply) |
 
+### 2.10.2 Specification & approval API implemented in Phase 3 (`X-Internal-Token`)
+
+| Method | Path | Notes |
+|---|---|---|
+| GET | `/api/v1/projects/:id/spec` | version + status + `editable`, the derived `approvalStep` (`SEND_SUMMARY` → `AWAIT_SUMMARY_ACK` → `AWAIT_DECISION` → `DECIDED`), the spec JSON, the rendered markdown, every SPEC-REQ with its traceability rows and ACs, approvals (with `sourceMessageId`), change requests, version history, artifacts with sha256 |
+| GET | `/api/v1/projects/:id/spec/requirements/:code` | one requirement with its acceptance criteria |
+| PATCH | `/api/v1/projects/:id/spec` | edit a requirement **in place** — only while the version is not approved; a locked version answers `409 SPEC_IS_LOCKED` (§19/§35) |
+| POST | `/api/v1/projects/:id/change-requests` | the only door for a locked specification (§35); records a `CHANGE_REQUEST` event |
+| GET | `/api/v1/projects/:id/change-requests` | history with status + affected requirements/sections |
+| PATCH | `/api/v1/change-requests/:id` | human decision (`APPROVED`/`IMPLEMENTING` queue a `SPEC_REVISE` job) |
+| GET | `/api/v1/spec-config` | the client-facing labels and the approval-confidence threshold (config as data, §50) |
+
+The approval path itself is not an endpoint: it arrives through the client's DM (`CLIENT_INTENT_PARSE`),
+because an approval without a real client message is exactly what §10A/§34 forbid.
+
 ### 2.11 Health & ops
 
 | Method | Path | Notes |

@@ -676,6 +676,16 @@ async function completeRequirements(
     });
   });
 
+  // §14 hand-off: requirements are complete → the Specification Agent takes over (T06).
+  // Idempotent per requirement version, so a retried job cannot generate two specifications.
+  await queueRepo.enqueueJob(db, {
+    orgId: params.job.orgId,
+    type: 'SPEC_GENERATE',
+    projectId: params.projectId,
+    payload: { conversationId: params.conversationId, requirementVersionId: params.versionId },
+    idempotencyKey: `spec-generate:${params.versionId}`,
+  });
+
   await obsRepo.recordEvent(db, {
     orgId: params.job.orgId,
     projectId: params.projectId,

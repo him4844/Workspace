@@ -11,7 +11,7 @@ async function main(): Promise<void> {
   const applied = await applyMigrations(handle);
   if (applied.length > 0) logger.info({ applied }, 'migrations applied');
 
-  const resolved = await resolveLlmClient(config);
+  const resolved = await resolveLlmClient(config, logger);
   if (resolved) {
     logger.info({ provider: resolved.defaultProvider, model: resolved.defaultModel }, 'LLM provider configured');
   } else {
