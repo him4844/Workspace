@@ -4,11 +4,11 @@
  * Auth: X-Internal-Token header (real sessions + RBAC arrive in Phase 7).
  */
 import type { FastifyInstance } from 'fastify';
-import { asc, eq } from 'drizzle-orm';
+import { asc, desc, eq } from 'drizzle-orm';
 import {
   getConversation, getProject, getArtifact, identityRepo, listContradictions,
   listCurrentRequirementSnapshot, listMessages, listOpenTasks,
-  listProjects, listTransitions, obsRepo, queueRepo, schema,
+  listProjects, listTransitions, obsRepo, queueRepo, schema, auditsRepo,
 } from '@wpp/db';
 import { readArtifact } from '@wpp/infra';
 import { hoursUntilExpiry } from '@wpp/core';
@@ -169,6 +169,57 @@ export async function registerInspectorRoutes(app: FastifyInstance, deps: AppDep
       idempotencyKey: `send:${message.id}`,
     });
     return reply.send({ ok: true, data: { messageId: message.id, jobId: job.id } });
+  });
+
+  // §20/§21 visible in state: the audit trail of a project — every attempt, the merged verdict,
+  // the structural findings and the human tasks the loop opened. A reviewer must be able to answer
+  // "why is this project blocked?" from the API alone, without reading logs.
+  app.get('/api/v1/projects/:id/spec-audit', async (request, reply) => {
+    const { id } = request.params as { id: string };
+    const project = await getProject(db, id);
+    if (!project) return reply.status(404).send({ ok: false, error: { code: 'NOT_FOUND', message: 'project not found' } });
+
+    const audits = await auditsRepo.listAuditsForProject(db, id, { limit: 20 });
+    const latest = audits[0] ?? null;
+    const openTasks = (await listOpenTasks(db, id)).filter((t) => t.status === 'OPEN');
+    const runs = latest
+      ? await db.select().from(schema.agentRuns).where(eq(schema.agentRuns.projectId, id)).orderBy(desc(schema.agentRuns.createdAt)).limit(10)
+      : [];
+
+    return reply.send({
+      ok: true,
+      data: {
+        projectId: id,
+        state: project.state,
+        blockedFrom: project.blockedFrom ?? null,
+        latest: latest
+          ? {
+              id: latest.id,
+              attempt: latest.attempt,
+              maxAttempts: latest.maxAttempts,
+              status: latest.status,
+              score: latest.score,
+              cycleKey: latest.cycleKey,
+              specVersionId: latest.specVersionId,
+              structuralForcedFail: latest.structuralForcedFail,
+              modelFailed: latest.modelFailed,
+              provider: latest.provider,
+              model: latest.model,
+              createdAt: latest.createdAt,
+              issues: auditsRepo.issuesFromVerdict(latest.verdict),
+              checks: auditsRepo.checksFromVerdict(latest.verdict),
+            }
+          : null,
+        attempts: audits.map((a) => ({
+          attempt: a.attempt, maxAttempts: a.maxAttempts, status: a.status, score: a.score, createdAt: a.createdAt,
+          structuralForcedFail: a.structuralForcedFail, modelFailed: a.modelFailed, model: a.model,
+          issueCodes: auditsRepo.issuesFromVerdict(a.verdict).map((i) => i.code),
+        })),
+        structuralFindings: (latest?.structuralFindings ?? []) as unknown[],
+        openTasks: openTasks.map((t) => ({ id: t.id, type: t.type, priority: t.priority, title: t.title, reason: t.reason, suggestedAction: t.suggestedAction })),
+        agentRuns: runs.map((r) => ({ id: r.id, agentType: r.agentType, status: r.status, model: r.model, createdAt: r.createdAt })),
+      },
+    });
   });
 
   app.get('/api/v1/messages', async (request, reply) => {

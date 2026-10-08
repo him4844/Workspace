@@ -9,6 +9,7 @@ import { readFileSync } from 'node:fs';
 import { describe, expect, it } from 'vitest';
 import { createLlmClient, routeDecision } from '@wpp/agents';
 import { configFrom, FREE_ENDPOINT_HOSTS, isFreeEndpointHost, isLocalEndpoint, loadLlmPresets, type LlmPresetsFile } from '@wpp/infra';
+import { effectiveModel } from '../../apps/worker/src/services/llm.js';
 
 const file = loadLlmPresets();
 const presets = file.presets;
@@ -97,12 +98,37 @@ describe('createLlmClient', () => {
     const resolved = createLlmClient(config({ LLM_PRESET: 'gemini-free', LLM_PROVIDER: 'openai-compatible' }));
     expect(resolved).not.toBeNull();
     expect(resolved!.client).toBeTruthy();
-    expect(resolved!.defaultModel).toBe('gemini-2.5-flash');
+    // The expected model comes from the presets FILE, not from a literal: providers retire models
+    // (gemini-2.5-flash was 404 for new keys on 2026-10-08) and a copied string only makes the test
+    // fail a year late for the wrong reason.
+    const preset = (JSON.parse(readFileSync('config/llm-presets.json', 'utf8')) as {
+      presets: Array<{ id: string; model: string }>;
+    }).presets.find((p) => p.id === 'gemini-free');
+    expect(resolved!.defaultModel).toBe(preset!.model);
   });
 
   it('requires a key for network providers, and builds nothing when no provider is configured (§51/D-015)', () => {
     expect(createLlmClient(config({ LLM_PRESET: 'groq-free', LLM_PROVIDER: 'openai-compatible', LLM_API_KEY: '' }))).toBeNull();
     expect(createLlmClient(configFrom({ NODE_ENV: 'test', DB_DRIVER: 'pglite', LOG_LEVEL: 'silent' }))).toBeNull();
     expect(createLlmClient(config({ LLM_PROVIDER: 'none' }))).toBeNull();
+  });
+});
+
+describe('agent model resolution (live 404 on 2026-10-08)', () => {
+  const route = { provider: 'openai-compatible', model: 'openai/gpt-oss-120b' };
+
+  it('a route-configured run never sends the seeded placeholder model', () => {
+    // agent_configs seeds 'gpt-5-mini' (a placeholder); the Groq route cannot serve it → 404.
+    expect(effectiveModel({ provider: 'none', model: 'gpt-5-mini' }, route)).toBe('openai/gpt-oss-120b');
+    expect(effectiveModel({ provider: 'openai-compatible', model: 'gpt-5-mini' }, route)).toBe('openai/gpt-oss-120b');
+  });
+
+  it('a deliberate per-agent env pin wins over the route model', () => {
+    expect(effectiveModel({ provider: 'none', model: 'gpt-5-mini' }, route, 'openai/gpt-oss-20b')).toBe('openai/gpt-oss-20b');
+  });
+
+  it('without a resolved route the recorded agent-config model is still reported', () => {
+    expect(effectiveModel({ provider: 'none', model: 'gpt-5-mini' }, null)).toBe('gpt-5-mini');
+    expect(effectiveModel({ provider: 'none', model: null }, null)).toBeUndefined();
   });
 });

@@ -30,7 +30,9 @@ async function main(): Promise<void> {
   process.on('SIGTERM', () => void shutdown('SIGTERM'));
 
   await runLoop(
-    { db: handle.db, config, logger, workerId, llm: resolved?.client ?? null, artifactsRoot: 'data' },
+    { db: handle.db, config, logger, workerId, llm: resolved?.client ?? null,
+      llmRoute: resolved ? { provider: resolved.defaultProvider, model: resolved.defaultModel } : null,
+      artifactsRoot: 'data' },
     { signal: controller.signal },
   );
 }

@@ -11,7 +11,7 @@
  * requirement fields with their statuses/priorities and the internal requirements summary, and its
  * traceability duty is audited afterwards (`auditTraceability`).
  */
-import type { ContradictionInput, RequirementFieldInput, SpecDocument, TraceabilityGap } from '@wpp/core';
+import type { AuditIssue, ContradictionInput, RequirementFieldInput, SpecDocument, TraceabilityGap } from '@wpp/core';
 import {
   ClientIntentSchema, SpecificationOutputSchema, zodErrorsToMessages,
   type ClientIntent, type SpecificationOutput,
@@ -33,6 +33,10 @@ export interface SpecRunParams {
     changeItems: Array<{ description: string; likelyFieldPath?: string | null; likelySpecSection?: string | null }>;
     previousSpec?: SpecDocument | null;
     previousVersion?: number;
+    /** §21: set when the Spec Auditor rejected the previous version — the issues to fix, verbatim */
+    auditFindings?: AuditIssue[] | null;
+    auditAttempt?: number | null;
+    auditMaxAttempts?: number | null;
   } | null;
   /** set when a previous attempt failed the traceability audit: the model must fix exactly these */
   repairGaps?: TraceabilityGap[] | null;
@@ -77,6 +81,8 @@ export function buildSpecTaskBlock(params: SpecRunParams): string {
     'ACCEPTANCE CRITERIA (§17) — mandatory and testable:',
     '- Each requirement has 1..6 criteria AC-### with `testable: true` and a `verificationHint`',
     '  (E2E | API | VISUAL | MANUAL | STATIC).',
+    '- Keep the document lean: 2 criteria for MUST, 1 for NICE_TO_HAVE/LATER. Free-tier providers',
+    '  cap tokens per minute, and a truncated JSON fails the contract for the whole run.',
     '- BAD: "the site should look nice". GOOD: "Home page shows the restaurant name, opening hours and a',
     '  map link; clicking Menu opens the menu page with at least 10 dishes."',
     '- Words like beautiful/fast/modern are not criteria: turn them into something observable.',
@@ -101,6 +107,25 @@ export function buildSpecTaskBlock(params: SpecRunParams): string {
     );
   }
 
+  if (params.revision?.auditFindings && params.revision.auditFindings.length > 0) {
+    const attempt = params.revision.auditAttempt ?? 1;
+    const max = params.revision.auditMaxAttempts ?? 3;
+    lines.push(
+      '',
+      `THIS VERSION IS A SPEC-AUDIT REVISION (audit ${attempt} of ${max}). The Spec Auditor rejected the`,
+      'previous version of this specification. Fix EXACTLY these issues, nothing else:',
+      ...params.revision.auditFindings.map(
+        (issue) => `- [${issue.severity}] ${issue.code}: ${issue.description}${issue.specRequirementCode ? ` (requirement ${issue.specRequirementCode})` : ''}${issue.suggestedFix ? ` → ${issue.suggestedFix}` : ''}`,
+      ),
+      'Hard rules for this revision:',
+      '- The client already approved the meaning of this specification. Do NOT change what the site will',
+      '  do, do not drop a requirement and do not add a new one: closing these gaps is the whole job.',
+      '- Keep the same SPEC-REQ codes where a requirement survives; the traceability rules still apply.',
+      '- If an issue asks for something measurable, write the measurement; do not repeat the vague word.',
+      '- Never fix an issue by weakening the acceptance criteria (e.g. deleting a criterion).',
+    );
+  }
+
   if (params.repairGaps && params.repairGaps.length > 0) {
     lines.push(
       '',
@@ -117,14 +142,16 @@ export function buildSpecProjectData(params: SpecRunParams): unknown {
   return {
     projectType: params.projectType,
     requirementsVersion: params.requirementsVersion,
+    // Compact by design: only what the specification must honour. Provenance (sourceMessageId) and
+    // a null category stay in the database and out of the prompt — 39 fields × ~45 chars of
+    // bookkeeping is ~450 tokens of an 8 000 TPM window (see prompt-budget.ts).
     requirementFields: params.fields.map((f) => ({
       fieldPath: f.fieldPath,
-      category: f.category ?? null,
       status: f.status,
       priority: f.priority,
       mandatory: f.mandatory,
       value: f.value ?? null,
-      sourceMessageId: f.sourceMessageId ?? null,
+      ...(f.category ? { category: f.category } : {}),
     })),
     contradictions: params.contradictions,
     internalRequirementsSummary: params.internalSummaryMd,
@@ -134,6 +161,9 @@ export function buildSpecProjectData(params: SpecRunParams): unknown {
           changeItems: params.revision.changeItems,
           previousVersion: params.revision.previousVersion ?? null,
           previousSpec: params.revision.previousSpec ?? null,
+          auditFindings: params.revision.auditFindings ?? null,
+          auditAttempt: params.revision.auditAttempt ?? null,
+          auditMaxAttempts: params.revision.auditMaxAttempts ?? null,
         }
       : null,
     traceabilityRule: 'originReqField must be one of the fieldPath values above; every CLIENT_CONFIRMED / CLIENT_APPROVED_DEFAULT field needs at least one SPEC-REQ.',
@@ -154,6 +184,8 @@ export function buildSpecRunInput(opts: {
   model: string;
   temperature?: number;
   maxOutputTokens?: number;
+  /** reasoning models (Gemini 3.x) can spend the whole completion cap thinking */
+  reasoningEffort?: 'minimal' | 'low' | 'medium' | 'high';
   timeoutMs?: number;
   onRaw?: RunAgentInput<SpecificationOutput>['onRaw'];
 }): RunAgentInput<SpecificationOutput> {
@@ -166,6 +198,7 @@ export function buildSpecRunInput(opts: {
     model: opts.model,
     temperature: opts.temperature,
     maxOutputTokens: opts.maxOutputTokens,
+    reasoningEffort: opts.reasoningEffort,
     timeoutMs: opts.timeoutMs,
     onRaw: opts.onRaw,
   };

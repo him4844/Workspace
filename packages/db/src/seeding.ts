@@ -25,10 +25,13 @@ interface AgentSeedDefinition {
   version: number;
   providerEnv?: string;
   modelEnv?: string;
+  /** env var naming the preset for this agent (e.g. AUDITOR_LLM_PRESET) — model fallback source */
+  presetEnv?: string;
   defaultProvider: string;
   defaultModel: string;
   temperature?: number;
   maxOutputTokens?: number;
+  reasoningEffort?: string;
   timeoutMs?: number;
   maxRetries?: number;
   enabledTools?: string[];
@@ -68,7 +71,23 @@ export async function seedAgentConfigs(
   const out: string[] = [];
   for (const agent of parsed.agents) {
     const provider = (agent.providerEnv ? env[agent.providerEnv] : undefined) ?? env.LLM_PROVIDER ?? agent.defaultProvider;
-    const model = (agent.modelEnv ? env[agent.modelEnv] : undefined) ?? env.LLM_MODEL ?? agent.defaultModel;
+    // Record the model the runtime will actually send (D-033): per-agent env pin → LLM_MODEL → the
+    // selected free preset's model → the agent's own default. Recording the literal placeholder
+    // ('gpt-5-mini') while the route served 'openai/gpt-oss-120b' made the run log, the inspector and
+    // a live debugging session disagree with each other (2026-10-08).
+    const presetId = (agent.presetEnv ? env[agent.presetEnv] : undefined) ?? env.LLM_PRESET;
+    const presetModel = (() => {
+      if (!presetId || presetId === 'scripted' || presetId === 'none') return undefined;
+      try {
+        const file = JSON.parse(readFileSync(join(configDir, 'llm-presets.json'), 'utf8')) as {
+          presets: Array<{ id: string; model: string | null }>;
+        };
+        return file.presets.find((preset) => preset.id === presetId)?.model ?? undefined;
+      } catch {
+        return undefined;
+      }
+    })();
+    const model = (agent.modelEnv ? env[agent.modelEnv] : undefined) ?? env.LLM_MODEL ?? presetModel ?? agent.defaultModel;
 
     const existing = await ex.select().from(agentConfigs).where(eq(agentConfigs.orgId, orgId));
     const match = existing.find((c) => c.agentType === agent.agentType && c.name === agent.name);
@@ -100,6 +119,7 @@ export async function seedAgentConfigs(
         model,
         temperature: agent.temperature !== undefined ? String(agent.temperature) : null,
         maxOutputTokens: agent.maxOutputTokens ?? null,
+        reasoningEffort: agent.reasoningEffort ?? null,
         timeoutMs: agent.timeoutMs ?? 60000,
         maxRetries: agent.maxRetries ?? 2,
         systemInstructions: agent.systemInstructions,

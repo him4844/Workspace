@@ -26,6 +26,7 @@ import {
   buildIntentProjectDataSafe, buildIntentRunInput, buildIntentTaskBlock, renderApprovalRequest,
   runAgentTurn, type ClientIntent,
 } from '@wpp/agents';
+import { effectiveModel } from '../services/llm.js';
 import type { HandlerContext } from '../orchestrator.js';
 import { sendOutboundMessage } from '../services/outbound.js';
 
@@ -180,6 +181,16 @@ export async function clientIntentParse(ctx: HandlerContext, job: JobRow): Promi
         orgId: project.orgId, projectId, type: 'SPEC_LOCKED', actorType: 'SYSTEM',
         payload: { specVersionId: version.id, version: version.version },
       });
+      // §20/§21: the approval is the moment the Spec Auditor takes over (T11, JOB-triggered).
+      // The approved version starts a fresh audit cycle: its revision budget is its own, so a
+      // later client change request can never be blocked by an exhausted earlier loop.
+      await queueRepo.enqueueJob(db, {
+        orgId: project.orgId,
+        type: 'SPEC_AUDIT',
+        projectId,
+        payload: { conversationId, specVersionId: version.id, cycleKey: version.id },
+        idempotencyKey: `spec-audit:${version.id}`,
+      });
       const thanks = await orgRepo.getConfigValue<string>(db, 'spec.approved_message');
       if (thanks) {
         const { message } = await identityRepo.insertMessage(db, {
@@ -250,7 +261,7 @@ async function classifyWithAgent(
     conversationId: params.conversationId,
     jobId: params.job.id,
     provider: agentConfig.version.provider ?? null,
-    model: agentConfig.version.model,
+    model: effectiveModel(agentConfig.version, ctx.llmRoute, ctx.config.SPECIFICATION_LLM_MODEL) ?? agentConfig.version.model,
     configVersionId: agentConfig.version.id,
     inputSummary: { task: 'client-intent', specVersion: params.version.version },
   });
@@ -271,7 +282,7 @@ async function classifyWithAgent(
       }),
       clientMessages,
       outputSchema: agentConfig.version.outputSchema,
-      model: agentConfig.version.model,
+      model: effectiveModel(agentConfig.version, ctx.llmRoute, ctx.config.SPECIFICATION_LLM_MODEL) ?? agentConfig.version.model,
       maxOutputTokens: 400,
       timeoutMs: 20_000,
     }),
@@ -283,7 +294,7 @@ async function classifyWithAgent(
     errorCode: envelope.status === 'FAILED' ? envelope.errorCode : null,
     errorDetail: envelope.status === 'FAILED' ? envelope.message : envelope.status === 'NEEDS_REVIEW' ? envelope.reason : null,
     provider: usage?.provider ?? null,
-    model: usage?.model ?? agentConfig.version.model,
+    model: usage?.model ?? effectiveModel(agentConfig.version, ctx.llmRoute, ctx.config.SPECIFICATION_LLM_MODEL),
     promptTokens: usage?.promptTokens ?? null,
     completionTokens: usage?.completionTokens ?? null,
     costUsd: usage?.costUsd !== undefined ? String(usage.costUsd) : null,

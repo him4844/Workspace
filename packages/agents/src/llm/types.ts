@@ -18,6 +18,13 @@ export interface LlmRequest {
   timeoutMs?: number;
   /** ask the provider for a JSON-only answer where it supports it */
   jsonMode?: boolean;
+  /**
+   * Provider-side reasoning control. Gemini 3.x spends a hidden "thinking" budget out of the SAME
+   * completion cap: measured 2026-10-08, a 4 KB JSON answer came back truncated (146 visible chars,
+   * finish_reason=length) until the cap was raised or reasoning was set to `minimal`. Ignored by
+   * providers that do not support it — but it is only ever SENT when the agent config sets it.
+   */
+  reasoningEffort?: ReasoningEffort;
 }
 
 export interface LlmUsage {
@@ -26,6 +33,13 @@ export interface LlmUsage {
   promptTokens: number;
   completionTokens: number;
   costUsd?: number;
+}
+
+export type ReasoningEffort = 'minimal' | 'low' | 'medium' | 'high';
+
+/** Agent configs store the value as text (config is data): accept only what providers understand. */
+export function parseReasoningEffort(value: unknown): ReasoningEffort | undefined {
+  return value === 'minimal' || value === 'low' || value === 'medium' || value === 'high' ? value : undefined;
 }
 
 export interface LlmCompletion {
@@ -52,8 +66,29 @@ export class LlmError extends Error {
     message: string,
     public readonly retryable: boolean = code !== 'CONTENT_POLICY',
     public readonly detail?: unknown,
+    /** 429: how long the provider asked us to wait (free tiers are token-per-minute limited) */
+    public readonly retryAfterMs?: number,
   ) {
     super(message);
     this.name = 'LlmError';
   }
+}
+
+/**
+ * Pull the wait out of a 429. Providers differ: a `retry-after` header (seconds), a
+ * `retry-after-ms` header, or prose in the body ("Please try again in 16.19s" — Groq).
+ */
+export function parseRetryAfterMs(headers: Headers, bodyText: string): number | undefined {
+  const headerMs = headers.get('retry-after-ms');
+  if (headerMs && Number.isFinite(Number(headerMs))) return Math.max(0, Number(headerMs));
+  const header = headers.get('retry-after');
+  if (header) {
+    const seconds = Number(header);
+    if (Number.isFinite(seconds)) return Math.max(0, seconds * 1000);
+    const at = Date.parse(header);
+    if (!Number.isNaN(at)) return Math.max(0, at - Date.now());
+  }
+  const prose = /try again in ([0-9.]+)\s*s/i.exec(bodyText) ?? /retry after ([0-9.]+)\s*s/i.exec(bodyText);
+  if (prose) return Math.ceil(Number(prose[1]) * 1000);
+  return undefined;
 }

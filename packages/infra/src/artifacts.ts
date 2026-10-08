@@ -26,6 +26,8 @@ export function writeArtifact(
     projectId: string;
     kind: string;
     version: number;
+    /** optional discriminator appended to the file name (e.g. the audit attempt of a version) */
+    label?: string;
     content: string;
     extension?: string;
   },
@@ -33,7 +35,7 @@ export function writeArtifact(
 ): ArtifactWriteResult {
   const root = options.rootDir ?? 'data';
   const extension = params.extension ?? 'md';
-  const relPath = join('projects', params.projectId, params.kind, `v${params.version}.${extension}`);
+  const relPath = join('projects', params.projectId, params.kind, `v${params.version}${params.label ? `-${params.label}` : ''}.${extension}`);
   const absPath = join(root, relPath);
   mkdirSync(dirname(absPath), { recursive: true });
   writeFileSync(absPath, params.content, 'utf8');

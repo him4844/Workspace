@@ -12,7 +12,7 @@ export type TransitionId =
   | 'T01' | 'T02' | 'T03' | 'T04' | 'T05' | 'T06' | 'T07' | 'T08' | 'T09' | 'T10'
   | 'T11' | 'T12' | 'T13' | 'T14' | 'T15' | 'T16' | 'T17' | 'T18' | 'T19' | 'T20'
   | 'T21' | 'T22' | 'T23' | 'T24' | 'T25' | 'T26' | 'T27' | 'T28' | 'T29' | 'T30'
-  | 'T31' | 'T32' | 'T33';
+  | 'T31' | 'T32' | 'T33' | 'T34';
 
 export type TriggerType = 'WEBHOOK' | 'AGENT_SUCCESS' | 'AGENT_FAILURE' | 'HUMAN_ACTION' | 'TIMER' | 'JOB';
 
@@ -241,6 +241,18 @@ export const TRANSITIONS: Record<TransitionId, TransitionDef> = {
     id: 'T33', from: ['COMPLETED', 'IN_DEVELOPMENT', 'READY_FOR_DELIVERY'], to: 'TEAM_REVISION', trigger: 'HUMAN_ACTION', actor: 'HUMAN',
     purpose: 'Approved change request reopens work (§35)', implementedIn: 8,
     guard: () => fail('CHANGE_REQUEST_REQUIRED', 'a locked spec can only be changed through a Change Request (§35)'),
+  },
+  /**
+   * §21 requires the revised specification to go STRAIGHT back to the Spec Auditor ("Specification
+   * Agent → new specification version → Spec Auditor"); the Phase-0 table had no edge for that
+   * return, so a revision could only have re-entered through the client. Added in Phase 4 and
+   * documented in docs/05 (D-036). Guarded by the locked approved base version: a project can only
+   * re-audit when there is an approved specification the revision is closing gaps in.
+   */
+  T34: {
+    id: 'T34', from: ['SPEC_GENERATING'], to: 'SPEC_AUDIT', trigger: 'AGENT_SUCCESS', actor: 'SYSTEM',
+    purpose: 'Revised specification re-enters the Spec Auditor (§21)', implementedIn: 4,
+    guard: (c) => c.hasLockedSpecVersion ? ok : fail('NO_APPROVED_BASE', 'the audit loop needs the client-approved (locked) specification it revises'),
   },
 };
 

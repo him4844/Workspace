@@ -299,7 +299,110 @@ function lastClientMessage(view: PromptView): string {
 export interface PipelineLlmOptions extends SpecPersonaOptions {
   /** replace the client persona answering the requirements interview */
   requirements?: LlmClient;
+  /** replace the scripted auditor (Phase 4 loop tests select a failing mode) */
+  auditor?: LlmClient;
+  /** shorthand for `auditor: createAuditPersonaLlm({ mode })` */
+  auditMode?: ScriptedAuditMode;
 }
+
+// ---------------------------------------------------------------- spec auditor persona (§20)
+
+/**
+ * How the scripted auditor should behave. The demo needs all three shapes of the §21 loop, and the
+ * choice must be visible in the run (not hidden in a flag): the persona reads the attempt number out
+ * of the task block the runtime built.
+ *   'pass'        — approve (default: the happy path ends in READY_FOR_BUILD)
+ *   'fail-first'  — FAIL attempt 1 only, PASS afterwards → shows one revision that works
+ *   'fail-all'    — FAIL every attempt → shows the §21 ceiling + BLOCKED + human task
+ *   'alignment'   — FAIL on client alignment (a revision that changed the approved meaning)
+ */
+export type ScriptedAuditMode = 'pass' | 'fail-first' | 'fail-all' | 'alignment';
+
+export interface AuditPersonaOptions {
+  mode?: ScriptedAuditMode;
+}
+
+function attemptFromTask(task: string): { attempt: number; max: number } {
+  const match = /audit attempt (\d+) of at most (\d+)/i.exec(task);
+  return { attempt: match ? Number(match[1]) : 1, max: match ? Number(match[2]) : 3 };
+}
+
+const auditIssue = (code: string, severity: 'CRITICAL' | 'MAJOR' | 'MINOR', description: string, suggestedFix: string) => ({
+  code, severity, description, suggestedFix, specSection: null, specRequirementCode: null,
+});
+
+/** A scripted Spec Auditor that answers valid frozen-contract JSON for every audit attempt. */
+export function createAuditPersonaLlm(options: AuditPersonaOptions = {}): ScriptedLlm {
+  const mode = options.mode ?? 'pass';
+  const calls: LlmRequest[] = [];
+  return {
+    provider: 'scripted-auditor',
+    calls,
+    remaining: () => Number.POSITIVE_INFINITY,
+    async complete(request: LlmRequest) {
+      const { task } = readPrompt(request);
+      const { attempt, max } = attemptFromTask(task);
+      const shouldFail =
+        mode === 'fail-all'
+        || (mode === 'fail-first' && attempt === 1)
+        || mode === 'alignment';
+      if (!shouldFail) {
+        return {
+          text: JSON.stringify({
+            status: 'PASS',
+            score: 88,
+            criticalIssues: [],
+            warnings: [],
+            missingRequirements: [],
+            contradictions: [],
+            ambiguities: [],
+            recommendations: ['Add a short content checklist for the opening hours (scripted auditor).'],
+            checks: { completeness: 'PASS', consistency: 'PASS', ambiguity: 'PASS', codingReadiness: 'PASS', clientAlignment: 'PASS' },
+          }),
+          usage: { provider: 'scripted-auditor', model: 'scripted-auditor', promptTokens: 1200, completionTokens: 180, costUsd: 0 },
+        };
+      }
+      const issue = mode === 'alignment'
+        ? auditIssue(
+            'CLIENT_ALIGNMENT_FAILURE', 'CRITICAL',
+            'The revision introduces a page ("Yetkazib berish") the approved client summary never described',
+            'Remove the page or return to the client for a new approval before building it',
+          )
+        : auditIssue(
+            'AMBIGUOUS_REQUIREMENT', 'MAJOR',
+            'SPEC-REQ-003 says the site must be "fast" without any measurable target',
+            'State a budget, e.g. home page interactive under 2 s on a 3G connection',
+          );
+      const bucket = mode === 'alignment' ? 'contradictions' : 'ambiguities';
+      return {
+        text: JSON.stringify({
+          status: 'FAIL',
+          score: 55,
+          criticalIssues: bucket === 'contradictions' ? [issue] : [],
+          warnings: [],
+          missingRequirements: [],
+          contradictions: bucket === 'contradictions' ? [issue] : [],
+          ambiguities: bucket === 'ambiguities' ? [issue] : [],
+          recommendations: [],
+          checks: {
+            completeness: 'PASS',
+            consistency: 'PASS',
+            ambiguity: bucket === 'ambiguities' ? 'FAIL' : 'PASS',
+            codingReadiness: 'PASS',
+            clientAlignment: bucket === 'contradictions' ? 'FAIL' : 'PASS',
+          },
+        }),
+        usage: { provider: 'scripted-auditor', model: 'scripted-auditor', promptTokens: 1200, completionTokens: 180, costUsd: 0 },
+      };
+    },
+  };
+}
+
+/** Does this request belong to the Spec Auditor? (§20 task blocks start with "Audit specification") */
+export function isAuditTask(task: string): boolean {
+  return /^\s*Audit specification/.test(task);
+}
+
 
 /** Does this request belong to the Specification Agent (generation, revision) or the intent classifier? */
 export function isSpecTask(task: string): boolean {
@@ -314,6 +417,7 @@ export function isSpecTask(task: string): boolean {
 export function createPipelineLlm(options: PipelineLlmOptions = {}): ScriptedLlm & { calls: LlmRequest[] } {
   const specLlm = createSpecPersonaLlm(options);
   const requirementsLlm = options.requirements ?? createPersonaLlm(RESTAURANT_PERSONA, { useClientAnswer: true });
+  const auditorLlm = options.auditor ?? createAuditPersonaLlm({ mode: options.auditMode });
   const calls: LlmRequest[] = [];
   return {
     provider: 'scripted-router',
@@ -321,7 +425,9 @@ export function createPipelineLlm(options: PipelineLlmOptions = {}): ScriptedLlm
     remaining: () => Number.POSITIVE_INFINITY,
     async complete(request: LlmRequest) {
       calls.push(request);
-      const target = isSpecTask(readPrompt(request).task) ? specLlm : requirementsLlm;
+      const task = readPrompt(request).task;
+      // Audit first: an audit task also contains specification JSON, so the order matters.
+      const target = isAuditTask(task) ? auditorLlm : isSpecTask(task) ? specLlm : requirementsLlm;
       return target.complete(request);
     },
   };

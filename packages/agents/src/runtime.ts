@@ -8,6 +8,7 @@ import type { LlmClient, LlmRequest, LlmUsage } from './llm/types.js';
 import { LlmError } from './llm/types.js';
 import { assemblePrompt, CLIENT_CONTENT_OPEN } from './prompt.js';
 import { AGENT_RULES } from './prompt.js';
+import { budgetReport } from './prompt-budget.js';
 
 export type AgentErrorCode =
   | 'LLM_TIMEOUT' | 'LLM_RATE_LIMITED' | 'LLM_PROVIDER_ERROR' | 'INVALID_JSON'
@@ -39,6 +40,8 @@ export interface RunAgentInput<T> {
   model: string;
   temperature?: number;
   maxOutputTokens?: number;
+  /** see LlmRequest.reasoningEffort — reasoning models can eat the whole completion cap */
+  reasoningEffort?: 'minimal' | 'low' | 'medium' | 'high';
   timeoutMs?: number;
   /** optional hook so callers can persist the raw text for the audit trail */
   onRaw?: (info: { attempt: 0 | 1; text: string }) => void;
@@ -49,6 +52,15 @@ export interface RunAgentDeps {
   systemInstructions: string;
   /** optional logger (pino-compatible), only used for diagnostics */
   logger?: { warn: (obj: unknown, msg?: string) => void };
+  /**
+   * 429 handling for free tiers (§58): when the provider says how long to wait, wait instead of
+   * failing the run — a token-per-minute limit is a pause, not an error. Bounded twice and by
+   * `maxRateLimitWaitMs`: a provider asking for minutes must fail the job (retry policy owns it),
+   * never occupy a worker for minutes (§21). Tests inject `sleepMs` to assert without waiting.
+   */
+  maxRateLimitWaits?: number;
+  maxRateLimitWaitMs?: number;
+  sleepMs?: (ms: number) => Promise<void>;
 }
 
 /** Strip markdown fences and tolerate leading/trailing prose around a JSON object. */
@@ -88,6 +100,17 @@ export async function runAgentTurn<T>(deps: RunAgentDeps, input: RunAgentInput<T
     outputSchema: input.outputSchema,
   });
 
+  // Free-tier guard (§58): providers reserve prompt + max_tokens against a per-minute window, so
+  // an oversized prompt is a 429 waiting to happen. The request still goes out (the window may be
+  // warm), but the numbers are logged so a live run can be diagnosed without guesswork.
+  const budget = budgetReport(messages, input.maxOutputTokens ?? 0);
+  if (!budget.fits) {
+    deps.logger?.warn(
+      { task: input.task.slice(0, 60), ...budget },
+      'prompt exceeds the free-tier per-minute budget — expect a 429 (trim the prompt or lower maxOutputTokens)',
+    );
+  }
+
   let usage: LlmUsage | undefined;
   let lastRaw: unknown;
 
@@ -96,25 +119,54 @@ export async function runAgentTurn<T>(deps: RunAgentDeps, input: RunAgentInput<T
       model: input.model,
       messages,
       temperature: input.temperature,
-      maxOutputTokens: input.maxOutputTokens,
+      // A truncated answer is usually a reasoning budget problem, not a schema problem: the repair
+      // attempt gets more room (bounded by the free-tier window) before a human is asked (§42).
+      maxOutputTokens: attempt === 0 || !input.maxOutputTokens
+        ? input.maxOutputTokens
+        : Math.min(Math.round(input.maxOutputTokens * 1.5), Math.max(0, budget.budgetTokens - budget.promptTokens)),
+      reasoningEffort: input.reasoningEffort,
       timeoutMs: input.timeoutMs,
       jsonMode: true,
     };
 
+    const maxWaits = deps.maxRateLimitWaits ?? 2;
+    const maxWaitMs = deps.maxRateLimitWaitMs ?? 70_000;
+    const sleep = deps.sleepMs ?? ((ms: number) => new Promise<void>((resolve) => setTimeout(resolve, ms)));
     let completion;
-    try {
-      completion = await deps.client.complete(request);
-    } catch (err) {
-      const llmError = err instanceof LlmError
-        ? err
-        : new LlmError('LLM_PROVIDER_ERROR', (err as Error).message, true, err);
-      return {
-        status: 'FAILED',
-        errorCode: llmError.code,
-        message: llmError.message,
-        retryable: llmError.retryable,
-        usage,
-      };
+    let rateLimitWaits = 0;
+    // eslint-disable-next-line no-constant-condition
+    while (true) {
+      try {
+        completion = await deps.client.complete(request);
+        break;
+      } catch (err) {
+        const llmError = err instanceof LlmError
+          ? err
+          : new LlmError('LLM_PROVIDER_ERROR', (err as Error).message, true, err);
+        // Two ways a free provider says "not now": a 429 with an interval, and a 5xx spike with
+        // nothing to read (Gemini's "high demand" 503 answers the same request a minute later).
+        // Both are pauses, not failures — wait them out, bounded (§21, §58).
+        const waitMs = llmError.retryAfterMs
+          ?? (llmError.code === 'LLM_PROVIDER_ERROR' && llmError.retryable ? 5_000 : undefined);
+        const waitable = llmError.code === 'LLM_RATE_LIMITED'
+          || (llmError.code === 'LLM_PROVIDER_ERROR' && llmError.retryable);
+        if (waitable && waitMs !== undefined && waitMs <= maxWaitMs && rateLimitWaits < maxWaits) {
+          rateLimitWaits += 1;
+          deps.logger?.warn(
+            { waitMs, attempt: rateLimitWaits, code: llmError.code },
+            'provider is temporarily unavailable — waiting it out (§58 free tier)',
+          );
+          await sleep(waitMs);
+          continue;
+        }
+        return {
+          status: 'FAILED',
+          errorCode: llmError.code,
+          message: llmError.message,
+          retryable: llmError.retryable,
+          usage,
+        };
+      }
     }
 
     usage = completion.usage;

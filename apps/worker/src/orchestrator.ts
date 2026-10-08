@@ -22,6 +22,12 @@ export interface HandlerContext {
    * pipeline then runs the Phase 1 acknowledgment path instead of failing, §51/D-015).
    */
   llm?: LlmClient | null;
+  /**
+   * The provider/model the injected client actually speaks (the resolved free route). Handlers use
+   * it instead of the DB agent-config model: the seeded model is a placeholder ('gpt-5-mini') and
+   * sending it to a route that cannot serve it was a real 404 in the first live run (2026-10-08).
+   */
+  llmRoute?: { provider: string; model: string } | null;
   /** filesystem root for artifacts (SPEC §45); tests point this at a temp directory */
   artifactsRoot?: string;
 }

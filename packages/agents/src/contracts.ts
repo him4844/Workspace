@@ -219,6 +219,85 @@ export type SpecificationOutput = z.infer<typeof SpecificationOutputSchema>;
 export type SpecRequirement = z.infer<typeof SpecRequirementSchema>;
 export type AcceptanceCriterion = z.infer<typeof AcceptanceCriterionSchema>;
 
+// ------------------------------------------------------------------ spec auditor (§20)
+
+/** One issue, exactly as `docs/contracts/spec-audit-output.json` ($defs/issue) defines it. */
+export const AuditIssueSchema = z.strictObject({
+  code: z.string().min(2).max(80),
+  severity: z.enum(['CRITICAL', 'MAJOR', 'MINOR']),
+  description: z.string().min(3).max(600),
+  specSection: z.string().max(160).nullable().optional(),
+  specRequirementCode: z.string().max(80).nullable().optional(),
+  suggestedFix: z.string().max(600).nullable().optional(),
+});
+
+export const AuditChecksSchema = z.strictObject({
+  completeness: z.enum(['PASS', 'FAIL']),
+  consistency: z.enum(['PASS', 'FAIL']),
+  ambiguity: z.enum(['PASS', 'FAIL']),
+  codingReadiness: z.enum(['PASS', 'FAIL']),
+  clientAlignment: z.enum(['PASS', 'FAIL']),
+});
+
+/**
+ * The §20 structured result. Two contract-level guards keep it usable: a FAIL must say *why*
+ * (otherwise §21 has nothing to send to the Specification Agent and §42 nothing to show a human),
+ * and a PASS may not carry criticalIssues. `checks` is optional in the frozen JSON Schema — the
+ * deterministic audit fills the dimensions the model leaves out.
+ */
+export const SpecAuditOutputSchema = z
+  .strictObject({
+    status: z.enum(['PASS', 'FAIL']),
+    score: z.number().min(0).max(100),
+    criticalIssues: z.array(AuditIssueSchema).max(40),
+    warnings: z.array(AuditIssueSchema).max(40),
+    missingRequirements: z.array(AuditIssueSchema).max(40),
+    contradictions: z.array(AuditIssueSchema).max(40),
+    ambiguities: z.array(AuditIssueSchema).max(40),
+    recommendations: z.array(z.string().min(3).max(600)).max(30),
+    checks: AuditChecksSchema.optional(),
+  })
+  .superRefine((value, ctx) => {
+    if (value.status === 'FAIL') {
+      const reasons = value.criticalIssues.length + value.missingRequirements.length
+        + value.contradictions.length + value.ambiguities.length;
+      if (reasons === 0) {
+        ctx.addIssue({
+          code: 'custom', path: ['status'],
+          message: 'status FAIL requires at least one issue in criticalIssues/missingRequirements/contradictions/ambiguities — name what is wrong',
+        });
+      }
+    } else if (value.criticalIssues.length > 0) {
+      ctx.addIssue({ code: 'custom', path: ['status'], message: 'status PASS cannot carry criticalIssues' });
+    }
+    if (value.checks) {
+      // A failed dimension must be explained by an issue in one of its plausible buckets: an
+      // unexplained "FAIL" is exactly the empty audit §21 cannot act on.
+      const blamedFor: Record<string, Array<keyof typeof value>> = {
+        completeness: ['missingRequirements', 'warnings', 'criticalIssues'],
+        consistency: ['contradictions', 'warnings', 'criticalIssues'],
+        ambiguity: ['ambiguities', 'warnings', 'criticalIssues'],
+        codingReadiness: ['criticalIssues', 'missingRequirements', 'warnings'],
+        clientAlignment: ['contradictions', 'criticalIssues', 'warnings'],
+      };
+      for (const [dimension, state] of Object.entries(value.checks)) {
+        if (state !== 'FAIL') continue;
+        const buckets = blamedFor[dimension] ?? ['criticalIssues', 'warnings'];
+        const explained = buckets.some((bucket) => (value[bucket] as Array<unknown>).length > 0);
+        if (!explained) {
+          ctx.addIssue({
+            code: 'custom', path: ['checks', dimension],
+            message: `checks.${dimension} is FAIL but no issue explains it — every failed check needs a concrete issue (${buckets.join(' | ')})`,
+          });
+        }
+      }
+    }
+  });
+
+export type SpecAuditIssue = z.infer<typeof AuditIssueSchema>;
+export type AuditChecks = z.infer<typeof AuditChecksSchema>;
+export type SpecAuditOutput = z.infer<typeof SpecAuditOutputSchema>;
+
 // ------------------------------------------------------------------ client intent (§18, §19)
 
 export const ClientIntentSchema = z.strictObject({

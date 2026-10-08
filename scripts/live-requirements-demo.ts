@@ -6,6 +6,9 @@
  * inspector endpoint exposes. It never touches the database directly, so it works while the
  * single-process PGlite API holds the data dir (D-022).
  *
+ * With DEMO_PHASE4=1 (implies the Phase-3 flow) it also waits for the Spec Auditor that the
+ * approval starts automatically and prints the §20 verdict / §21 loop from the API.
+ *
  * With DEMO_PHASE3=1 it continues through Phase 3: the client summary, the two-step approval, one
  * change request that produces v2, the approval of v2 and the lock — every step verified over the
  * same HTTP surface a human would use.
@@ -23,6 +26,9 @@ const MAX_TURNS = Number(process.env.DEMO_MAX_TURNS ?? 40);
 const PLAIN = process.env.DEMO_PLAIN === '1';
 // DEMO_PHASE3=1 → keep going after REQUIREMENTS_COMPLETE: summary → approval → change → v2 → LOCK.
 const PHASE3 = process.env.DEMO_PHASE3 === '1';
+// DEMO_PHASE4=1 → after the lock, wait for the Spec Auditor (it runs automatically after approval)
+// and print the merged verdict, the attempts and any human task the §21 loop opened.
+const PHASE4 = process.env.DEMO_PHASE4 === '1';
 const TOKEN = process.env.INTERNAL_API_TOKEN ?? 'dev-internal-token';
 
 async function api<T>(path: string, init?: RequestInit): Promise<T> {
@@ -41,7 +47,12 @@ const sleep = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
 
 interface OutboundMessage { id: string; conversationId: string; status: string; text: string | null }
 
-async function waitForOutbound(conversationId: string | null, seen: Set<string>, timeoutMs = 30_000): Promise<OutboundMessage | null> {
+// Free tiers rate-limit per minute (D-029/D-034): a turn may legitimately take ~60 s while the
+// provider window refills, so the default wait is generous and tunable with DEMO_TURN_TIMEOUT_MS.
+const TURN_TIMEOUT_MS = Number(process.env.DEMO_TURN_TIMEOUT_MS ?? 180_000);
+const SPEC_TIMEOUT_MS = Number(process.env.DEMO_SPEC_TIMEOUT_MS ?? 420_000);
+
+async function waitForOutbound(conversationId: string | null, seen: Set<string>, timeoutMs = TURN_TIMEOUT_MS): Promise<OutboundMessage | null> {
   const deadline = Date.now() + timeoutMs;
   while (Date.now() < deadline) {
     const { messages } = await api<{ count: number; messages: OutboundMessage[] }>('/dev/simulator/outbox');
@@ -75,12 +86,28 @@ console.log(`client → project ${first.projectId}  state=${first.projectState}`
 
 const conversationId = first.conversationId;
 let turn = 0;
+// A free-tier provider can be busy for minutes (429s, one reservation per minute, a repair call
+// after a contract slip). The driver therefore retries the wait instead of giving up after the
+// first quiet window — a run that ends early produces no evidence about the pipeline.
+const MAX_QUIET_WAITS = Number(process.env.DEMO_QUIET_WAITS ?? 3);
+let quietWaits = 0;
 while (turn < MAX_TURNS) {
-  const question = await waitForOutbound(conversationId, seen, turn === 0 ? 30_000 : 30_000);
+  const question = await waitForOutbound(conversationId, seen);
   if (!question) {
-    console.log('no further question arrived — stopping the driver');
-    break;
+    const project = await api<{ state: string }>(`/api/v1/projects/${first.projectId}/requirements`);
+    if (project.state !== 'REQUIREMENTS_IN_PROGRESS') {
+      console.log(`interview over (state=${project.state}) after ${turn} turns`);
+      break;
+    }
+    quietWaits += 1;
+    if (quietWaits >= MAX_QUIET_WAITS) {
+      console.log(`no further question after ${MAX_QUIET_WAITS} waits — stopping the driver`);
+      break;
+    }
+    console.log(`still waiting for the next question (${quietWaits}/${MAX_QUIET_WAITS}, state=${project.state})`);
+    continue;
   }
+  quietWaits = 0;
   seen.add(question.id);
   turn += 1;
   // The question no longer contains the field path (a real model writes human text), so the
@@ -143,7 +170,7 @@ if (!PHASE3) {
   const specView = () => api<SpecView>(`/api/v1/projects/${first.projectId}/spec`);
 
   /** Poll the API until the specification reaches the state the step expects (no guessing timings). */
-  async function waitForSpec(label: string, predicate: (view: SpecView) => boolean, timeoutMs = 90_000): Promise<SpecView> {
+  async function waitForSpec(label: string, predicate: (view: SpecView) => boolean, timeoutMs = SPEC_TIMEOUT_MS): Promise<SpecView> {
     const deadline = Date.now() + timeoutMs;
     let last = await specView();
     while (Date.now() < deadline) {
@@ -220,5 +247,59 @@ if (!PHASE3) {
   const after = await specView();
   console.log(`change requests: ${after.changeRequests.map((c) => `${c.status} — ${c.requestedChange.slice(0, 40)}`).join(' | ') || 'none'}`);
   console.log(`\nDev console: ${BASE}/  (Specification panel: version, approval step, traceability, history)`);
+
+  if (PHASE4) {
+    // ---------------------------------------------------------------- Phase 4 over HTTP
+    interface AuditView {
+      state: string;
+      blockedFrom: string | null;
+      latest: {
+        attempt: number; maxAttempts: number; status: string; score: number;
+        modelFailed: boolean; structuralForcedFail: boolean; provider: string; model: string;
+        issues: Array<{ code: string; severity: string; description: string; specRequirementCode?: string | null; suggestedFix?: string | null }>;
+        checks: Record<string, string> | null;
+      } | null;
+      attempts: Array<{ attempt: number; maxAttempts: number; status: string; score: number; issueCodes: string[]; model: string }>;
+      openTasks: Array<{ type: string; priority: string; title: string; reason: string; suggestedAction: string | null }>;
+      agentRuns: Array<{ agentType: string; status: string; model: string }>;
+    }
+    const auditView = () => api<AuditView>(`/api/v1/projects/${first.projectId}/spec-audit`);
+
+    async function waitForAudit(predicate: (view: AuditView) => boolean, timeoutMs = SPEC_TIMEOUT_MS): Promise<AuditView> {
+      const deadline = Date.now() + timeoutMs;
+      let last = await auditView();
+      while (Date.now() < deadline) {
+        if (predicate(last)) return last;
+        await sleep(1500);
+        last = await auditView();
+      }
+      console.log(`  (no audit verdict within ${Math.round(timeoutMs / 1000)}s — state: ${last.state})`);
+      return last;
+    }
+
+    console.log('\n=== Phase 4: the Spec Auditor runs on its own route (§20) and the §21 loop resolves ===');
+    const audited = await waitForAudit((view) => view.attempts.length > 0 && view.state !== 'CLIENT_APPROVED' && view.state !== 'SPEC_AUDIT');
+    console.log(`project state: ${audited.state}${audited.blockedFrom ? ` (blockedFrom=${audited.blockedFrom})` : ''}`);
+    for (const attempt of audited.attempts) {
+      console.log(`  attempt ${attempt.attempt}/${attempt.maxAttempts}: ${attempt.status} score=${attempt.score} model=${attempt.model} issues=[${attempt.issueCodes.join(', ')}]`);
+    }
+    if (audited.latest) {
+      const l = audited.latest;
+      console.log(`latest verdict: ${l.status} · score ${l.score}/100 · forcedByRules=${l.structuralForcedFail} · modelSaidFail=${l.modelFailed}`);
+      if (l.checks) console.log(`checks: ${Object.entries(l.checks).map(([k, v]) => `${k}=${v}`).join(' ')}`);
+      for (const issue of l.issues.slice(0, 6)) {
+        console.log(`  [${issue.severity}] ${issue.code}${issue.specRequirementCode ? ` (${issue.specRequirementCode})` : ''}: ${issue.description.slice(0, 110)}`);
+        if (issue.suggestedFix) console.log(`      fix: ${issue.suggestedFix.slice(0, 110)}`);
+      }
+      console.log(`auditor: ${l.provider}/${l.model} · agent runs: ${audited.agentRuns.map((r) => `${r.agentType}:${r.status}`).join(', ')}`);
+    }
+    for (const task of audited.openTasks) {
+      console.log(`human task (${task.priority} ${task.type}): ${task.title}`);
+      console.log(`  WHY: ${task.reason}`);
+      if (task.suggestedAction) console.log(`  DO:  ${task.suggestedAction}`);
+    }
+    console.log(`audit panel: ${BASE}/  ·  GET /api/v1/projects/:id/spec-audit`);
+  }
+
   console.log('DONE — specification generated, approved by the client, locked; changes now need a Change Request.');
 }

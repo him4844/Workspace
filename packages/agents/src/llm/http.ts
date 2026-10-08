@@ -2,13 +2,13 @@
  * HTTP adapters. We deliberately use `fetch` instead of vendor SDKs: fewer dependencies,
  * no hidden retries, and the request/response shape stays visible in the audit trail.
  */
-import { LlmError, type LlmClient, type LlmCompletion, type LlmRequest } from './types.js';
+import { LlmError, parseRetryAfterMs, type LlmClient, type LlmCompletion, type LlmRequest } from './types.js';
 import { estimateCostUsd } from './pricing.js';
 
 async function postJson(
   url: string,
   init: { headers: Record<string, string>; body: unknown; timeoutMs: number },
-): Promise<{ status: number; json: unknown; text: string }> {
+): Promise<{ status: number; json: unknown; text: string; headers: Headers }> {
   const controller = new AbortController();
   const timer = setTimeout(() => controller.abort(), init.timeoutMs);
   try {
@@ -25,7 +25,7 @@ async function postJson(
     } catch {
       json = null;
     }
-    return { status: res.status, json, text };
+    return { status: res.status, json, text, headers: res.headers };
   } catch (err) {
     if ((err as { name?: string }).name === 'AbortError') {
       throw new LlmError('LLM_TIMEOUT', `request timed out after ${init.timeoutMs}ms`);
@@ -36,13 +36,26 @@ async function postJson(
   }
 }
 
-function failFromStatus(provider: string, status: number, text: string): never {
+function failFromStatus(provider: string, status: number, text: string, headers?: Headers): never {
   const detail = text.slice(0, 500);
-  if (status === 429) throw new LlmError('LLM_RATE_LIMITED', `${provider} rate limited: ${detail}`);
+  if (status === 429) {
+    const retryAfterMs = headers ? parseRetryAfterMs(headers, text) : undefined;
+    throw new LlmError('LLM_RATE_LIMITED', `${provider} rate limited: ${detail}`, true, detail, retryAfterMs);
+  }
   if (status === 400 && /content policy|safety/i.test(detail)) {
     throw new LlmError('CONTENT_POLICY', `${provider} refused the content`, false, detail);
   }
-  throw new LlmError('LLM_PROVIDER_ERROR', `${provider} returned ${status}: ${detail}`, status >= 500);
+  // 5xx is the provider being temporarily unavailable (measured: Gemini returns 503 "high demand"
+  // for a large prompt in one minute and answers the identical request in the next). retryable=true
+  // plus a short backoff hint lets the agent runtime wait it out instead of burning the job's
+  // retry budget in thirteen seconds.
+  throw new LlmError(
+    'LLM_PROVIDER_ERROR',
+    `${provider} returned ${status}: ${detail}`,
+    status >= 500,
+    undefined,
+    status >= 500 ? 5_000 : undefined,
+  );
 }
 
 /** OpenAI-compatible chat completions (OpenAI, OpenRouter, local gateways …). */
@@ -57,7 +70,7 @@ export function createOpenAICompatibleClient(opts: {
   return {
     provider,
     async complete(request: LlmRequest): Promise<LlmCompletion> {
-      const { status, json, text } = await postJson(`${baseUrl}/chat/completions`, {
+      const { status, json, text, headers } = await postJson(`${baseUrl}/chat/completions`, {
         headers: {
           authorization: `Bearer ${opts.apiKey}`,
           ...(opts.organization ? { 'openai-organization': opts.organization } : {}),
@@ -68,10 +81,11 @@ export function createOpenAICompatibleClient(opts: {
           messages: request.messages,
           temperature: request.temperature ?? 0.3,
           max_tokens: request.maxOutputTokens,
+          ...(request.reasoningEffort ? { reasoning_effort: request.reasoningEffort } : {}),
           ...(request.jsonMode ? { response_format: { type: 'json_object' } } : {}),
         },
       });
-      if (status < 200 || status >= 300) failFromStatus(provider, status, text);
+      if (status < 200 || status >= 300) failFromStatus(provider, status, text, headers);
       const body = json as {
         choices?: Array<{ message?: { content?: string } }>;
         usage?: { prompt_tokens?: number; completion_tokens?: number };
@@ -105,7 +119,7 @@ export function createAnthropicClient(opts: { apiKey: string; baseUrl?: string }
       const messages = request.messages
         .filter((m) => m.role !== 'system')
         .map((m) => ({ role: m.role, content: m.content }));
-      const { status, json, text } = await postJson(`${baseUrl}/messages`, {
+      const { status, json, text, headers } = await postJson(`${baseUrl}/messages`, {
         headers: { 'x-api-key': opts.apiKey, 'anthropic-version': '2023-06-01' },
         timeoutMs: request.timeoutMs ?? 60_000,
         body: {
@@ -116,7 +130,7 @@ export function createAnthropicClient(opts: { apiKey: string; baseUrl?: string }
           max_tokens: request.maxOutputTokens ?? 1024,
         },
       });
-      if (status < 200 || status >= 300) failFromStatus(provider, status, text);
+      if (status < 200 || status >= 300) failFromStatus(provider, status, text, headers);
       const body = json as {
         content?: Array<{ type: string; text?: string }>;
         usage?: { input_tokens?: number; output_tokens?: number };

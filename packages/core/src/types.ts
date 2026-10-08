@@ -95,8 +95,12 @@ export const JOBS_ALLOWED_IN_STATE: Partial<Record<ProjectState, readonly JobTyp
   SPEC_GENERATING: ['SPEC_GENERATE', 'SPEC_REVISE'],
   CLIENT_REVIEW: ['CLIENT_INTENT_PARSE', 'CLIENT_APPROVAL_TIMEOUT', 'SEND_OUTBOUND'],
   CLIENT_CHANGES_REQUESTED: ['SPEC_REVISE', 'CLIENT_INTENT_PARSE', 'CLIENT_APPROVAL_TIMEOUT', 'SEND_OUTBOUND'],
-  CLIENT_APPROVED: ['CLIENT_INTENT_PARSE', 'SEND_OUTBOUND'],
+  // The §21 audit loop: the SPEC_AUDIT job starts *from* CLIENT_APPROVED (T11 is JOB-triggered,
+  // docs/05 §2) and re-runs while the project sits in SPEC_AUDIT.
+  CLIENT_APPROVED: ['CLIENT_INTENT_PARSE', 'SPEC_AUDIT', 'SEND_OUTBOUND'],
   SPEC_AUDIT: ['SPEC_AUDIT'],
+  // docs/05 §4: a revision (audit findings or client changes) is produced by the spec agent here.
+  SPEC_REVISION_REQUIRED: ['SPEC_REVISE', 'SPEC_GENERATE'],
   READY_FOR_BUILD: ['BUILD_RUN'],
   BUILDING: ['BUILD_RUN'],
   CODE_AUDIT: ['CODE_CHECK'],

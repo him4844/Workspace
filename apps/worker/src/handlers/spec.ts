@@ -22,13 +22,13 @@ import {
 } from '@wpp/db';
 import {
   auditSummaryConsistency, auditTraceability, nextSpecVersion, renderSpecMarkdown, WppError,
-  type ClientSummary, type SpecDocument, type TraceabilityGap,
+  type AuditIssue, type ClientSummary, type SpecDocument, type TraceabilityGap,
 } from '@wpp/core';
 import {
   buildSpecProjectData, buildSpecRunInput, buildSpecTaskBlock, looksLikeInjection, renderSummaryMessage,
-  runAgentTurn, type AgentEnvelope, type SpecificationOutput,
-} from '@wpp/agents';
+  runAgentTurn, type AgentEnvelope, type SpecificationOutput, parseReasoningEffort } from '@wpp/agents';
 import { readArtifact, writeArtifact } from '@wpp/infra';
+import { effectiveModel } from '../services/llm.js';
 import type { HandlerContext } from '../orchestrator.js';
 import { sendOutboundMessage } from '../services/outbound.js';
 
@@ -43,7 +43,17 @@ export async function specRevise(ctx: HandlerContext, job: JobRow): Promise<void
 }
 
 async function specTurn(ctx: HandlerContext, job: JobRow, opts: { mode: 'GENERATE' | 'REVISE' }): Promise<void> {
-  const payload = job.payload as { conversationId?: string; messageId?: string; changeItems?: unknown; changeText?: string };
+  const payload = job.payload as {
+    conversationId?: string; messageId?: string; changeItems?: unknown; changeText?: string;
+    /** §21: SPEC_REVISE jobs created by the Spec Auditor carry the issues to fix */
+    reason?: 'SPEC_AUDIT';
+    auditFindings?: AuditIssue[];
+    auditAttempt?: number;
+    auditMaxAttempts?: number;
+    cycleKey?: string;
+    specVersionId?: string;
+  };
+  const isAuditRevision = opts.mode === 'REVISE' && payload.reason === 'SPEC_AUDIT';
   if (!job.projectId || !payload.conversationId) {
     throw new WppError('INVALID_JOB_PAYLOAD', 'SPEC_GENERATE requires projectId and conversationId', 'VALIDATION');
   }
@@ -82,7 +92,7 @@ async function specTurn(ctx: HandlerContext, job: JobRow, opts: { mode: 'GENERAT
     );
     return;
   }
-  const changeText = payload.changeText ?? previous?.changeRequestText ?? '';
+  const changeText = payload.changeText ?? (isAuditRevision ? '' : previous?.changeRequestText ?? '');
 
   if (opts.mode === 'REVISE' && !changeText) {
     const approval = (await specsRepo.listClientApprovals(db, projectId)).filter((a) => a.decision === 'REQUEST_CHANGES').at(-1);
@@ -110,14 +120,15 @@ async function specTurn(ctx: HandlerContext, job: JobRow, opts: { mode: 'GENERAT
   }
 
   // ---------------------------------------------------------------- 4. state transition into generation
-  const transitionId = opts.mode === 'GENERATE' ? 'T06' : 'T09';
+  // T06 start v1 · T09 client-requested revision · T14 auditor-requested revision (§21).
+  const transitionId = opts.mode === 'GENERATE' ? 'T06' : isAuditRevision ? 'T14' : 'T09';
   await db.transaction(async (tx) => {
     await projectsRepo.applyTransition(tx, {
       projectId,
       transitionId,
       context: { hasRequirementsSummary: Boolean(requirementsSummaryArtifact) },
       actorType: 'SYSTEM',
-      meta: { jobId: job.id, mode: opts.mode },
+      meta: { jobId: job.id, mode: opts.mode, reason: payload.reason ?? null },
     });
   });
 
@@ -137,7 +148,7 @@ async function specTurn(ctx: HandlerContext, job: JobRow, opts: { mode: 'GENERAT
     version: versionNumber,
     requirementVersionId: requirementVersion.id,
     spec: { meta: { projectType: project.projectType ?? 'UNKNOWN', generatedFromRequirementsVersion: requirementVersion.version }, requirements: [], openQuestions: [] },
-    changeRequestText: opts.mode === 'REVISE' ? changeText : null,
+    changeRequestText: opts.mode === 'REVISE' ? (changeText || null) : null,
     status: 'DRAFT',
   });
 
@@ -175,6 +186,9 @@ async function specTurn(ctx: HandlerContext, job: JobRow, opts: { mode: 'GENERAT
               changeItems: Array.isArray(payload.changeItems) ? (payload.changeItems as Array<{ description: string }>) : [],
               previousSpec: (previous?.spec ?? null) as SpecDocument | null,
               previousVersion: previous?.version ?? 1,
+              auditFindings: isAuditRevision ? payload.auditFindings ?? [] : null,
+              auditAttempt: isAuditRevision ? payload.auditAttempt ?? null : null,
+              auditMaxAttempts: isAuditRevision ? payload.auditMaxAttempts ?? null : null,
             }
           : null,
       repairGaps,
@@ -189,7 +203,7 @@ async function specTurn(ctx: HandlerContext, job: JobRow, opts: { mode: 'GENERAT
       conversationId,
       jobId: job.id,
       provider: agentConfig.version.provider ?? null,
-      model: agentConfig.version.model,
+      model: effectiveModel(agentConfig.version, ctx.llmRoute, ctx.config.SPECIFICATION_LLM_MODEL) ?? agentConfig.version.model,
       configVersionId: agentConfig.version.id,
       inputSummary: { task: opts.mode === 'REVISE' ? 'revise' : 'generate', attempt, specVersion: versionNumber, requirementsVersion: requirementVersion.version },
     });
@@ -201,9 +215,12 @@ async function specTurn(ctx: HandlerContext, job: JobRow, opts: { mode: 'GENERAT
         projectData: buildSpecProjectData(params),
         clientMessages,
         outputSchema: agentConfig.version.outputSchema,
-        model: agentConfig.version.model,
+        model: effectiveModel(agentConfig.version, ctx.llmRoute, ctx.config.SPECIFICATION_LLM_MODEL) ?? agentConfig.version.model,
         temperature: agentConfig.version.temperature ? Number(agentConfig.version.temperature) : undefined,
-        maxOutputTokens: Math.max(agentConfig.version.maxOutputTokens ?? 2000, 4000),
+        // The agent config owns the budget (config as data, §50): a hard floor here made the
+        // configured cap meaningless and the call impossible on an 8 000 TPM free tier.
+        maxOutputTokens: agentConfig.version.maxOutputTokens ?? 3000,
+        reasoningEffort: parseReasoningEffort(agentConfig.version.reasoningEffort),
         timeoutMs: agentConfig.version.timeoutMs ?? undefined,
       }),
     );
@@ -214,7 +231,7 @@ async function specTurn(ctx: HandlerContext, job: JobRow, opts: { mode: 'GENERAT
       errorCode: envelope.status === 'FAILED' ? envelope.errorCode : null,
       errorDetail: envelope.status === 'FAILED' ? envelope.message : envelope.status === 'NEEDS_REVIEW' ? envelope.reason : null,
       provider: usage?.provider ?? config.LLM_PROVIDER,
-      model: usage?.model ?? agentConfig.version.model,
+      model: usage?.model ?? effectiveModel(agentConfig.version, ctx.llmRoute, ctx.config.SPECIFICATION_LLM_MODEL),
       promptTokens: usage?.promptTokens ?? null,
       completionTokens: usage?.completionTokens ?? null,
       costUsd: usage?.costUsd !== undefined ? String(usage.costUsd) : null,
@@ -349,6 +366,37 @@ async function specTurn(ctx: HandlerContext, job: JobRow, opts: { mode: 'GENERAT
       specArtifactId: specArtifact.id, summaryArtifactId: clientSummaryArtifact.id,
     },
   });
+
+  // ---------------------------------------------------------------- 7a. §21: a spec-audit revision goes straight back to the auditor
+  // The client approved the *meaning* earlier and the auditor is what guarantees the revision did
+  // not change it (client-alignment check) — so nobody is asked to re-approve a corrected document,
+  // and the loop stays automatic as §21 requires.
+  if (isAuditRevision) {
+    await db.transaction(async (tx) => {
+      await projectsRepo.applyTransition(tx, {
+        projectId, transitionId: 'T34',
+        context: { hasLockedSpecVersion: Boolean(versions.some((v) => v.status === 'LOCKED')) },
+        actorType: 'SYSTEM',
+        meta: { specVersionId: specVersion.id, reason: 'SPEC_AUDIT_REVISION' },
+      });
+    });
+    await queueRepo.enqueueJob(db, {
+      orgId: project.orgId,
+      type: 'SPEC_AUDIT',
+      projectId,
+      payload: {
+        conversationId,
+        specVersionId: specVersion.id,
+        cycleKey: payload.cycleKey ?? null,
+      },
+      idempotencyKey: `spec-audit:${specVersion.id}`,
+    });
+    logger.info(
+      { projectId, specVersion: versionNumber, versionId: specVersion.id, auditAttempt: payload.auditAttempt ?? null },
+      'specification revised for the Spec Auditor — re-auditing',
+    );
+    return;
+  }
 
   // ---------------------------------------------------------------- 7. step 1 of the two-step approval (§18)
   const summaryText = renderSummaryMessage(output.clientSummary, { withChoices: false });

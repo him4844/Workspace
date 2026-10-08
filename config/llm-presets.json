@@ -8,12 +8,12 @@
       "label": "Google AI Studio (Gemini free tier)",
       "provider": "openai-compatible",
       "baseUrl": "https://generativelanguage.googleapis.com/v1beta/openai/",
-      "model": "gemini-2.5-flash",
+      "model": "gemini-3.5-flash",
       "keyEnv": "LLM_API_KEY",
       "free": true,
-      "freeLimits": "Flash / Flash-Lite only on the free tier (Pro was removed 2026-04-01); RPM/RPD are shown per project in AI Studio.",
-      "caveats": "No credit card required. On the free tier Google may use the data to improve its products — never send real client secrets.",
-      "source": "ai.google.dev rate limits + AI Studio (see docs/19 §6)"
+      "freeLimits": "Flash / Flash-Lite only on the free tier (Pro is not free). Measured 2026-10-08: a 14,024-token prompt with max_tokens 3,000 completed in 1.2 s (gemini-flash-lite-latest) / 2.1 s (gemini-3.5-flash) — the specification call that cannot fit Groq's 8,000 TPM is fine here.",
+      "caveats": "Keys are AI Studio keys (`AQ.…` and legacy `AIza…` both work as Bearer tokens). `gemini-2.5-*` is retired for new keys (404 → use 3.x). During the 2026-10-08 probe gemini-3.6-flash / gemini-3.7-flash returned 503 or timed out and gemini-flash-latest 503'd; gemini-3.5-flash and gemini-flash-lite-latest were reliable — keep the Lite alias as the fallback route (`LLM_MODEL=gemini-flash-lite-latest`). On the free tier Google may use prompts to improve its products; never send real client secrets.",
+      "source": "ai.google.dev rate limits + AI Studio (see docs/19 §6) + live probe 2026-10-08 (probe log in PHASE_REPORTS/evidence/phase4-provider-probe.txt)"
     },
     {
       "id": "groq-free",
@@ -32,11 +32,11 @@
       "label": "OpenRouter :free models",
       "provider": "openrouter",
       "baseUrl": "https://openrouter.ai/api/v1",
-      "model": "openrouter/free",
+      "model": "nvidia/nemotron-3-ultra-550b-a55b:free",
       "keyEnv": "LLM_API_KEY",
       "free": true,
-      "freeLimits": "20 RPM and 50 requests/day per account; 1,000/day only after a one-time $10 top-up (paid → not used here).",
-      "caveats": "The free roster rotates weekly; some upstream providers may train on prompts. Prefer an explicit ':free' model id over the router when reproducibility matters.",
+      "freeLimits": "20 RPM and 50 requests/day per account without a top-up. Measured 2026-10-08: nemotron-3-ultra-550b-a55b:free answered a JSON-mode call in 1.7 s, cohere/north-mini-code:free in 0.7 s; google/gemma-4-26b-a4b-it:free was rate-limited upstream and thinkingmachines/inkling-small:free refused non-agentic clients (403).",
+      "caveats": "The free roster rotates (16 `:free` slugs on 2026-10-08) — re-check `GET /api/v1/models` (pricing.prompt = 0) before relying on a slug; `deepseek/deepseek-chat-v3.1:free` had already become paid-only. Used here as a fallback route, not the default.",
       "source": "openrouter.ai/docs limits (docs/19 §6)"
     },
     {

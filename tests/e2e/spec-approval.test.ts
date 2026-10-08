@@ -240,7 +240,12 @@ describe('phase 3 specification + client approval (end to end)', () => {
     expect(inboundIds.has(approvals[0]!.sourceMessageId)).toBe(true);
 
     const approvedProject = await projectsRepo.getProject(ctx.handle.db, projectId);
-    expect(approvedProject!.state).toBe('CLIENT_APPROVED');
+    // Phase 4: the approval hands over to the Spec Auditor automatically (T11), and with a scripted
+    // auditor that passes, the project reaches READY_FOR_BUILD inside the same advance().
+    expect(['CLIENT_APPROVED', 'SPEC_AUDIT', 'READY_FOR_BUILD']).toContain(approvedProject!.state);
+    const afterApprovalTransitions = (await projectsRepo.listTransitions(ctx.handle.db, projectId)).map((t) => t.transitionId);
+    expect(afterApprovalTransitions).toContain('T11');
+    expect(afterApprovalTransitions).toContain('T12');
     const afterApproval = (await projectsRepo.listTransitions(ctx.handle.db, projectId)).map((t) => t.transitionId);
     expect(afterApproval).toContain('T10');
     const lockEvents = await eventsOfType('SPEC_LOCKED');

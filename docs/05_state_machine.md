@@ -32,6 +32,7 @@ stateDiagram-v2
   SPEC_AUDIT --> SPEC_REVISION_REQUIRED : FAIL (attempt < 3)
   SPEC_AUDIT --> BLOCKED : FAIL (attempt = 3)
   SPEC_REVISION_REQUIRED --> SPEC_GENERATING : revision
+  SPEC_GENERATING --> SPEC_AUDIT : revised spec re-audited (§21, T34)
   READY_FOR_BUILD --> BUILDING
   BUILDING --> CODE_AUDIT : build ok
   BUILDING --> FAILED : build unrecoverable
@@ -68,11 +69,12 @@ stateDiagram-v2
 | T08 | `CLIENT_REVIEW` | `CLIENT_CHANGES_REQUESTED` | client message classified as change request | message id recorded | extract changed fields; keep `vN` immutable |
 | T09 | `CLIENT_CHANGES_REQUESTED` | `SPEC_GENERATING` | auto | change parsed, ≤ `max_client_revision_cycles` | new spec version `vN+1`; new summary; events |
 | T10 | `CLIENT_REVIEW` | `CLIENT_APPROVED` | explicit client approval (keyword/quick-reply/parsed intent **with message ref**) | approval message id stored in `client_approvals` | **lock spec vN** (`locked_at`), `client_approvals.insert(APPROVED)`, events |
-| T11 | `CLIENT_APPROVED` | `SPEC_AUDIT` | auto | locked spec version exists | enqueue `SPEC_AUDIT` |
-| T12 | `SPEC_AUDIT` | `READY_FOR_BUILD` | Spec Auditor status = PASS | audit row persisted with score | `spec_audits.insert`; enqueue `BUILD_START` after human/auto gate (config) |
-| T13 | `SPEC_AUDIT` | `SPEC_REVISION_REQUIRED` | auditor FAIL | `loop_counters.spec_audit.attempts < 3` | increment counter; persist structured findings; enqueue `SPEC_REVISE` |
-| T14 | `SPEC_REVISION_REQUIRED` | `SPEC_GENERATING` | auto | findings exist | spec agent receives findings + previous version |
-| T15 | `SPEC_AUDIT` | `BLOCKED` | auditor FAIL | `attempts == 3` | create human task `HUMAN_REVIEW` with exact unresolved issues; **stop automation** |
+| T11 | `CLIENT_APPROVED` | `SPEC_AUDIT` | JOB (`SPEC_AUDIT`) | locked spec version exists | the job opens a new audit cycle (`cycle_key` = the approved version) and runs the auditor |
+| T12 | `SPEC_AUDIT` | `READY_FOR_BUILD` | Spec Auditor status = PASS (merged verdict, D-035) | audit row persisted with score | `spec_audits.insert`; the audited version is LOCKED (a revision that closed audit gaps becomes the build source, D-038); events + audit report artifact. Enqueueing `BUILD_RUN` is Phase 5's T16 |
+| T13 | `SPEC_AUDIT` | `SPEC_REVISION_REQUIRED` | auditor FAIL | attempts of this cycle < `loop.spec_audit.max` (3) | `spec_audits.insert` (the attempt counter IS these rows, D-038); persist the merged findings; enqueue `SPEC_REVISE` with the exact issues |
+| T14 | `SPEC_REVISION_REQUIRED` | `SPEC_GENERATING` | JOB (`SPEC_REVISE`) | findings exist | spec agent receives the auditor's issues + previous version |
+| **T34** | `SPEC_GENERATING` | `SPEC_AUDIT` | Spec Agent returned SUCCESS for an audit revision | a locked (approved) base exists | enqueue `SPEC_AUDIT` for the revision; **no client message** — the auditor's client-alignment check is what guards the approval already given (§21, added in Phase 4, D-036) |
+| T15 | `SPEC_AUDIT` | `BLOCKED` | auditor FAIL | attempts == `loop.spec_audit.max` | create human task `HUMAN_REVIEW` (CRITICAL) whose reason explains WHY a human is needed (§42) and quotes every unresolved issue; **stop automation** (no further pipeline job) |
 | T16 | `READY_FOR_BUILD` | `BUILDING` | auto or team "Rebuild" | stack/tech gate approved (`tech_approval` present or config allows auto) | create `builds` row (vN), create workspace, enqueue `BUILD_RUN` |
 | T17 | `BUILDING` | `CODE_AUDIT` | coding agent SUCCESS **and** build runner: install+build exit 0 | logs artifact stored | persist build version + artifacts + preview URL; enqueue `CODE_CHECK` |
 | T18 | `BUILDING` | `FAILED` | build error non-retryable **or** retries exhausted | — | store structured error (§40); create human task; notify |
@@ -159,8 +161,9 @@ Counters live in `loop_counters (project_id, scope, key, value, updated_at)` —
 | State | Jobs that may run |
 |---|---|
 | `INTAKE`, `REQUIREMENTS_IN_PROGRESS` | `REQUIREMENTS_TURN`, `INACTIVITY_CHECK` |
-| `REQUIREMENTS_COMPLETE`, `SPEC_GENERATING`, `SPEC_REVISION_REQUIRED` | `SPEC_GENERATE`, `SPEC_REVISE` |
+| `REQUIREMENTS_COMPLETE`, `SPEC_GENERATING`, `SPEC_REVISION_REQUIRED` | `SPEC_GENERATE`, `SPEC_REVISE` (a revision is produced in `SPEC_REVISION_REQUIRED`, §21) |
 | `CLIENT_REVIEW`, `CLIENT_CHANGES_REQUESTED` | `CLIENT_INTENT_PARSE`, `CLIENT_APPROVAL_TIMEOUT` |
+| `CLIENT_APPROVED` | `CLIENT_INTENT_PARSE`, `SPEC_AUDIT` (T11 is JOB-triggered), `SEND_OUTBOUND` |
 | `SPEC_AUDIT` | `SPEC_AUDIT` |
 | `READY_FOR_BUILD`, `BUILDING`, `CODE_REVISION_REQUIRED`, `TEAM_REVISION` | `BUILD_RUN` |
 | `CODE_AUDIT` | `CODE_CHECK` |
@@ -170,6 +173,8 @@ Counters live in `loop_counters (project_id, scope, key, value, updated_at)` —
 A worker claims a job **only if** `project.state` is in the job type's allowed set; otherwise the job is parked with reason `STATE_MISMATCH` (this is the mechanism that makes "next agent invoked only when prerequisites are satisfied" real, §4.6).
 
 ## 7. Invariants (asserted in tests + DB constraints where possible)
+
+0. The §21 audit loop cannot exceed its ceiling: attempts are derived from `spec_audits` rows of the cycle (`cycle_key`), so a crash, replay or restart cannot re-open revisions; after the ceiling the project is `BLOCKED` with a human task quoting the unresolved issues and no further `SPEC_AUDIT`/`SPEC_REVISE` job is enqueued.
 
 1. A build cannot exist without a locked spec version it was built from (`builds.spec_version_id NOT NULL`).
 2. A `code_check` cannot exist without a build (`code_checks.build_id NOT NULL`, per-requirement rows reference `spec_requirements`).

@@ -26,9 +26,9 @@ import {
 } from '@wpp/core';
 import {
   buildProjectDataBlock, buildRequirementsRunInput, buildTaskBlock, fallbackQuestionText,
-  looksLikeInjection, runAgentTurn, toClientMessage, type AgentEnvelope, type RequirementsTurn,
-} from '@wpp/agents';
+  looksLikeInjection, runAgentTurn, toClientMessage, type AgentEnvelope, type RequirementsTurn, parseReasoningEffort } from '@wpp/agents';
 import { writeArtifact } from '@wpp/infra';
+import { effectiveModel } from '../services/llm.js';
 import type { HandlerContext } from '../orchestrator.js';
 import { sendOutboundMessage } from '../services/outbound.js';
 
@@ -444,6 +444,7 @@ interface AgentConfigRow {
     model: string;
     temperature: string | number | null;
     maxOutputTokens: number | null;
+    reasoningEffort?: string | null;
     timeoutMs: number | null;
     systemInstructions: string;
     outputSchema: unknown;
@@ -475,7 +476,7 @@ async function runTurn(
     conversationId: (params.job.payload as { conversationId?: string }).conversationId ?? null,
     jobId: params.job.id,
     provider: config.LLM_PROVIDER,
-    model: params.agentConfig.version.model,
+    model: effectiveModel(params.agentConfig.version, ctx.llmRoute, ctx.config.REQUIREMENTS_LLM_MODEL) ?? params.agentConfig.version.model,
     configVersionId: params.agentConfig.version.id,
     inputSummary: params.inputSummary,
   });
@@ -487,9 +488,10 @@ async function runTurn(
       projectData: params.projectData,
       clientMessages: params.clientMessages,
       outputSchema: params.agentConfig.version.outputSchema,
-      model: params.agentConfig.version.model,
+      model: effectiveModel(params.agentConfig.version, ctx.llmRoute, ctx.config.REQUIREMENTS_LLM_MODEL) ?? params.agentConfig.version.model,
       temperature: params.agentConfig.version.temperature ? Number(params.agentConfig.version.temperature) : undefined,
       maxOutputTokens: params.agentConfig.version.maxOutputTokens ?? undefined,
+      reasoningEffort: parseReasoningEffort(params.agentConfig.version.reasoningEffort),
       timeoutMs: params.agentConfig.version.timeoutMs ?? undefined,
     }),
   );
@@ -500,7 +502,7 @@ async function runTurn(
     errorCode: envelope.status === 'FAILED' ? envelope.errorCode : null,
     errorDetail: envelope.status === 'FAILED' ? envelope.message : envelope.status === 'NEEDS_REVIEW' ? envelope.reason : null,
     provider: usage?.provider ?? config.LLM_PROVIDER,
-    model: usage?.model ?? params.agentConfig.version.model,
+    model: usage?.model ?? effectiveModel(params.agentConfig.version, ctx.llmRoute, ctx.config.REQUIREMENTS_LLM_MODEL),
     promptTokens: usage?.promptTokens ?? null,
     completionTokens: usage?.completionTokens ?? null,
     costUsd: usage?.costUsd !== undefined ? String(usage.costUsd) : null,

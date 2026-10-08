@@ -32,7 +32,9 @@ import { assertSpecWritable } from '@wpp/core';
 import { tick } from '../apps/worker/src/orchestrator.js';
 import { getConnectionForChannel } from '../apps/api/src/services/context.js';
 
-const config = loadConfig();
+// Scripted runs are explicit about it: the provider decision lives in config, not in hope. A demo
+// must never hit a paid/free-tier provider by accident because the developer's .env says so.
+const config = { ...loadConfig(), LLM_PROVIDER: 'scripted' as const };
 const handle = await createDb({ memory: true });
 await applyMigrations(handle);
 const db = handle.db;

@@ -60,7 +60,7 @@ Legend: **R** required, **O** optional, **D** dev-only.
 | `LLM_API_KEY` | O | provider key; absent key + a real provider ⇒ the platform runs with **no** LLM (`resolveLlmClient` → null), never a silent fallback |
 | `LLM_BASE_URL` | O | OpenAI-compatible gateway / proxy / self-hosted endpoint |
 | `LLM_MODEL` | O | default model for agents that do not pin one in `agent_config_versions` |
-| `REQUIREMENTS_LLM_PROVIDER` / `REQUIREMENTS_LLM_MODEL` | O | per-agent override (SPEC §51); the Spec Auditor must point at a *different* provider than the main agents |
+| `REQUIREMENTS_LLM_PROVIDER` / `REQUIREMENTS_LLM_MODEL` | O | per-agent override (SPEC §51); the Spec Auditor uses the `AUDITOR_LLM_*` route above so it never writes and reviews on one route (D-037 — a *different provider* is the intent, a different model+key is what the available free keys allow) |
 | `LLM_PRESET` | O | named route from `config/llm-presets.json` (`gemini-free`, `groq-free`, `openrouter-free`, `ollama-local`, `scripted`, `none`, `openai-paid`, `anthropic-paid`); when set, its base URL and model are the defaults (env still overrides) |
 | `LLM_FREE_ONLY` | D | `true` — **the project is free-only** (D-029): a route that is not marked `free` in the presets file, and whose host is not a documented free tier or a local/LAN address, is refused and the platform runs with no LLM instead of spending money |
 | `LLM_DAILY_BUDGET_USD` | D | `10` — runaway-cost guard (§26); with `LLM_FREE_ONLY=true` the realistic spend is $0 |
@@ -68,6 +68,8 @@ Legend: **R** required, **O** optional, **D** dev-only.
 | `OPENAI_API_KEY` / `ANTHROPIC_API_KEY` | — | **not read by the code today**: the factory only reads `LLM_API_KEY`. Kept in this table as the names an operator would expect; adopt them (as aliases) if they are preferred over the generic key |
 | `OPENROUTER_API_KEY` | O | OpenRouter adapter |
 | `OLLAMA_BASE_URL` | O | local/self-hosted OpenAI-compatible endpoint |
+| `AUDITOR_LLM_PROVIDER` / `AUDITOR_LLM_PRESET` / `AUDITOR_LLM_BASE_URL` / `AUDITOR_LLM_MODEL` / `AUDITOR_LLM_API_KEY` | O | the Spec Auditor's **own route** (§20, D-037): when set it wins over the main route, so the reviewer does not share the writer's key, model or quota. Independence is achieved by model + key; with a single provider (all keys Groq) it is *not* vendor independence, and the audit row records exactly which model answered |
+| `GROQ_API_KEY_SPARE_1` / `GROQ_API_KEY_SPARE_2` | O | extra free-tier keys for manual rotation; note that Groq's request/TPM limits are **per organization**, so spares do not multiply the budget (they only survive a revoked key) |
 | `LLM_FAKE_MODE` | D | `true` → deterministic fake provider for tests |
 | `LLM_DAILY_SPEND_CAP_USD` | O | kills runaway cost (§sec) |
 

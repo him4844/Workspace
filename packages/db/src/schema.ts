@@ -377,6 +377,8 @@ export const agentConfigVersions = pgTable('agent_config_versions', {
   model: text('model').notNull(),
   temperature: numeric('temperature', { precision: 3, scale: 2 }),
   maxOutputTokens: integer('max_output_tokens'),
+  /** 'minimal'|'low'|'medium'|'high' — sent to providers that support it (Gemini 3.x) */
+  reasoningEffort: text('reasoning_effort'),
   timeoutMs: integer('timeout_ms').notNull().default(60000),
   maxRetries: integer('max_retries').notNull().default(2),
   systemInstructions: text('system_instructions').notNull(),
@@ -466,6 +468,8 @@ export const configValues = pgTable('config_values', {
 
 // ---------------------------------------------------------------- Phase 3: specification (§14–§19)
 
+export const auditStatusEnum = pgEnum('audit_status', ['PASS', 'FAIL']);
+
 export const specStatusEnum = pgEnum('spec_status', ['DRAFT', 'IN_REVIEW', 'CHANGES_REQUESTED', 'APPROVED', 'LOCKED', 'SUPERSEDED']);
 export const approvalDecisionEnum = pgEnum('approval_decision', ['APPROVE', 'REQUEST_CHANGES']);
 export const changeRequestStatusEnum = pgEnum('change_request_status', ['REQUESTED', 'ANALYZING', 'APPROVED', 'REJECTED', 'IMPLEMENTING', 'COMPLETED']);
@@ -494,6 +498,30 @@ export const specVersions = pgTable('spec_versions', {
 }, (t) => ({
   projectVersionUq: uniqueIndex('spec_versions_project_version_uq').on(t.projectId, t.version),
   projectIx: index('spec_versions_project_ix').on(t.projectId, t.createdAt),
+}));
+
+export const specAudits = pgTable('spec_audits', {
+  id: text('id').primaryKey(),
+  orgId: text('org_id').notNull().references(() => organizations.id),
+  projectId: text('project_id').notNull().references(() => projects.id),
+  specVersionId: text('spec_version_id').notNull().references(() => specVersions.id, { onDelete: 'cascade' }),
+  cycleKey: text('cycle_key').notNull(),
+  attempt: integer('attempt').notNull(),
+  maxAttempts: integer('max_attempts').notNull(),
+  status: auditStatusEnum('status').notNull(),
+  score: integer('score').notNull(),
+  verdict: jsonb('verdict').notNull().default({}),
+  structuralFindings: jsonb('structural_findings').notNull().default([]),
+  structuralForcedFail: boolean('structural_forced_fail').notNull().default(false),
+  modelFailed: boolean('model_failed').notNull().default(false),
+  provider: text('provider'),
+  model: text('model'),
+  agentRunId: text('agent_run_id').references(() => agentRuns.id),
+  createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+}, (t) => ({
+  projectIx: index('spec_audits_project_ix').on(t.projectId, t.createdAt),
+  cycleIx: index('spec_audits_cycle_ix').on(t.projectId, t.cycleKey, t.attempt),
+  versionIx: index('spec_audits_version_ix').on(t.specVersionId),
 }));
 
 export const specRequirements = pgTable('spec_requirements', {
@@ -572,5 +600,5 @@ export const schema = {
   conversations, conversationState, projects, projectStateTransitions, loopCounters,
   messages, jobs, jobAttempts, idempotencyKeys, events, agentRuns,
   tasks, artifacts, configValues,
-  specVersions, specRequirements, acceptanceCriteria, clientApprovals, changeRequests,
+  specVersions, specRequirements, acceptanceCriteria, clientApprovals, changeRequests, specAudits,
 };

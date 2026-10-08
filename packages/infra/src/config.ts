@@ -67,6 +67,15 @@ const ConfigSchema = z.object({
   LLM_MODEL: z.string().optional(),
   REQUIREMENTS_LLM_PROVIDER: z.string().optional(),
   REQUIREMENTS_LLM_MODEL: z.string().optional(),
+  SPECIFICATION_LLM_MODEL: z.string().optional(),
+  // §20: the Spec Auditor is a second opinion, so it gets its OWN route — its own key (a separate
+  // rate-limit bucket on free tiers) and, where possible, a different model/provider than the
+  // agent that wrote the specification. Unset values fall back to the main LLM_* route.
+  AUDITOR_LLM_PROVIDER: z.string().optional(),
+  AUDITOR_LLM_PRESET: z.string().optional(),
+  AUDITOR_LLM_MODEL: z.string().optional(),
+  AUDITOR_LLM_API_KEY: z.string().optional(),
+  AUDITOR_LLM_BASE_URL: z.string().optional(),
   LLM_DAILY_BUDGET_USD: z.string().optional().transform((v) => (v === undefined || v === '' ? 10 : Number.parseFloat(v))),
   AGENT_MAX_REPAIRS: int(1),
 

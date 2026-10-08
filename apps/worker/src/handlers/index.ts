@@ -8,6 +8,7 @@ import { WppError, type JobType } from '@wpp/core';
 import { sendOutboundMessage } from '../services/outbound.js';
 import { requirementsTurn } from './requirements.js';
 import { specGenerate, specRevise } from './spec.js';
+import { specAudit } from './audit.js';
 import { clientApprovalTimeout, clientIntentParse } from './clientIntent.js';
 import { inactivityCheck } from './inactivity.js';
 import type { HandlerContext } from '../orchestrator.js';
@@ -91,7 +92,7 @@ export const HANDLERS: Partial<Record<JobType, JobHandler>> = {
   REQUIREMENTS_TURN: requirementsTurn,
   SPEC_GENERATE: specGenerate,
   SPEC_REVISE: specRevise,
-  SPEC_AUDIT: notImplemented('Phase 4'),
+  SPEC_AUDIT: specAudit,
   CLIENT_INTENT_PARSE: clientIntentParse,
   CLIENT_APPROVAL_TIMEOUT: clientApprovalTimeout,
   BUILD_RUN: notImplemented('Phase 5'),

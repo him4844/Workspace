@@ -121,6 +121,8 @@ export function buildRequirementsRunInput(opts: {
   model: string;
   temperature?: number;
   maxOutputTokens?: number;
+  /** reasoning models (Gemini 3.x) can spend the whole completion cap thinking */
+  reasoningEffort?: 'minimal' | 'low' | 'medium' | 'high';
   timeoutMs?: number;
   onRaw?: RunAgentInput<RequirementsTurn>['onRaw'];
 }): RunAgentInput<RequirementsTurn> {
@@ -133,6 +135,7 @@ export function buildRequirementsRunInput(opts: {
     model: opts.model,
     temperature: opts.temperature,
     maxOutputTokens: opts.maxOutputTokens,
+    reasoningEffort: opts.reasoningEffort,
     timeoutMs: opts.timeoutMs,
     onRaw: opts.onRaw,
   };

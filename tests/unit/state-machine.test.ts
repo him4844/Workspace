@@ -116,9 +116,11 @@ describe('state machine — transition records', () => {
     }
   });
 
-  it('transition ids are unique and complete (T01…T33)', () => {
+  it('transition ids are unique and complete (T01…T34)', () => {
     const ids = Object.keys(TRANSITIONS).sort();
-    expect(ids.length).toBe(33);
-    expect(new Set(ids).size).toBe(33);
+    // T34 was added in Phase 4: SPEC_GENERATING → SPEC_AUDIT, the return edge §21 needs so an
+    // auditor-requested revision is re-audited instead of going back to the client (DECISIONS D-036).
+    expect(ids.length).toBe(34);
+    expect(new Set(ids).size).toBe(34);
   });
 });

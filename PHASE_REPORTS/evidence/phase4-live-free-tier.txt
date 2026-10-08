@@ -1,0 +1,12 @@
+
+> wpp@0.1.0 demo:live
+> tsx scripts/live-requirements-demo.ts
+
+=== Live requirements interview over HTTP (simulator channel) ===
+client → project 01a11c48-0470-7d08-bd9e-f32e21562fca  state=INTAKE
+
+  Q1 [business_purpose.purpose] Salom! 'Osh Baraka' restorani uchun ajoyib sayt yaratishda mamnuniyat bilan yordam beramiz.
+  A1 Mijozlar restoranimizni topib, menyuni ko‘rib, stol bron qilishi uchun
+
+  Q2 [target_audience.primary] Ajoyib! Demak, sayt orqali mijozlar menyuni ko'rib, stol band qila olishadi.
+  A2 Toshkentdagi 25-45 yoshli oilalar va ofis xodimlari

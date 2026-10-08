@@ -25,7 +25,12 @@ async function main(): Promise<void> {
     const resolved = await resolveLlmClient(config, logger);
     logger.info({ workerId, llm: resolved?.defaultProvider ?? 'none', model: resolved?.defaultModel ?? null }, 'embedded worker loop starting');
     void runLoop(
-      { db: handle.db, config, logger, workerId, llm: resolved?.client ?? null, artifactsRoot: 'data' },
+      {
+        db: handle.db, config, logger, workerId, llm: resolved?.client ?? null,
+        // the route the injected client speaks: handlers must never send the seeded placeholder model
+        llmRoute: resolved ? { provider: resolved.defaultProvider, model: resolved.defaultModel } : null,
+        artifactsRoot: 'data',
+      },
       { signal: workerController.signal },
     ).catch((err) => {
       logger.error({ err }, 'embedded worker loop stopped unexpectedly');

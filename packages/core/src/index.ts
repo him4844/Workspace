@@ -4,3 +4,4 @@ export * from './window.js';
 export * from './state-machine/transitions.js';
 export * from './requirements/index.js';
 export * from './spec/index.js';
+export * from './audit/index.js';

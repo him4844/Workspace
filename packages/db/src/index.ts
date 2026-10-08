@@ -19,6 +19,7 @@ export * as questionnairesRepo from './repositories/questionnaires.js';
 export * as agentConfigRepo from './repositories/agentConfig.js';
 export * as artifactsRepo from './repositories/artifacts.js';
 export * as specsRepo from './repositories/specs.js';
+export * as auditsRepo from './repositories/audits.js';
 
 // ---- flat exports (projects & state machine) ----
 export {
