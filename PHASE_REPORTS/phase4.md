@@ -2,6 +2,9 @@
 
 **Phase file:** `docs/phases/04_phase4_spec_auditor.md` · **Report per:** `docs/phases/00_COMMON_RULES.md`
 **Date:** 2026-10-08 · **Status:** COMPLETE — **waiting for human approval before Phase 5**
+**Update (same day, evening):** the auditor now runs live on its own vendor route and the first
+**live audit row is captured** (D-049…D-051) — both the PASS path and the FAIL→BLOCK path are
+proven with real providers, not only scripted.
 
 Every number below comes from a command you can re-run; the raw output is in `PHASE_REPORTS/evidence/`.
 The whole phase was built and verified **at zero cost** (D-029): the auditor has its own free route, and
@@ -33,12 +36,13 @@ every acceptance check is reproducible without any key (`LLM_PROVIDER=scripted`)
 
 ```
 tsc --noEmit                                  clean
-vitest: 15 files, 168 tests                   ALL PASS   (Phase 3 left 138; +14 audit core, +6 audit e2e, +7 rate-limit, +3 misc)
+vitest: 16 files, 179 tests                   ALL PASS   (213 s; Phase 3 left 138; +14 audit core, +6 audit e2e, +7 rate-limit, +14 requirements-core incl. the §10 rule, +0 misc regressions)
 node scripts/check-docs.mjs                   OK: 23 docs present, contracts valid JSON
 EXIT=0
 ```
+(Earlier same-day run: 15 files / 168 tests — see git history of `evidence/phase4-verify.txt`.)
 
-### 2.2 Phase-4 acceptance checks — `tests/e2e/spec-audit.test.ts` (6/6, scripted provider, real everything else)
+### 2.2 Phase-4 acceptance checks — `tests/e2e/spec-audit.test.ts` (5/5, scripted provider, real everything else)
 
 | Phase-file acceptance check | Test | Result |
 |---|---|---|
@@ -52,13 +56,39 @@ EXIT=0
 * `evidence/phase4-simulate-pass.txt` — happy path: 30 interview turns → spec v1 (30 SPEC-REQ) → two-step approval → **T11 audit PASS (score 88) → T12 READY_FOR_BUILD**, current spec LOCKED, 0 human tasks, 0 client messages during the audit.
 * `evidence/phase4-simulate-blocked.txt` — `DEMO_AUDIT_MODE=fail-all`: three audit attempts, transitions `…T10 → T11 → T13 → T14 → T34 → T13 → T14 → T34 → T15`, versions `v1 LOCKED (approved base) · v2 SUPERSEDED · v3 IN_REVIEW`, then **BLOCKED** with the CRITICAL human task (*"…3 time(s) (limit 3) … A human must decide: fix the specification/requirements, talk to the client, or approve a scoped exception"*), 3 `SPEC_AUDIT_RESULT` events, 3 audit artifacts.
 
-### 2.4 Real provider runs with the supplied Groq keys — `evidence/phase3-live-real.txt`
+### 2.4 Live runs with the supplied free keys (2026-10-08) — writer Gemini AI Studio, auditor OpenRouter `:free`
 
-The interview ran on `openai-compatible / openai/gpt-oss-120b` for **5 real turns** with genuine Uzbek questions and answers (the first *real* model output in this project), and the run produced two hard facts that are now fixed and measured:
+The routes are now genuinely vendor-separated (D-042/D-045/D-048): the writer is pinned to the
+measured `gemini-3.1-flash-lite` (the `gemini-flash-lite-latest` alias answered 503 and once hung a
+job for 900 s; the pinned model answered the identical call 200 in 2.96 s), and the auditor is
+`openrouter / cohere/north-mini-code:free` with **`reasoningEffort: 'none'`** (D-049 — see §3.1:
+without it the reasoning model burned its whole completion cap on hidden thinking and returned
+empty content, which dead-lettered the audit).
 
-* **429 with the real numbers**: `Limit 8000, Used 1787, Requested 7070` — Groq free reserves `prompt + max_tokens` from an 8 000 TPM budget, so a requirements turn is ~1 call/minute (bounded waits already in place, D-034).
-* **Provider 400s from a truncated completion**: `json_validate_failed / "max completion tokens reached before generating a valid document"` on a COMPLETE turn → budget raised 1200 → 1600 (D-039).
-* **One contract slip on a real model**: a valid-JSON turn failed the contract validation, was repaired once, and the repair call hit the same minute's limit — the job survived, the *driver* gave up too early; the driver now retries the wait instead of stopping (`DEMO_QUIET_WAITS`).
+* **Run #6** (`evidence/phase4-live-run6.txt`) — full interview on the real pipeline: Q1→Q20, the
+  §10 option rule proven live (`RESTAURANT` confirmed `website_type.type` with no re-ask), and a
+  free-tier 503 storm handled by the book: two turns waited out, the third DEAD_LETTERed → CRITICAL
+  `SYSTEM_ERROR` + CRITICAL `HUMAN_REVIEW` (D-044, live).
+* **Run #7 — audit-only live leg** (`evidence/phase4-live-audit.txt`) — **the first live audit row**:
+  scripted interview → scripted spec → two-step approval → v1 LOCKED → live `SPEC_AUDIT`
+  (`provider=openrouter`, `model=cohere/north-mini-code:free`) → **PASS, score 100, all five checks
+  PASS, `structuralForcedFail=false`** → T12 **READY_FOR_BUILD**, whole leg ~11 s.
+* **Run #8 — spec+audit live leg** (`evidence/phase4-live-spec-audit.txt`) — the §21 loop proven
+  live on the FAIL path: the live-written spec (Gemini) fails the live audit with 26 deterministic
+  missing-requirement gaps → live revision → 27 gaps → third attempt → **T15 BLOCKED** + human task.
+  The auditor correctly refuses an under-specified spec; the writer's thin output is a Phase-3
+  follow-up (§3.2), not an auditor defect.
+
+### 2.4a The empty-content dead end (the root cause of the earlier live failures)
+
+Captured exactly (`LLM_DUMP_DIR` replay): the audit request is 9 149 prompt tokens (spec 5 671 +
+fields 1 182 + instructions/schema ~2 300); `cohere/north-mini-code:free` answered HTTP 200 in
+27.8 s with `finish_reason=length`, `reasoning_tokens=2700`, `content=null`. Three fixes, all in
+D-049: `reasoning:{enabled:false}` (same body then answered in **1.03 s** with a valid verdict),
+the repair echo substitutes `'(empty response)'` for an empty assistant message (strict providers
+400 on empty content), and the repair cap is never clamped below the original. The TPM-budget
+warning is now provider-aware: the 8 000 default is the *Groq* free-tier budget; OpenRouter `:free`
+has no published TPM and demonstrably serves 9 704-token prompts.
 
 ### 2.5 Reproduce in a few minutes
 
@@ -69,18 +99,42 @@ DEMO_AUDIT_MODE=fail-first npm run simulate:phase4   # one revision, then PASS
 DEMO_AUDIT_MODE=fail-all   npm run simulate:phase4   # §21 ceiling → BLOCKED + human task
 DEMO_AUDIT_MODE=alignment  npm run simulate:phase4   # client-alignment failure
 npm run db:reset && npm run dev    # real console at http://127.0.0.1:3000/
+DEMO_LLM=real npm run simulate:phase4              # live audit leg (auditor only)
+DEMO_LLM=real DEMO_LIVE_LEGS=spec+audit npm run simulate:phase4   # live spec + audit
 ```
 
 ---
 
 ## 3. Incomplete / risky (honest list)
 
-1. **A real *full-pipeline* run is still blocked by the free-tier token budget, not by code.** Measured by `npm run prompt-sizes`: the specification call reserves **~7 069 (prompt) + `max_tokens`**; even with the new 3 000 cap that is ~10 000 against an 8 000 TPM ceiling, so Groq's free plan cannot serve it (a cold 429 every time). The interview fits (≈5.9k + 1.6k). Options are in §5 — this is the one thing between us and a green *live* Phase-4 run.
-2. **The auditor runs on Groq too, just a different model and key** (`qwen/qwen3.8-27b` vs the writer's `openai/gpt-oss-120b`). The Phase-0 answer ("Spec Auditor on a different provider") is therefore satisfied by *independence of model + key*, not by vendor — impossible with only Groq keys. The audit row records exactly what happened, so this is visible in the data.
-3. **The auditor's judgement is only as good as the model behind it.** A free-tier model can miss a subtle inconsistency that no rule catches; the deterministic findings cover the mechanical half, and a FAIL is always human-reviewable (the report artifact + the task). Worth re-checking on the first real PASS.
-4. **`agent.audit_independent_provider` (seeded config) is documentation only** — nothing enforces "auditor ≠ writer provider" yet. Enforcing it would block runs where only one route exists, so it is recorded rather than enforced (D-037).
-5. **Groq free 200k tokens/day**: a realistic 30-turn real interview plus a specification already exceeds one day's budget on that account, even once the per-minute problem is solved. Free-tier pacing is a first-class constraint of this project, not a bug to fix (SPEC §58).
-6. **Not built (later phases, deliberately)**: the Coding Agent, the runtime-verified Code Checker, the Team Panel, deployment (Phase 5+). `T12` stops at `READY_FOR_BUILD`; enqueueing `BUILD_RUN` is Phase 5's `T16` (documented in `docs/05`).
+1. **The auditor's judgement is shallower with reasoning off (D-049).** `reasoningEffort: 'none'`
+   was the only way to get a non-empty verdict from the free roster (both probed models are
+   reasoning models that burn the completion cap): the live PASS scored 100 with empty issue
+   buckets on the clean scripted spec. The deterministic `auditSpecStructure` findings and
+   `mergeAuditVerdict` remain the structural guarantee — the model can never vote away a
+   structural CRITICAL/MAJOR — but the *judgement* half (subtle inconsistencies no rule catches)
+   is thinner than it would be with reasoning on. A FAIL is always human-reviewable (report
+   artifact + task). If a paid/stronger auditor ever becomes available, re-enable reasoning and
+   re-probe before trusting score deltas.
+2. **Phase-3 follow-up (writer quality, surfaced BY the auditor — run #8):** the free-tier writer's
+   spec implements only a fraction of the 30 confirmed fields (26–27 deterministic gaps), and one
+   revision does not close them → BLOCKED. The cap raise (3 000 → 5 000) did not change the gap
+   count. Fixing the writer (prompt/model) is Phase-3 scope; the auditor did its job.
+3. **Daily-quota 429 is still a scheduling problem, not a retry problem** (unchanged): a ~7 h 45 m
+   `retryAfterMs` hint fails the in-run wait budget, the job re-queues on backoff and dead-letters.
+   Mitigation is the DEAD_LETTER escalation (D-044, live-proven); the real fix (propagate
+   `retryAfterMs` into the job's `runAt`) is still open.
+4. **`/api/v1/projects/:id/spec-audit` has never served a live request** — it is covered by the
+   inspector tests but the live demo reads the DB directly.
+5. **`agent.audit_independent_provider` (seeded config) is documentation only** — nothing enforces
+   "auditor ≠ writer provider"; with the OpenRouter route it *is* a different vendor now, and the
+   audit rows record provider/model so the claim is checkable (D-051).
+6. **Free-tier pacing is a first-class constraint** (SPEC §58): OpenRouter `:free` = 20 RPM / 50 RPD,
+   Gemini AI Studio = per-project daily caps (measured 20 req/day on one model; per-model buckets
+   are separate). Rosters and limits rotate; re-probe before each live leg.
+7. **Not built (later phases, deliberately)**: the Coding Agent, the runtime-verified Code Checker,
+   the Team Panel, deployment (Phase 5+). `T12` stops at `READY_FOR_BUILD`; enqueueing `BUILD_RUN`
+   is Phase 5's `T16` (documented in `docs/05`).
 
 ---
 
@@ -95,16 +149,30 @@ npm run db:reset && npm run dev    # real console at http://127.0.0.1:3000/
 
 ## 5. Open questions (need a human answer)
 
-1. **The specification call cannot run on the Groq free tier (~10k tokens vs an 8k ceiling).** Pick one:
-   * **(A, recommended) Add a free Gemini AI Studio key** (`LLM_PRESET=gemini-free`, no credit card): its free tier allows ~250k TPM and a 1M-token context, which covers the interview *and* the specification *and* the auditor, and it finally makes the auditor a *different vendor* — exactly the Phase-0 intent. Nothing else changes: keys go into `.env` (never committed), and the auditor stays on its own route.
-   * **(B) Keep Groq only, and I compact the specification prompt first** (send a reduced requirements view + a leaner task block, target ≤4.5k) — a real prompt redesign with re-verification, and it will still be ~1 call/min with a 200k-token/day ceiling.
-   * **(C) Accept scripted-only proof for full-pipeline runs** and use the real keys only for the parts that fit (interview, auditor).
-2. **Phase 5 scope** (`docs/phases/05_*` does not exist yet): the Coding Agent must produce an actual runnable website (SPEC §22–§25) — in this sandbox that means a generated static/Next.js project built without Docker. Confirm the target before I start: **a React/Next static marketing site** (matches "website production pipeline" and needs no server), or a smaller plain HTML/CSS build first?
+1. ~~The specification call cannot run on the Groq free tier~~ **ANSWERED 2026-10-08**: free Gemini
+   AI Studio keys + OpenRouter keys were supplied ("davom et"); the writer runs on Gemini
+   (`gemini-3.1-flash-lite`, D-048) and the auditor on OpenRouter `:free` (D-045) — option (A) from
+   the earlier list, implemented and live-proven (§2.4). The whole project stayed completely free.
+2. **Phase 5 scope** (`docs/phases/05_*` does not exist yet): the Coding Agent must produce an actual
+   runnable website (SPEC §22–§25) — in this sandbox that means a generated static/Next.js project
+   built without Docker. Confirm the target before I start: **a React/Next static marketing site**
+   (matches "website production pipeline" and needs no server), or a smaller plain HTML/CSS build
+   first? — also confirm the standing constraint that **Gemini must not write the code** (the coding
+   route will be a non-Gemini free model; the assistant authors all repo/pipeline code).
+3. **Phase-3 writer follow-up (§3.2):** accept the BLOCKED outcome of run #8 as correct behaviour
+   and improve the writer before Phase 5, or adjust the deterministic completeness rule's
+   strictness? (Recommendation: keep the rule — an under-specified spec must not reach a coder.)
 
 ---
 
 ## 6. Proposed next step
 
-Phase 5 (Coding Agent) per `SPEC.md` §22–§25, with `T16` starting from the `READY_FOR_BUILD` state that Phase 4 now reaches — **but** only after question 1 is answered, because a live end-to-end proof of Phases 2–4 is worth having before another agent layer is stacked on top. If the answer is (A), I will re-run the real interview → specification → audit chain end-to-end with the Gemini key in place and attach it as the live evidence for Phases 3–4.
+**Phase 4 is complete and live-proven; awaiting approval.** On approval: Phase 5 (Coding Agent) per
+`SPEC.md` §22–§25, with `T16` starting from the `READY_FOR_BUILD` state — after question 2 (stack)
+is answered. The Phase-3 writer follow-up (question 3) can be scheduled alongside Phase 5's first
+live build, because a thin spec is exactly what the coding agent would trip over.
 
-**Files to look at first:** `PHASE_REPORTS/evidence/phase4-simulate-pass.txt` (30 seconds), then `tests/e2e/spec-audit.test.ts` (the acceptance checks as executable prose), then `apps/worker/src/handlers/audit.ts` (the loop itself).
+**Files to look at first:** `PHASE_REPORTS/evidence/phase4-live-audit.txt` (the live PASS, ~11 s),
+`PHASE_REPORTS/evidence/phase4-live-spec-audit.txt` (the live FAIL→BLOCK), then
+`tests/e2e/spec-audit.test.ts` (the acceptance checks as executable prose), then
+`apps/worker/src/handlers/audit.ts` (the loop itself).

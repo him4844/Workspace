@@ -6,8 +6,8 @@
  * Agents never call other agents and never change state directly.
  */
 import type { Db, JobRow } from '@wpp/db';
-import { claimNextJob, completeJob, failJob, getProject, listParkedJobs, queueRepo, unparkJobs } from '@wpp/db';
-import { isJobAllowedInState, toWppError, type JobType } from '@wpp/core';
+import { claimNextJob, completeJob, failJob, getProject, listParkedJobs, obsRepo, queueRepo, unparkJobs } from '@wpp/db';
+import { isJobAllowedInState, JOB_POLICIES, toWppError, type JobType } from '@wpp/core';
 import type { Config, Logger } from '@wpp/infra';
 import type { LlmClient } from '@wpp/agents';
 import { HANDLERS } from './handlers/index.js';
@@ -88,7 +88,38 @@ export async function tick(deps: OrchestratorDeps, opts: { maxJobs?: number } = 
     } catch (err) {
       const werr = toWppError(err);
       const outcome = await failJob(deps.db, job.id, { code: werr.code, message: werr.message, retryable: werr.retryable });
-      deps.logger.error({ jobId: job.id, type: job.type, code: werr.code, retryable: werr.retryable, outcome: outcome.status }, 'job failed');
+      // §57: a failure nobody can read is a failure nobody can fix — log the provider's own words
+      // (truncated), not just the error class. Measured need 2026-10-08: a non-retryable audit call
+      // dead-lettered and the reason only existed inside the (volatile) job row.
+      deps.logger.error(
+        { jobId: job.id, type: job.type, code: werr.code, retryable: werr.retryable, outcome: outcome.status, message: werr.message.slice(0, 400) },
+        'job failed',
+      );
+      if (outcome.status === 'DEAD_LETTER' && job.projectId) {
+        // §42: when automation gives up, a human must be told WHY and what to do — a log line is not
+        // an escalation. Measured live 2026-10-08: a free-tier quota exhaustion dead-lettered an
+        // interview turn and the project silently stopped mid-interview.
+        await obsRepo.recordEvent(deps.db, {
+          orgId: (await getProject(deps.db, job.projectId))?.orgId ?? '',
+          projectId: job.projectId,
+          type: 'SYSTEM_ERROR',
+          actorType: 'SYSTEM',
+          severity: 'CRITICAL',
+          payload: { code: 'JOB_DEAD_LETTER', jobId: job.id, jobType: job.type, failureCode: werr.code, attempts: job.attempts },
+        });
+        await obsRepo.createTask(deps.db, {
+          orgId: (await getProject(deps.db, job.projectId))?.orgId ?? '',
+          projectId: job.projectId,
+          type: 'HUMAN_REVIEW',
+          priority: 'CRITICAL',
+          title: `${job.type} gave up after ${job.attempts} attempt(s)`,
+          reason: `${werr.code}: ${werr.message}`,
+          suggestedAction: werr.code === 'LLM_QUOTA_EXHAUSTED' || werr.code === 'LLM_RATE_LIMITED'
+            ? 'The free provider refused the call for longer than the in-run wait budget. Wait for the provider window (or use another free model/preset from config/llm-presets.json) and re-run the job.'
+            : 'Read the job attempt history (GET /api/v1/jobs), fix the cause, then re-run the job or resume the project.',
+          aiReport: { jobId: job.id, jobType: job.type, code: werr.code, retryable: werr.retryable, attempts: job.attempts },
+        });
+      }
       failed += 1;
     }
   }
@@ -96,7 +127,11 @@ export async function tick(deps: OrchestratorDeps, opts: { maxJobs?: number } = 
 }
 
 async function runWithTimeout(handler: (ctx: HandlerContext, job: JobRow) => Promise<void>, deps: OrchestratorDeps, job: JobRow): Promise<void> {
-  const policySeconds = 60;
+  // The queue policy table is the single source for job timeouts (config as data, §50). A hard-coded
+  // 60 s here contradicted JOB_POLICIES (SPEC_GENERATE / SPEC_AUDIT / BUILD_RUN allow 300 s+) and
+  // would have killed a slow-but-healthy free-tier agent call — exactly what a free tier produces.
+  const policy = JOB_POLICIES[job.type as JobType] ?? JOB_POLICIES.REQUIREMENTS_TURN;
+  const policySeconds = Math.max(5, Math.round(policy.timeoutMs / 1000));
   let timer: NodeJS.Timeout | undefined;
   try {
     await Promise.race([

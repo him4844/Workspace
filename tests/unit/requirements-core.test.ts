@@ -251,6 +251,45 @@ describe('field update rules (§10A, §53)', () => {
     expect(plan.accepted[0]!.sourceMessageId).toBe('msg-1');
   });
 
+  it('confirms a choice field the model called UNCLEAR when the value is a declared option (§10)', () => {
+    const choiceOptions = new Map([['website_type.type', ['LANDING', 'CORPORATE', 'ECOMMERCE', 'RESTAURANT', 'EDUCATION', 'OTHER']]]);
+    const plan = planFieldUpdates(
+      [{ fieldPath: 'website_type.type', value: 'RESTAURANT', status: 'UNCLEAR', sourceMessageId: 'msg-1' }],
+      { current, knownPaths: new Set(), validSourceMessageIds: validIds, currentInboundMessageId: 'msg-1', choiceOptions },
+    );
+    expect(plan.accepted).toHaveLength(1);
+    expect(plan.accepted[0]!.status).toBe('CLIENT_CONFIRMED');
+    expect(plan.accepted[0]!.optionConfirmed).toBe(true);
+  });
+
+  it('matches a declared option despite case and padding', () => {
+    const choiceOptions = new Map([['menu.kind', ['photos', 'text', 'pdf']]]);
+    const plan = planFieldUpdates(
+      [{ fieldPath: 'menu.kind', value: '  Photos. ', status: 'UNCLEAR', sourceMessageId: 'msg-1' }],
+      { current, knownPaths: new Set(), validSourceMessageIds: validIds, currentInboundMessageId: 'msg-1', choiceOptions },
+    );
+    expect(plan.accepted[0]!.status).toBe('CLIENT_CONFIRMED');
+  });
+
+  it('leaves a genuinely unclear answer unclear — and never invents a value', () => {
+    const choiceOptions = new Map([['website_type.type', ['LANDING', 'RESTAURANT']]]);
+    const plan = planFieldUpdates(
+      [{ fieldPath: 'website_type.type', value: 'hali bilmayman', status: 'UNCLEAR', sourceMessageId: 'msg-1' }],
+      { current, knownPaths: new Set(), validSourceMessageIds: validIds, currentInboundMessageId: 'msg-1', choiceOptions },
+    );
+    expect(plan.accepted[0]!.status).toBe('UNCLEAR');
+    expect(plan.accepted[0]!.optionConfirmed).toBe(false);
+  });
+
+  it('does not touch fields without a declared option list', () => {
+    const choiceOptions = new Map([['website_type.type', ['LANDING', 'RESTAURANT']]]);
+    const plan = planFieldUpdates(
+      [{ fieldPath: 'features.core', value: 'RESTAURANT', status: 'UNCLEAR', sourceMessageId: 'msg-1' }],
+      { current, knownPaths: new Set(), validSourceMessageIds: validIds, currentInboundMessageId: 'msg-1', choiceOptions },
+    );
+    expect(plan.accepted[0]!.status).toBe('UNCLEAR');
+  });
+
   it('never lets an AI inference silently overwrite client truth (§53)', () => {
     const plan = planFieldUpdates(
       [{ fieldPath: 'design.style', value: 'neon', status: 'AI_INFERRED' }],

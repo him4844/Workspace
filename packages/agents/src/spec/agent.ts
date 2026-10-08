@@ -17,6 +17,7 @@ import {
   type ClientIntent, type SpecificationOutput,
 } from '../contracts.js';
 import type { RunAgentInput, ValidateResult } from '../runtime.js';
+import type { ReasoningEffort } from '../llm/types.js';
 
 export const SPECIFICATION_OUTPUT_SCHEMA_REF = 'docs/contracts/specification-output.json';
 export const CLIENT_INTENT_OUTPUT_SCHEMA_REF = 'docs/contracts/client-intent-output.json';
@@ -185,7 +186,7 @@ export function buildSpecRunInput(opts: {
   temperature?: number;
   maxOutputTokens?: number;
   /** reasoning models (Gemini 3.x) can spend the whole completion cap thinking */
-  reasoningEffort?: 'minimal' | 'low' | 'medium' | 'high';
+  reasoningEffort?: ReasoningEffort;
   timeoutMs?: number;
   onRaw?: RunAgentInput<SpecificationOutput>['onRaw'];
 }): RunAgentInput<SpecificationOutput> {

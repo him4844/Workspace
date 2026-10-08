@@ -18,6 +18,7 @@ import {
   SpecAuditOutputSchema, zodErrorsToMessages, type SpecAuditOutput,
 } from '../contracts.js';
 import type { RunAgentInput, ValidateResult } from '../runtime.js';
+import type { ReasoningEffort } from '../llm/types.js';
 
 export const SPEC_AUDIT_OUTPUT_SCHEMA_REF = 'docs/contracts/spec-audit-output.json';
 
@@ -144,7 +145,7 @@ export function buildAuditRunInput(opts: {
   temperature?: number;
   maxOutputTokens?: number;
   /** reasoning models (Gemini 3.x) can spend the whole completion cap thinking */
-  reasoningEffort?: 'minimal' | 'low' | 'medium' | 'high';
+  reasoningEffort?: ReasoningEffort;
   timeoutMs?: number;
   onRaw?: RunAgentInput<SpecAuditOutput>['onRaw'];
 }): RunAgentInput<SpecAuditOutput> {

@@ -73,11 +73,15 @@ export interface JobPolicy {
 export const JOB_POLICIES: Record<JobType, JobPolicy> = {
   ECHO_REPLY: { concurrency: 4, timeoutMs: 60_000, maxAttempts: 3, backoffMs: 5_000 },
   SEND_OUTBOUND: { concurrency: 4, timeoutMs: 20_000, maxAttempts: 5, backoffMs: 2_000 },
-  REQUIREMENTS_TURN: { concurrency: 4, timeoutMs: 60_000, maxAttempts: 3, backoffMs: 5_000 },
+  // §58 free tier: a congested provider can take 10–40 s per call and the runtime may wait up to
+  // 2×70 s inside the run (D-043). A 60 s job timeout killed those legitimate waits mid-flight and
+  // burned the attempt — measured live 2026-10-08 (two `timed out after 60s` turns, then a
+  // DEAD_LETTER during a 503 storm). The job budget must exceed the in-run wait budget.
+  REQUIREMENTS_TURN: { concurrency: 4, timeoutMs: 180_000, maxAttempts: 3, backoffMs: 5_000 },
   SPEC_GENERATE: { concurrency: 2, timeoutMs: 300_000, maxAttempts: 3, backoffMs: 30_000 },
   SPEC_REVISE: { concurrency: 2, timeoutMs: 300_000, maxAttempts: 3, backoffMs: 30_000 },
   SPEC_AUDIT: { concurrency: 2, timeoutMs: 300_000, maxAttempts: 3, backoffMs: 30_000 },
-  CLIENT_INTENT_PARSE: { concurrency: 4, timeoutMs: 30_000, maxAttempts: 2, backoffMs: 5_000 },
+  CLIENT_INTENT_PARSE: { concurrency: 4, timeoutMs: 120_000, maxAttempts: 2, backoffMs: 5_000 },
   CLIENT_APPROVAL_TIMEOUT: { concurrency: 1, timeoutMs: 10_000, maxAttempts: 1, backoffMs: 0 },
   BUILD_RUN: { concurrency: 1, timeoutMs: 1_800_000, maxAttempts: 2, backoffMs: 60_000 },
   CODE_CHECK: { concurrency: 1, timeoutMs: 1_200_000, maxAttempts: 2, backoffMs: 60_000 },

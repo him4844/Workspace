@@ -35,11 +35,19 @@ export interface LlmUsage {
   costUsd?: number;
 }
 
-export type ReasoningEffort = 'minimal' | 'low' | 'medium' | 'high';
+export type ReasoningEffort = 'minimal' | 'low' | 'medium' | 'high' | 'none';
 
-/** Agent configs store the value as text (config is data): accept only what providers understand. */
+/**
+ * Agent configs store the value as text (config is data): accept only what providers understand.
+ * 'none' disables reasoning entirely (OpenRouter `reasoning:{enabled:false}`) — measured live
+ * 2026-10-08: a reasoning model on a 9.7k-token audit prompt spent 2 700 tokens thinking, hit the
+ * completion cap (finish_reason=length) and returned EMPTY content, which dead-lettered the audit.
+ * With reasoning off the same call answered in ~1 s with a valid verdict.
+ */
 export function parseReasoningEffort(value: unknown): ReasoningEffort | undefined {
-  return value === 'minimal' || value === 'low' || value === 'medium' || value === 'high' ? value : undefined;
+  return value === 'minimal' || value === 'low' || value === 'medium' || value === 'high' || value === 'none'
+    ? value
+    : undefined;
 }
 
 export interface LlmCompletion {

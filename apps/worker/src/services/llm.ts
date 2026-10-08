@@ -87,6 +87,21 @@ export async function resolveAuditorLlm(ctx: {
     };
   }
 
+  // No dedicated auditor route configured: the auditor answers on the entrypoint's route, and the
+  // audit row records that fact (model + provider) instead of pretending independence. Tests and
+  // demos inject their client here too, so a scripted run stays hermetic (no network, no key).
+  const hasOwnRoute = Boolean(
+    config.AUDITOR_LLM_PROVIDER || config.AUDITOR_LLM_API_KEY || config.AUDITOR_LLM_MODEL || config.AUDITOR_LLM_PRESET,
+  );
+  if (!hasOwnRoute) {
+    if (!ctx.llm) return null;
+    return {
+      client: ctx.llm,
+      defaultProvider: ctx.llmRoute?.provider ?? config.LLM_PROVIDER,
+      defaultModel: ctx.llmRoute?.model ?? config.LLM_MODEL ?? '',
+    };
+  }
+
   const provider = config.AUDITOR_LLM_PROVIDER ?? config.LLM_PROVIDER;
   if (!provider || provider === 'none') {
     if (ctx.llm) {
@@ -106,10 +121,21 @@ export async function resolveAuditorLlm(ctx: {
     LLM_MODEL: config.AUDITOR_LLM_MODEL ?? undefined,
     LLM_BASE_URL: config.AUDITOR_LLM_BASE_URL ?? config.LLM_BASE_URL,
   });
+  if (!resolved && ctx.llm) {
+    ctx.logger?.warn(
+      { provider, preset: config.AUDITOR_LLM_PRESET ?? config.LLM_PRESET ?? null, freeOnly: config.LLM_FREE_ONLY },
+      'spec auditor route unusable (paid route blocked or key missing) — auditing on the main route instead',
+    );
+    return {
+      client: ctx.llm,
+      defaultProvider: ctx.llmRoute?.provider ?? config.LLM_PROVIDER,
+      defaultModel: ctx.llmRoute?.model ?? config.LLM_MODEL ?? '',
+    };
+  }
   if (!resolved) {
     ctx.logger?.warn(
       { provider, preset: config.AUDITOR_LLM_PRESET ?? config.LLM_PRESET ?? null, freeOnly: config.LLM_FREE_ONLY },
-      'spec auditor LLM unavailable: the configured auditor route is not usable (paid route blocked or key missing)',
+      'spec auditor LLM unavailable: no usable auditor route and no main route either',
     );
   }
   return resolved;

@@ -7,22 +7,45 @@
   "title": "Umumiy talablar savolnomasi",
   "description": "SPEC §6 — barcha loyihalar uchun majburiy 18 kategoriya. Matn kanonik; agent javob tiliga moslab tarjima qilishi mumkin, ma'nosi o'zgarmaydi.",
   "vagueLexicon": [
-    "zamonaviy", "chiroyli", "oddiy", "tez", "professional", "sifatli",
-    "yoqimli", "qulay", "kuchli", "shunchaki", "hammasi", "o'zingiz bilasiz",
-    "modern", "simple", "fast", "professional", "nice", "as you like"
+    "zamonaviy",
+    "chiroyli",
+    "oddiy",
+    "tez",
+    "professional",
+    "sifatli",
+    "yoqimli",
+    "qulay",
+    "kuchli",
+    "shunchaki",
+    "hammasi",
+    "o'zingiz bilasiz",
+    "modern",
+    "simple",
+    "fast",
+    "professional",
+    "nice",
+    "as you like"
   ],
   "fields": [
     {
       "path": "business_purpose.purpose",
       "category": "business_purpose",
       "question": "Biznesingiz nima qiladi va sayt orqali qaysi natijaga erishmoqchisiz?",
-      "quickReplies": ["Mijoz topish", "Onlayn sotish", "Brend tanishtirish"],
+      "quickReplies": [
+        "Mijoz topish",
+        "Onlayn sotish",
+        "Brend tanishtirish"
+      ],
       "mandatory": true,
       "priority": "MUST",
       "valueType": "text",
       "order": 10,
       "clarifyPrompt": "Aytib o'tgan maqsadingizni bitta aniq natijaga aylantiraylik: sayt ochilgandan keyin mijoz nima qilishini xohlaysiz?",
-      "vagueHints": ["yaxshiroq", "rivojlanish", "ko'proq mijoz"]
+      "vagueHints": [
+        "yaxshiroq",
+        "rivojlanish",
+        "ko'proq mijoz"
+      ]
     },
     {
       "path": "business_purpose.company_name",
@@ -37,19 +60,32 @@
       "path": "target_audience.primary",
       "category": "target_audience",
       "question": "Asosiy mijozlaringiz kimlar? (yoshi, shahri, qiziqishi bo'yicha bir-ikki guruh)",
-      "quickReplies": ["Yoshlar", "Oilalar", "Biznes egalari", "Mahalliy mijozlar"],
+      "quickReplies": [
+        "Yoshlar",
+        "Oilalar",
+        "Biznes egalari",
+        "Mahalliy mijozlar"
+      ],
       "mandatory": true,
       "priority": "MUST",
       "valueType": "text",
       "order": 20,
       "clarifyPrompt": "Mijozlaringizni aniqlashtiraylik: ular ko'proq qaysi shaharda va qanday vaziyatda sizni qidiradi?",
-      "vagueHints": ["hamma", "barchasi", "har kim"]
+      "vagueHints": [
+        "hamma",
+        "barchasi",
+        "har kim"
+      ]
     },
     {
       "path": "target_audience.languages",
       "category": "target_audience",
       "question": "Mijozlar asosan qaysi tilda muloqot qiladi?",
-      "quickReplies": ["O'zbek", "Rus", "Ingliz"],
+      "quickReplies": [
+        "O'zbek",
+        "Rus",
+        "Ingliz"
+      ],
       "mandatory": false,
       "priority": "MUST",
       "valueType": "text",
@@ -59,25 +95,47 @@
       "path": "website_type.type",
       "category": "website_type",
       "question": "Sayt turi qaysi bo'ladi?",
-      "quickReplies": ["Landing page", "Korporativ", "Do'kon", "Restoran", "Ta'lim", "Boshqa"],
+      "quickReplies": [
+        "Landing page",
+        "Korporativ",
+        "Do'kon",
+        "Restoran",
+        "Ta'lim",
+        "Boshqa"
+      ],
       "mandatory": true,
       "priority": "MUST",
       "valueType": "choice",
-      "options": ["LANDING", "CORPORATE", "ECOMMERCE", "RESTAURANT", "EDUCATION", "OTHER"],
+      "options": [
+        "LANDING",
+        "CORPORATE",
+        "ECOMMERCE",
+        "RESTAURANT",
+        "EDUCATION",
+        "OTHER"
+      ],
       "order": 30,
-      "clarifyPrompt": "Sayt turini aniqlashtiraylik: asosiy maqsad bitta sahifada tanishtirishmi yoki katalog/onlayn savdo kerakmi?"
+      "clarifyPrompt": "Sayt turini aniqlashtiraylik: landing page, korporativ sayt, onlayn do‘kon, restoran sayti, ta’lim sayti yoki boshqa turdagi saytmi?"
     },
     {
       "path": "pages.list",
       "category": "pages",
       "question": "Saytda qanday sahifalar bo'lishini xohlaysiz?",
-      "quickReplies": ["1-3 sahifa", "4-7 sahifa", "8+"],
+      "quickReplies": [
+        "1-3 sahifa",
+        "4-7 sahifa",
+        "8+"
+      ],
       "mandatory": true,
       "priority": "MUST",
       "valueType": "list",
       "order": 40,
       "clarifyPrompt": "Sahifalarni birma-bir sanab o'ting: masalan bosh sahifa, xizmatlar, narxlar, bog'lanish…",
-      "vagueHints": ["keraklicha", "o'zingiz", "hammasi kerak"]
+      "vagueHints": [
+        "keraklicha",
+        "o'zingiz",
+        "hammasi kerak"
+      ]
     },
     {
       "path": "features.core",
@@ -88,17 +146,28 @@
       "valueType": "list",
       "order": 50,
       "clarifyPrompt": "Funksiyalarni vazifa bo'yicha aytaylik: mijoz saytda nima qila olishi kerak?",
-      "vagueHints": ["yaxshi funksiyalar", "hamma narsa", "kerak bo'lsa"]
+      "vagueHints": [
+        "yaxshi funksiyalar",
+        "hamma narsa",
+        "kerak bo'lsa"
+      ]
     },
     {
       "path": "authentication.needed",
       "category": "authentication",
       "question": "Saytda foydalanuvchi profili (login/parol) kerakmi?",
-      "quickReplies": ["Ha", "Yo'q", "Bilmayman"],
+      "quickReplies": [
+        "Ha",
+        "Yo'q",
+        "Bilmayman"
+      ],
       "mandatory": true,
       "priority": "MUST",
       "valueType": "choice",
-      "options": ["yes", "no"],
+      "options": [
+        "yes",
+        "no"
+      ],
       "order": 60,
       "defaultSuggestion": "profilsiz ishlash (mijoz ariza qoldiradi, admin panelda ko'rasiz)",
       "clarifyPrompt": "Mijozlar saytga kirib o'z buyurtmalarini ko'rishi kerakmi yoki profil shart emasmi?"
@@ -107,22 +176,37 @@
       "path": "authentication.methods",
       "category": "authentication",
       "question": "Ro'yxatdan o'tish qanday bo'lsin?",
-      "quickReplies": ["Telefon raqam", "Email", "Google orqali"],
+      "quickReplies": [
+        "Telefon raqam",
+        "Email",
+        "Google orqali"
+      ],
       "mandatory": false,
       "priority": "NICE_TO_HAVE",
       "valueType": "list",
       "order": 61,
-      "dependsOn": { "authentication.needed": ["yes"] }
+      "dependsOn": {
+        "authentication.needed": [
+          "yes"
+        ]
+      }
     },
     {
       "path": "payments.needed",
       "category": "payments",
       "question": "Saytda onlayn to'lov kerakmi yoki buyurtma to'lovsiz qabul qilinadimi?",
-      "quickReplies": ["Onlayn to'lov", "To'lovsiz buyurtma", "Keyinroq"],
+      "quickReplies": [
+        "Onlayn to'lov",
+        "To'lovsiz buyurtma",
+        "Keyinroq"
+      ],
       "mandatory": true,
       "priority": "MUST",
       "valueType": "choice",
-      "options": ["yes", "no"],
+      "options": [
+        "yes",
+        "no"
+      ],
       "order": 70,
       "defaultSuggestion": "to'lovsiz buyurtma + menejer bog'lanadi",
       "clarifyPrompt": "To'lovni aniqlashtiraylik: mijoz kartadan onlayn to'laydimi yoki buyurtmani joylab, keyin to'laydimi?"
@@ -131,12 +215,21 @@
       "path": "payments.providers",
       "category": "payments",
       "question": "Qaysi to'lov tizimlari bilan ishlaysiz?",
-      "quickReplies": ["Payme", "Click", "Uzum", "PayPal/Stripe"],
+      "quickReplies": [
+        "Payme",
+        "Click",
+        "Uzum",
+        "PayPal/Stripe"
+      ],
       "mandatory": false,
       "priority": "MUST",
       "valueType": "list",
       "order": 71,
-      "dependsOn": { "payments.needed": ["yes"] }
+      "dependsOn": {
+        "payments.needed": [
+          "yes"
+        ]
+      }
     },
     {
       "path": "products_services.description",
@@ -147,13 +240,21 @@
       "valueType": "text",
       "order": 80,
       "clarifyPrompt": "Taklifingizni ro'yxat qilib chiqaylik: eng ko'p sotiladigan 3-5 nom yoki xizmat nima?",
-      "vagueHints": ["turli xil", "ko'p narsa", "hammasi bor"]
+      "vagueHints": [
+        "turli xil",
+        "ko'p narsa",
+        "hammasi bor"
+      ]
     },
     {
       "path": "products_services.count",
       "category": "products_services",
       "question": "Taxminan nechta mahsulot yoki xizmat turi bor?",
-      "quickReplies": ["1-10", "11-50", "50+"],
+      "quickReplies": [
+        "1-10",
+        "11-50",
+        "50+"
+      ],
       "mandatory": false,
       "priority": "NICE_TO_HAVE",
       "valueType": "text",
@@ -163,11 +264,18 @@
       "path": "admin_panel.needed",
       "category": "admin_panel",
       "question": "Kontentni o'zingiz tahrirlash uchun admin panel kerakmi?",
-      "quickReplies": ["Ha", "Yo'q", "Bilmayman"],
+      "quickReplies": [
+        "Ha",
+        "Yo'q",
+        "Bilmayman"
+      ],
       "mandatory": true,
       "priority": "MUST",
       "valueType": "choice",
-      "options": ["yes", "no"],
+      "options": [
+        "yes",
+        "no"
+      ],
       "order": 90,
       "defaultSuggestion": "oddiy admin panel (matn, narx, rasmlar tahriri)",
       "clarifyPrompt": "Admin panel orqali kim ishlaydi va nimalarni o'zgartirmoqchi? (masalan narx, rasm, yangiliklar)"
@@ -180,63 +288,105 @@
       "priority": "NICE_TO_HAVE",
       "valueType": "list",
       "order": 91,
-      "dependsOn": { "admin_panel.needed": ["yes"] }
+      "dependsOn": {
+        "admin_panel.needed": [
+          "yes"
+        ]
+      }
     },
     {
       "path": "design.style",
       "category": "design",
       "question": "Dizayn uslubi qanday bo'lsin? Ranglar yoki namuna sayt bormi?",
-      "quickReplies": ["Minimal", "Zamonaviy", "Klassik", "Namuna bor"],
+      "quickReplies": [
+        "Minimal",
+        "Zamonaviy",
+        "Klassik",
+        "Namuna bor"
+      ],
       "mandatory": true,
       "priority": "MUST",
       "valueType": "text",
       "order": 100,
       "clarifyPrompt": "Uslubni aniq tasvirlab bering: qorong'i yoki yorug'mi, qaysi ikki-uch rang, namuna sayt bormi?",
-      "vagueHints": ["zamonaviy", "chiroyli", "salobatli", "yoqimli"]
+      "vagueHints": [
+        "zamonaviy",
+        "chiroyli",
+        "salobatli",
+        "yoqimli"
+      ]
     },
     {
       "path": "design.logo_assets",
       "category": "design",
       "question": "Logotip va brend materiallari tayyormi?",
-      "quickReplies": ["Bor", "Yo'q", "Tayyorlanmoqda"],
+      "quickReplies": [
+        "Bor",
+        "Yo'q",
+        "Tayyorlanmoqda"
+      ],
       "mandatory": false,
       "priority": "NICE_TO_HAVE",
       "valueType": "choice",
-      "options": ["yes", "no"],
+      "options": [
+        "yes",
+        "no"
+      ],
       "order": 101
     },
     {
       "path": "content.languages",
       "category": "content",
       "question": "Sayt qaysi tillarda bo'lishi kerak?",
-      "quickReplies": ["O'zbek", "O'zbek + Rus", "Uch til"],
+      "quickReplies": [
+        "O'zbek",
+        "O'zbek + Rus",
+        "Uch til"
+      ],
       "mandatory": true,
       "priority": "MUST",
       "valueType": "list",
       "order": 110,
       "clarifyPrompt": "Tillar bo'yicha aniqlashtiraylik: barcha sahifalar tarjima bo'ladimi va almashish tugmasi kerakmi?",
-      "vagueHints": ["kerak bo'lsa", "o'zingiz qo'shing"]
+      "vagueHints": [
+        "kerak bo'lsa",
+        "o'zingiz qo'shing"
+      ]
     },
     {
       "path": "content.texts_ready",
       "category": "content",
       "question": "Matnlar (kompaniya tarixi, xizmat tavsifi) tayyormi yoki biz yozib berishimiz kerakmi?",
-      "quickReplies": ["Tayyor", "Siz yozing", "Qismatan"],
+      "quickReplies": [
+        "Tayyor",
+        "Siz yozing",
+        "Qismatan"
+      ],
       "mandatory": false,
       "priority": "NICE_TO_HAVE",
       "valueType": "choice",
-      "options": ["client", "assisted"],
+      "options": [
+        "client",
+        "assisted"
+      ],
       "order": 111
     },
     {
       "path": "seo.needed",
       "category": "seo",
       "question": "Google'da topilish uchun SEO sozlamalari kerakmi?",
-      "quickReplies": ["Ha", "Yo'q", "Bilmayman"],
+      "quickReplies": [
+        "Ha",
+        "Yo'q",
+        "Bilmayman"
+      ],
       "mandatory": true,
       "priority": "MUST",
       "valueType": "choice",
-      "options": ["yes", "no"],
+      "options": [
+        "yes",
+        "no"
+      ],
       "order": 120,
       "defaultSuggestion": "asosiy texnik SEO (meta teglar, sitemap, tez yuklanish) har holda kritiladi",
       "clarifyPrompt": "SEO ni aniqlashtiraylik: matnlarni kalit so'zlar bilan yozishimiz kerakmi yoki faqat texnik sozlamalar?"
@@ -249,13 +399,22 @@
       "priority": "NICE_TO_HAVE",
       "valueType": "list",
       "order": 121,
-      "dependsOn": { "seo.needed": ["yes"] }
+      "dependsOn": {
+        "seo.needed": [
+          "yes"
+        ]
+      }
     },
     {
       "path": "integrations.list",
       "category": "integrations",
       "question": "Boshqa tizimlar bilan bog'lash kerakmi? (Instagram, Telegram, CRM, Google Maps, to'lov, yetkazib berish)",
-      "quickReplies": ["Instagram/Telegram", "Google Maps", "CRM", "Kerak emas"],
+      "quickReplies": [
+        "Instagram/Telegram",
+        "Google Maps",
+        "CRM",
+        "Kerak emas"
+      ],
       "mandatory": true,
       "priority": "MUST",
       "valueType": "list",
@@ -266,18 +425,29 @@
       "path": "integrations.google_analytics",
       "category": "integrations",
       "question": "Statistika uchun Google Analytics yoki Yandex Metrica kerakmi?",
-      "quickReplies": ["Google Analytics", "Yandex Metrica", "Kerak emas"],
+      "quickReplies": [
+        "Google Analytics",
+        "Yandex Metrica",
+        "Kerak emas"
+      ],
       "mandatory": false,
       "priority": "NICE_TO_HAVE",
       "valueType": "choice",
-      "options": ["ga4", "metrica", "none"],
+      "options": [
+        "ga4",
+        "metrica",
+        "none"
+      ],
       "order": 131
     },
     {
       "path": "security.requirements",
       "category": "security",
       "question": "Ma'lumotlar xavfsizligi bo'yicha maxsus talab bormi? (masalan shifrlanadigan mijoz bazasi, faqat O'zbekistonda saqlash)",
-      "quickReplies": ["Standart", "Maxsus talab bor"],
+      "quickReplies": [
+        "Standart",
+        "Maxsus talab bor"
+      ],
       "mandatory": true,
       "priority": "MUST",
       "valueType": "text",
@@ -289,11 +459,19 @@
       "path": "hosting.preference",
       "category": "hosting",
       "question": "Hosting bo'yicha tanlov bormi? (bizning serverimiz / sizning hosting / bulut)",
-      "quickReplies": ["Siz tanlang", "Bizda server bor", "Bulut (AWS/DO)"],
+      "quickReplies": [
+        "Siz tanlang",
+        "Bizda server bor",
+        "Bulut (AWS/DO)"
+      ],
       "mandatory": true,
       "priority": "MUST",
       "valueType": "choice",
-      "options": ["team", "client", "cloud"],
+      "options": [
+        "team",
+        "client",
+        "cloud"
+      ],
       "order": 150,
       "defaultSuggestion": "bizning boshqaruvimizdagi VPS (tez va arzon)",
       "clarifyPrompt": "Hostingni aniqlashtiraylik: serverni kim to'laydi va texnik boshqaruvni kim qiladi?"
@@ -302,7 +480,10 @@
       "path": "domain.name",
       "category": "domain",
       "question": "Domen nomi bormi yoki tanlashda yordam kerakmi?",
-      "quickReplies": ["Domen bor", "Yordam kerak"],
+      "quickReplies": [
+        "Domen bor",
+        "Yordam kerak"
+      ],
       "mandatory": true,
       "priority": "MUST",
       "valueType": "text",
@@ -313,11 +494,21 @@
       "path": "budget.range",
       "category": "budget",
       "question": "Byudjet bo'yicha taxminiy oraliq qanday? (narxni jamoa alohida taklif qiladi)",
-      "quickReplies": ["3-8 mln", "8-20 mln", "20 mln+", "Aytmayman"],
+      "quickReplies": [
+        "3-8 mln",
+        "8-20 mln",
+        "20 mln+",
+        "Aytmayman"
+      ],
       "mandatory": true,
       "priority": "MUST",
       "valueType": "choice",
-      "options": ["low", "mid", "high", "undisclosed"],
+      "options": [
+        "low",
+        "mid",
+        "high",
+        "undisclosed"
+      ],
       "order": 170,
       "defaultSuggestion": "oraliqni keyinroq, taklif bilan birga muhokama qilish",
       "clarifyPrompt": "Byudjetni aniqlashtiraylik: bir martalik loyiha byudjetimi yoki oylik xizmat to'lovi ham bo'ladimi?"
@@ -326,19 +517,31 @@
       "path": "deadline.expected",
       "category": "deadline",
       "question": "Sayt qachonga tayyor bo'lishi kerak?",
-      "quickReplies": ["2 hafta", "1 oy", "2-3 oy", "Shoshilmas"],
+      "quickReplies": [
+        "2 hafta",
+        "1 oy",
+        "2-3 oy",
+        "Shoshilmas"
+      ],
       "mandatory": true,
       "priority": "MUST",
       "valueType": "text",
       "order": 180,
       "clarifyPrompt": "Muddatni aniqlashtiraylik: qanday voqea yoki sanaga bog'liq (mavsum, ochilish, reklama start)?",
-      "vagueHints": ["tezroq", "iloji boricha tez", "yaqin orada"]
+      "vagueHints": [
+        "tezroq",
+        "iloji boricha tez",
+        "yaqin orada"
+      ]
     },
     {
       "path": "deadline.hard_date",
       "category": "deadline",
       "question": "Aniq sanaga bog'langan voqea bormi?",
-      "quickReplies": ["Ha, bor", "Yo'q"],
+      "quickReplies": [
+        "Ha, bor",
+        "Yo'q"
+      ],
       "mandatory": false,
       "priority": "NICE_TO_HAVE",
       "valueType": "text",

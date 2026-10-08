@@ -4,7 +4,7 @@
  * One LLM call, strict JSON, schema validation, at most ONE repair attempt, then a
  * structured envelope. The orchestrator routes on `status` only — prose is never parsed.
  */
-import type { LlmClient, LlmRequest, LlmUsage } from './llm/types.js';
+import type { LlmClient, LlmRequest, LlmUsage , ReasoningEffort } from './llm/types.js';
 import { LlmError } from './llm/types.js';
 import { assemblePrompt, CLIENT_CONTENT_OPEN } from './prompt.js';
 import { AGENT_RULES } from './prompt.js';
@@ -41,7 +41,7 @@ export interface RunAgentInput<T> {
   temperature?: number;
   maxOutputTokens?: number;
   /** see LlmRequest.reasoningEffort — reasoning models can eat the whole completion cap */
-  reasoningEffort?: 'minimal' | 'low' | 'medium' | 'high';
+  reasoningEffort?: ReasoningEffort;
   timeoutMs?: number;
   /** optional hook so callers can persist the raw text for the audit trail */
   onRaw?: (info: { attempt: 0 | 1; text: string }) => void;
@@ -103,11 +103,15 @@ export async function runAgentTurn<T>(deps: RunAgentDeps, input: RunAgentInput<T
   // Free-tier guard (§58): providers reserve prompt + max_tokens against a per-minute window, so
   // an oversized prompt is a 429 waiting to happen. The request still goes out (the window may be
   // warm), but the numbers are logged so a live run can be diagnosed without guesswork.
+  // The 8 000 default is the GROQ free-tier TPM budget — providers without a published TPM limit
+  // (OpenRouter :free = 20 RPM / 50 RPD) still serve oversized prompts, measured live 2026-10-08.
+  // Do NOT "fix" this warning by lowering maxOutputTokens: a reasoning model that runs out of
+  // output budget returns empty content (finish_reason=length), which dead-letters the call.
   const budget = budgetReport(messages, input.maxOutputTokens ?? 0);
   if (!budget.fits) {
     deps.logger?.warn(
-      { task: input.task.slice(0, 60), ...budget },
-      'prompt exceeds the free-tier per-minute budget — expect a 429 (trim the prompt or lower maxOutputTokens)',
+      { task: input.task.slice(0, 60), provider: deps.client.provider, ...budget },
+      `prompt exceeds the ${budget.budgetTokens} TPM heuristic (Groq free-tier budget; provider=${deps.client.provider}) — the request still goes out; trim the prompt if the provider 429s`,
     );
   }
 
@@ -123,7 +127,9 @@ export async function runAgentTurn<T>(deps: RunAgentDeps, input: RunAgentInput<T
       // attempt gets more room (bounded by the free-tier window) before a human is asked (§42).
       maxOutputTokens: attempt === 0 || !input.maxOutputTokens
         ? input.maxOutputTokens
-        : Math.min(Math.round(input.maxOutputTokens * 1.5), Math.max(0, budget.budgetTokens - budget.promptTokens)),
+        // Never clamp below the original cap: when the prompt alone exceeds the heuristic TPM
+        // window the remainder is negative and a 0-token repair request is a guaranteed 400.
+        : Math.min(Math.round(input.maxOutputTokens * 1.5), Math.max(input.maxOutputTokens, budget.budgetTokens - budget.promptTokens)),
       reasoningEffort: input.reasoningEffort,
       timeoutMs: input.timeoutMs,
       jsonMode: true,
@@ -175,7 +181,11 @@ export async function runAgentTurn<T>(deps: RunAgentDeps, input: RunAgentInput<T
     const extracted = extractJson(completion.text);
     if (!extracted.ok) {
       if (attempt === 0) {
-        messages.push({ role: 'assistant', content: completion.text.slice(0, 2000) });
+        // A reasoning model can return empty *visible* text (all tokens spent thinking). Echoing an
+        // empty assistant message back is invalid for strict providers — measured live 2026-10-08:
+        // OpenRouter/Cohere answered `400 invalid message provided at index 1: must have non-empty
+        // content` on exactly this repair, which dead-lettered the audit as non-retryable.
+        messages.push({ role: 'assistant', content: completion.text.length > 0 ? completion.text.slice(0, 2000) : '(empty response)' });
         messages.push({
           role: 'user',
           content: `Your previous answer was not valid JSON (${extracted.error}). Respond again with ONE JSON object conforming to the OUTPUT SCHEMA. No prose, no markdown fences.`,

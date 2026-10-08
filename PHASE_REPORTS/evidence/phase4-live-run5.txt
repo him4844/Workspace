@@ -1,0 +1,91 @@
+
+> wpp@0.1.0 demo:live
+> tsx scripts/live-requirements-demo.ts
+
+=== Live requirements interview over HTTP (simulator channel) ===
+client → project 01a11c5b-a2fe-78b3-aa0d-3951155b0236  state=INTAKE
+
+  Q1 [business_purpose.purpose] Salom! "Osh Baraka" restorani uchun ajoyib loyiha boshlaymiz.
+  A1 Mijozlar restoranimizni topib, menyuni ko‘rib, stol bron qilishi uchun
+
+  Q2 [target_audience.primary] Asosiy mijozlaringiz kimlar? (yoshi, shahri, qiziqishi bo'yicha bir-ikki guruh)
+  A2 Toshkentdagi 25-45 yoshli oilalar va ofis xodimlari
+
+  Q3 [target_audience.languages] Mijozlar asosan qaysi tilda muloqot qiladi?
+  A3 O‘zbek, Rus
+
+  Q4 [website_type.type] Tushunarli, o'zbek va rus tillarida bo'ladi.
+  A4 RESTAURANT
+
+  Q5 [website_type.type] Tushunarli!
+  A5 RESTAURANT
+
+  Q6 [website_type.type] Sayt turini aniqlashtiraylik: barcha ma'lumotlar bitta sahifada joylashsinmi yoki har bir bo'lim alohida sahifami?
+  A6 RESTAURANT
+
+  Q7 [pages.list] Tushunarli, restoran sayti bo'yicha davom etamiz.
+  A7 Bosh sahifa, Menyu, Biz haqimizda, Filiallar, Aloqa
+
+  Q8 [features.core] Saytning eng zarur 2-3 funksiyasi nima? (masalan: onlayn buyurtma, bron, ariza formasi, chat)
+  A8 stol bron qilish, menyu ko‘rish, xarita va manzil
+
+  Q9 [reservations.enabled] Stol bron qilish kerakmi?
+  A9 yes
+
+  Q10 [online_ordering.enabled] Tushunarli, stol bron qilish imkoniyati kerak.
+  A10 phone
+
+  Q11 [online_ordering.enabled] Tushunarli, stol bron qilishni qo'shamiz!
+  A11 phone
+
+  Q12 [authentication.needed] Tushunarli, buyurtmalar telefon orqali qabul qilinadi.
+  A12 no
+
+  Q13 [payments.needed] Saytda onlayn to'lov kerakmi yoki buyurtma to'lovsiz qabul qilinadimi?
+  A13 no
+
+  Q14 [products_services.description] Nima sotasiz yoki qanday xizmat ko'rsatasiz? Asosiy toifalarni sanab o'ting.
+  A14 O‘zbek va turk oshxonasi: palov, kabob, shashlik, somsa, ichimliklar
+
+  Q15 [menu.kind] Menyu qanday ko'rinishda bo'ladi — matn, rasm bilan, PDF?
+  A15 Rasm bilan, narxlar bilan
+
+  Q16 [delivery.enabled] Yetkazib berish xizmati bormi (o'zingiz yoki agregator orqali)?
+  A16 own
+
+  Q17 [branches.count] Nechta filial yoki manzil bor?
+  A17 2 ta filial
+
+  Q18 [admin_panel.needed] Kontentni o'zingiz tahrirlash uchun admin panel kerakmi?
+  A18 yes
+
+  Q19 [design.style] Dizayn uslubi qanday bo'lsin? Ranglar yoki namuna sayt bormi?
+  A19 Yorug‘ va minimal: oq fon, to‘q sariq urg‘u, menyu rasmlari katta
+
+  Q20 [content.languages] Sayt qaysi tillarda bo'lishi kerak?
+  A20 O‘zbek, Rus
+
+  Q21 [branches.hours] Ish vaqti qanday? (har bir filial uchun)
+  A21 Har kuni 10:00–23:00
+
+  Q22 [seo.needed] Google'da topilish uchun SEO sozlamalari kerakmi?
+  A22 yes
+
+  Q23 [integrations.list] Boshqa tizimlar bilan bog'lash kerakmi? (Instagram, Telegram, CRM, Google Maps, to'lov, yetkazib berish)
+  A23 Instagram, Google Maps, Telegram
+
+  Q24 [security.requirements] Ma'lumotlar xavfsizligi bo'yicha maxsus talab bormi? (masalan shifrlanadigan mijoz bazasi, faqat O'zbekistonda saqlash)
+  A24 Standart: HTTPS, mijoz ma’lumotlari shifrlangan holda saqlanadi
+
+  Q25 [hosting.preference] Tushunarli, xavfsizlik talablarini yozib qo'ydim.
+  A25 team
+
+  Q26 [domain.name] Domen nomi bormi yoki tanlashda yordam kerakmi?
+  A26 oshbaraka.uz (bizda bor)
+
+  Q27 [budget.range] Byudjet bo'yicha taxminiy oraliq qanday? (narxni jamoa alohida taklif qiladi)
+  A27 mid
+
+  Q28 [deadline.expected] Byudjet bo'yicha tushunarli.
+  A28 1 oy ichida, sentabr kampaniyasiga ulgurish kerak
+still waiting for the next question (1/25, state=REQUIREMENTS_IN_PROGRESS)

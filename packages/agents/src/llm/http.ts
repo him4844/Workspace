@@ -11,6 +11,18 @@ async function postJson(
 ): Promise<{ status: number; json: unknown; text: string; headers: Headers }> {
   const controller = new AbortController();
   const timer = setTimeout(() => controller.abort(), init.timeoutMs);
+  // Debug capture (off by default): LLM_DUMP_DIR writes every request body to disk so a live
+  // failure can be replayed with curl exactly as sent. Never enabled in production paths.
+  const dumpDir = process.env.LLM_DUMP_DIR;
+  if (dumpDir) {
+    try {
+      const { mkdirSync, writeFileSync } = await import('node:fs');
+      mkdirSync(dumpDir, { recursive: true });
+      const body = init.body as { model?: string; messages?: unknown };
+      const name = `${Date.now()}_${(body.model ?? 'unknown').replace(/[^a-z0-9]+/gi, '-')}.json`;
+      writeFileSync(`${dumpDir}/${name}`, JSON.stringify(init.body));
+    } catch { /* dump is best-effort */ }
+  }
   try {
     const res = await fetch(url, {
       method: 'POST',
@@ -81,7 +93,14 @@ export function createOpenAICompatibleClient(opts: {
           messages: request.messages,
           temperature: request.temperature ?? 0.3,
           max_tokens: request.maxOutputTokens,
-          ...(request.reasoningEffort ? { reasoning_effort: request.reasoningEffort } : {}),
+          // 'none' = reasoning disabled. OpenRouter's documented switch is `reasoning:{enabled:false}`
+          // (measured 2026-10-08: reasoning models otherwise burn the whole completion cap on hidden
+          // thinking and return empty content). Other OpenAI-compatible providers ignore the field.
+          ...(request.reasoningEffort === 'none'
+            ? { reasoning: { enabled: false } }
+            : request.reasoningEffort
+              ? { reasoning_effort: request.reasoningEffort }
+              : {}),
           ...(request.jsonMode ? { response_format: { type: 'json_object' } } : {}),
         },
       });

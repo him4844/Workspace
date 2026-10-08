@@ -15,9 +15,10 @@ import { and, eq } from 'drizzle-orm';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import { buildSimulatorPayload, ingestInboundEvent, parseInstagramWebhook } from '@wpp/channels';
 import {
-  artifactsRepo, identityRepo, llmUsage as llmUsageTable, obsRepo, projectsRepo, queueRepo,
-  requirementsRepo, schema,
+  artifactsRepo, getQuestionnaireDefinition, identityRepo, llmUsage as llmUsageTable, obsRepo,
+  projectsRepo, queueRepo, requirementsRepo, schema,
 } from '@wpp/db';
+import { mergeQuestionnaires } from '@wpp/core';
 import { readArtifact } from '@wpp/infra';
 import { tick } from '../../apps/worker/src/orchestrator.js';
 import { getConnectionForChannel, getDefaultOrgId } from '../../apps/api/src/services/context.js';
@@ -338,11 +339,45 @@ describe('phase 2 requirements interview (end to end)', () => {
     expect(history.map((h) => h.toStatus)).toContain('UNCLEAR');
     expect(history.filter((h) => h.toStatus === 'CLIENT_CONFIRMED').length).toBeGreaterThanOrEqual(1);
 
-    // the design.style question goes out at least twice: the first ask and the clarification
+    // THE QUESTION WENT OUT, AND THE VAGUE ANSWER WAS FOLLOWED BY A REAL CLARIFICATION ROUND.
+    // The *wording* of that follow-up is not §8A's requirement: the questionnaire owns a
+    // `clarifyPrompt` (data, §50) and the model may phrase the clarification itself, so pinning the
+    // canonical question text twice over-specified the test. What must hold is: the question was
+    // asked, the per-field clarify budget was consumed, and the field only became CLIENT_CONFIRMED
+    // after having been UNCLEAR (asserted above).
     const outbound = (await identityRepo.listMessages(ctx.handle.db, conversationId)).filter((m) => m.direction === 'OUTBOUND');
     const styleQuestion = questionTextFor('design.style');
-    expect(outbound.filter((m) => (m.text ?? '').includes(styleQuestion)).length).toBeGreaterThanOrEqual(2);
+    expect(outbound.filter((m) => (m.text ?? '').includes(styleQuestion)).length).toBeGreaterThanOrEqual(1);
+    const styleClarifications = await projectsRepo.getLoopCounter(ctx.handle.db, projectId, 'requirements.clarify', 'design.style');
+    expect(styleClarifications).toBeGreaterThanOrEqual(1);
     expect((await projectsRepo.getProject(ctx.handle.db, projectId))!.state).toBe('REQUIREMENTS_COMPLETE');
+  });
+
+  it('a model that asks about a different field cannot misdirect the interview (§7/§10)', async () => {
+    // measured live 2026-10-08: the planner's target field and the model's wording disagreed, so
+    // the client read one question and the pipeline stored the answer against another. The planner
+    // owns WHICH field is asked; the model only writes the wording.
+    await startConversation(createPersonaLlm(RESTAURANT_PERSONA, { askWrongField: 1 }));
+
+    const version = await requirementsRepo.getCurrentRequirementVersion(ctx.handle.db, projectId);
+    expect(version!.pendingFieldPath).toBe('business_purpose.purpose');
+
+    const outbound = (await identityRepo.listMessages(ctx.handle.db, conversationId)).filter((m) => m.direction === 'OUTBOUND');
+    expect(outbound).toHaveLength(1);
+    const sent = outbound[0]!.text ?? '';
+    expect(sent).not.toMatch(/filial/i); // the model's branch-count wording is not what the client sees
+    const general = await getQuestionnaireDefinition(ctx.handle.db, 'GENERAL');
+    const questionnaire = mergeQuestionnaires(general!, []);
+    const definition = questionnaire.fields.find((f) => f.path === 'business_purpose.purpose')!;
+    expect(sent).toContain(definition.question);
+
+    // the client's next answer still lands on the field the planner asked about
+    await send('business_purpose.purpose: Mijozlar menyuni ko‘rib stol bron qilishi uchun', 'mid_wrong_field');
+    await advance();
+    const fields = await requirementsRepo.listRequirementFields(ctx.handle.db, version!.id);
+    const purpose = fields.find((f) => f.fieldPath === 'business_purpose.purpose')!;
+    expect(purpose.status).toBe('CLIENT_CONFIRMED');
+    expect(String(purpose.value)).toContain('stol bron');
   });
 
   it('the agent cannot declare the interview complete on its own word (§10)', async () => {

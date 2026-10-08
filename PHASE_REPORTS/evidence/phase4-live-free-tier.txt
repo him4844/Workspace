@@ -3,10 +3,38 @@
 > tsx scripts/live-requirements-demo.ts
 
 === Live requirements interview over HTTP (simulator channel) ===
-client → project 01a11c48-0470-7d08-bd9e-f32e21562fca  state=INTAKE
+client → project 01a11c4f-fad4-782d-b0dc-6f1b54382fee  state=INTAKE
 
-  Q1 [business_purpose.purpose] Salom! 'Osh Baraka' restorani uchun ajoyib sayt yaratishda mamnuniyat bilan yordam beramiz.
+  Q1 [business_purpose.purpose] Salom! Osh Baraka restorani uchun sayt tayyorlashda yordam berishdan xursandmiz.
   A1 Mijozlar restoranimizni topib, menyuni ko‘rib, stol bron qilishi uchun
 
-  Q2 [target_audience.primary] Ajoyib! Demak, sayt orqali mijozlar menyuni ko'rib, stol band qila olishadi.
+  Q2 [target_audience.primary] Asosiy mijozlaringiz kimlar? (yoshi, shahri, qiziqishi bo'yicha bir-ikki guruh)
   A2 Toshkentdagi 25-45 yoshli oilalar va ofis xodimlari
+
+  Q3 [target_audience.languages] Mijozlar asosan qaysi tilda muloqot qiladi?
+  A3 O‘zbek, Rus
+
+  Q4 [website_type.type] Ajoyib, o'zbek va rus tillarida!
+  A4 RESTAURANT
+
+=== OUTCOME (recorded by hand after the run, 2026-10-08 17:00 UTC) ===
+The driver stopped after 28 answered turns. The pipeline did NOT silently continue: it escalated.
+
+Project 01a11c5b-a2fe-78b3-aa0d-3951155b0236 · state REQUIREMENTS_IN_PROGRESS · completeness 0.958
+Open task: HUMAN_REVIEW (MAJOR) — title "Requirements interview stalled"
+  reason: "No question left, but mandatory fields are still open: website_type.type"
+  aiReport: { "completeness": 0.958, "blockingFields": ["website_type.type"] }
+  suggestedAction: "Continue the conversation manually, then resume the requirements agent."
+
+Root cause (a real defect, fixed in the same session): the client answered the website-type question
+with the exact declared option `RESTAURANT` (conversation 16:36:58), the value was stored, but the
+agent still marked the field UNCLEAR — the interviewer then re-asked the same field three times
+(16:36:58, 16:37:53, 16:38:44) with a clarification whose wording came from the questionnaire's
+`clarifyPrompt` (which, in the data, asked about single-page vs multi-page — a different dimension
+than the field's own option list), and the interview finally stalled at 0.958 completeness.
+
+Fix 1 (code, §10): `matchedOptionStatus()` in packages/core/src/requirements/apply.ts — a choice
+field whose value equals one of its declared options IS answered; the rule upgrades UNCLEAR to
+CLIENT_CONFIRMED. Covered by 4 new unit tests in tests/unit/requirements-core.test.ts.
+Fix 2 (data, §50): the `clarifyPrompt` of `website_type.type` now names the field's real options
+instead of asking about page structure.

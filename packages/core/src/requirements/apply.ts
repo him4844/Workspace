@@ -29,6 +29,8 @@ export interface RejectedUpdate {
 export interface AcceptedUpdate extends ProposedFieldUpdate {
   /** true when the update weakens an existing client-confirmed value */
   downgrade: boolean;
+  /** true when the §10 option rule upgraded the status to CLIENT_CONFIRMED */
+  optionConfirmed?: boolean;
 }
 
 export interface ApplyPlan {
@@ -45,6 +47,32 @@ const VALID_STATUSES: RequirementStatus[] = [
 
 const WEAKER: RequirementStatus[] = ['EMPTY', 'UNCLEAR', 'AI_INFERRED', 'DEFAULT_PROPOSED'];
 
+/**
+ * §10 — the deterministic half of "is this answer an answer?".
+ *
+ * A `choice` field whose declared option list contains the client's value IS answered, whatever the
+ * model's confidence. Live finding 2026-10-08: the client answered `RESTAURANT` to
+ * `website_type.type`, the value was stored, but the model still marked the field UNCLEAR — the
+ * interview re-asked the same question three times, stalled at 0.958 completeness and §42 escalated
+ * to a human about a field the client had already answered. The option list is data (§50), so the
+ * rule decides — exactly like the completeness engine ignores a premature COMPLETE (§10).
+ */
+export function matchedOptionStatus(
+  update: ProposedFieldUpdate,
+  choiceOptions: Map<string, string[]> | undefined,
+): RequirementStatus | null {
+  if (!choiceOptions || (update.status !== 'UNCLEAR' && update.status !== 'EMPTY')) return null;
+  const options = choiceOptions.get(update.fieldPath);
+  if (!options || options.length === 0) return null;
+  const normalise = (v: unknown): string =>
+    typeof v === 'string' || typeof v === 'number'
+      ? String(v).trim().toLowerCase().replace(/\s+/gu, ' ').replace(/[.!?;:,]+$/u, '')
+      : '';
+  const answer = normalise(update.value);
+  if (!answer) return null;
+  return options.some((option) => normalise(option) === answer) ? 'CLIENT_CONFIRMED' : null;
+}
+
 export function planFieldUpdates(
   proposed: ProposedFieldUpdate[],
   ctx: {
@@ -54,6 +82,8 @@ export function planFieldUpdates(
     validSourceMessageIds: Set<string>;
     /** the newest inbound message of the turn — injected when the model omits the reference */
     currentInboundMessageId: string | null;
+    /** declared option lists of `choice` fields (path → options), from the questionnaire (§50) */
+    choiceOptions?: Map<string, string[]>;
   },
 ): ApplyPlan {
   const accepted: AcceptedUpdate[] = [];
@@ -71,11 +101,16 @@ export function planFieldUpdates(
     }
     if (!ctx.knownPaths.has(update.fieldPath)) newPaths.push(update.fieldPath);
 
+    // §10: a declared option in the client's own words is a confirmation, not a judgement call.
+    const matched = matchedOptionStatus(update, ctx.choiceOptions);
+    const status: RequirementStatus = matched && matched !== update.status ? matched : update.status;
+    const optionConfirmed = status !== update.status;
+
     // §10A: client truth must be traceable to a client message. If the model forgot the
     // reference but the turn is driven by an inbound client message, we use that message —
     // the update is still backed by real client text, never by invention.
     let sourceMessageId = update.sourceMessageId ?? null;
-    if (CLIENT_TRUTH_STATUSES.includes(update.status)) {
+    if (CLIENT_TRUTH_STATUSES.includes(status)) {
       if (!sourceMessageId) sourceMessageId = ctx.currentInboundMessageId;
       if (!sourceMessageId || !ctx.validSourceMessageIds.has(sourceMessageId)) {
         rejected.push({
@@ -91,7 +126,7 @@ export function planFieldUpdates(
     const downgrade =
       previous !== undefined &&
       CLIENT_TRUTH_STATUSES.includes(previous.status) &&
-      WEAKER.includes(update.status);
+      WEAKER.includes(status);
 
     if (downgrade && !(update.note && update.note.trim().length > 0)) {
       rejected.push({
@@ -102,7 +137,7 @@ export function planFieldUpdates(
       continue;
     }
 
-    accepted.push({ ...update, sourceMessageId, downgrade });
+    accepted.push({ ...update, status, sourceMessageId, downgrade, optionConfirmed });
   }
 
   return { accepted, rejected, newPaths };

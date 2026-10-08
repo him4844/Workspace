@@ -231,6 +231,11 @@ export async function requirementsTurn(ctx: HandlerContext, job: JobRow): Promis
     ? payload.messageId
     : (lastInbound?.id ?? null);
   const currentState = new Map(fieldStates.map((f) => [f.fieldPath, f]));
+  const choiceOptions = new Map<string, string[]>(
+    questionnaire.fields
+      .filter((f) => f.valueType === 'choice' && Array.isArray(f.options) && f.options.length > 0)
+      .map((f) => [f.path, f.options as string[]]),
+  );
   const applyPlan = planFieldUpdates(
     turn.fieldUpdates.map((u) => ({
       fieldPath: u.fieldPath,
@@ -246,6 +251,7 @@ export async function requirementsTurn(ctx: HandlerContext, job: JobRow): Promis
       knownPaths: new Set(questionnaire.fields.map((f) => f.path)),
       validSourceMessageIds: validSourceIds,
       currentInboundMessageId,
+      choiceOptions,
     },
   );
 
@@ -262,6 +268,11 @@ export async function requirementsTurn(ctx: HandlerContext, job: JobRow): Promis
       note: update.note ?? null,
       reason: update.downgrade ? 'agent downgrade (note present)' : `agent turn ${questionsAsked + 1}`,
     });
+  }
+  // §10 (live finding 2026-10-08): the option list decided, not the model's confidence.
+  const optionConfirmed = applyPlan.accepted.filter((u) => u.optionConfirmed).map((u) => u.fieldPath);
+  if (optionConfirmed.length > 0) {
+    logger.info({ projectId, fields: optionConfirmed }, 'choice field confirmed by a declared option (§10 deterministic rule)');
   }
   if (applyPlan.rejected.length > 0) {
     logger.warn({ rejected: applyPlan.rejected }, 'rejected requirement field updates (§10A rules)');
@@ -406,7 +417,21 @@ export async function requirementsTurn(ctx: HandlerContext, job: JobRow): Promis
   const questionPlan: QuestionPlan = engineStop.kind === 'ASK'
     ? engineStop
     : { kind: 'ASK', fieldPath: turn.question?.fieldPath ?? '', reason: 'NEXT_MANDATORY' };
-  const text = modelClaimedComplete ? fallbackQuestionText(questionPlan) : (toClientMessage(turn) ?? fallbackQuestionText(questionPlan));
+  // The planner owns WHICH field is asked (§7/§10): the model writes the wording, but a model that
+  // asks about a different field would collect an answer for the wrong question — measured live
+  // (2026-10-08): the target field was `target_audience.languages` while the sent text asked for a
+  // branch count, and the client's answer was stored against the planner's field anyway. When the
+  // two disagree the deterministic template (questionnaire text) goes out instead, so the question
+  // the client reads and the field the answer fills can never diverge.
+  const modelText = modelClaimedComplete ? null : toClientMessage(turn);
+  const modelAsksPlannedField = engineStop.kind !== 'ASK' || turn.question?.fieldPath === questionPlan.fieldPath;
+  if (modelText && !modelAsksPlannedField) {
+    logger.warn(
+      { projectId, runId, plannedField: questionPlan.fieldPath, modelField: turn.question?.fieldPath ?? null },
+      'requirements model asked about a different field than the planner — sending the questionnaire wording',
+    );
+  }
+  const text = (modelAsksPlannedField ? modelText : null) ?? fallbackQuestionText(questionPlan);
   await sendQuestion(ctx, { job, conversationId, projectId, text, runId });
   await requirementsRepo.setPendingFieldPath(
     db,

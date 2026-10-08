@@ -131,6 +131,13 @@ export interface PersonaOptions {
    * their words recorded. Tests keep the deterministic default (false).
    */
   useClientAnswer?: boolean;
+  /**
+   * Misbehaving-model probe: on call #N the persona writes a question about a DIFFERENT field
+   * than the TARGET FIELD the task block demands (measured live 2026-10-08: the planner was on
+   * `target_audience.languages` while the model's text asked for a branch count, so the client's
+   * answer was mis-paired with the question they read). Used to assert the §7/§10 guard.
+   */
+  askWrongField?: number;
 }
 
 /**
@@ -271,10 +278,13 @@ export function createPersonaLlm(
       ? nextAnswer.slice(0, 3).map((v) => String(v).slice(0, 20))
       : ['Ha', 'Yo‘q', 'Boshqacha'];
 
+    const asksWrongField = options.askWrongField === callIndex && target !== 'branches.count';
     return requirementsTurn({
       turnType: 'ACKNOWLEDGE_AND_ASK',
       acknowledgment: pending ? 'Yozib oldim.' : null,
-      question: { fieldPath: target, text: canonicalQuestion(target), quickReplies, why: 'next required field' },
+      question: asksWrongField
+        ? { fieldPath: 'branches.count', text: 'Osh Baraka restoranining nechta filiali bor?', quickReplies: ['1 ta', '2 ta', '3 ta'] }
+        : { fieldPath: target, text: canonicalQuestion(target), quickReplies, why: 'next required field' },
       fieldUpdates,
       contradictions: [],
       vision: { clientConfirmed: [], aiInferred: [], notSpecified: [] },

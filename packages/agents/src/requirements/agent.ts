@@ -11,6 +11,7 @@ import type { Vision } from '../contracts.js';
 import { RequirementsTurnSchema, zodErrorsToMessages, type RequirementsTurn } from '../contracts.js';
 import type { ValidateResult } from '../runtime.js';
 import type { RunAgentInput } from '../runtime.js';
+import type { ReasoningEffort } from '../llm/types.js';
 
 export const REQUIREMENTS_OUTPUT_SCHEMA_REF = 'docs/contracts/requirements-turn-output.json';
 
@@ -122,7 +123,7 @@ export function buildRequirementsRunInput(opts: {
   temperature?: number;
   maxOutputTokens?: number;
   /** reasoning models (Gemini 3.x) can spend the whole completion cap thinking */
-  reasoningEffort?: 'minimal' | 'low' | 'medium' | 'high';
+  reasoningEffort?: ReasoningEffort;
   timeoutMs?: number;
   onRaw?: RunAgentInput<RequirementsTurn>['onRaw'];
 }): RunAgentInput<RequirementsTurn> {
