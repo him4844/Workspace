@@ -46,6 +46,33 @@ export async function enqueueJob(ex: Executor, input: EnqueueInput): Promise<{ j
   return { job: existing[0]!, duplicate: true };
 }
 
+/**
+ * Schedule a "one live timer per subject" job: if a PENDING job with this key exists its
+ * `runAt`/payload are moved, otherwise a new one is inserted.
+ *
+ * Used by the inactivity reminder (§10): every new question would otherwise pile up another
+ * pending reminder; only the timer for the latest question matters.
+ */
+export async function replacePendingJob(
+  ex: Executor,
+  input: EnqueueInput & { idempotencyKey: string },
+): Promise<{ id: string; replaced: boolean }> {
+  const existing = await ex
+    .select()
+    .from(jobs)
+    .where(and(eq(jobs.idempotencyKey, input.idempotencyKey), eq(jobs.status, 'PENDING')))
+    .limit(1);
+  if (existing[0]) {
+    await ex
+      .update(jobs)
+      .set({ runAt: input.runAt ?? new Date(), payload: (input.payload ?? {}) as object, updatedAt: new Date() })
+      .where(eq(jobs.id, existing[0].id));
+    return { id: existing[0].id, replaced: true };
+  }
+  const { job } = await enqueueJob(ex, input);
+  return { id: job.id, replaced: false };
+}
+
 export async function claimNextJob(ex: Executor, workerId: string, leaseSeconds = 120): Promise<JobRow | null> {
   // Atomic claim: the sub-select locks one runnable row, skipping rows another worker holds.
   const rows = await ex.execute(sql`

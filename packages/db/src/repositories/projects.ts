@@ -36,7 +36,11 @@ export async function listProjects(ex: Executor, opts: { states?: ProjectState[]
 
 export async function createProject(
   ex: Executor,
-  params: { orgId: string; clientId: string; conversationId: string; name?: string | null },
+  params: {
+    orgId: string; clientId: string; conversationId: string; name?: string | null;
+    /** best-effort type from the first message (§7); the interview answer is authoritative */
+    projectType?: string | null;
+  },
 ): Promise<ProjectRow> {
   const id = uuidv7();
   await ex.insert(projects).values({
@@ -45,9 +49,18 @@ export async function createProject(
     clientId: params.clientId,
     conversationId: params.conversationId,
     name: params.name ?? null,
+    projectType: params.projectType ?? 'UNKNOWN',
     state: 'NEW',
   });
   return (await getProject(ex, id))!;
+}
+
+/** Record the project type once it is known (§7) — from the interview answer or a team edit. */
+export async function setProjectType(ex: Executor, projectId: string, projectType: string): Promise<void> {
+  await ex
+    .update(projects)
+    .set({ projectType, updatedAt: new Date() })
+    .where(eq(projects.id, projectId));
 }
 
 export async function countProjects(ex: Executor): Promise<number> {

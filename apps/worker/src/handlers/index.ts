@@ -6,6 +6,8 @@ import type { JobRow } from '@wpp/db';
 import { identityRepo, obsRepo, projectsRepo } from '@wpp/db';
 import { WppError, type JobType } from '@wpp/core';
 import { sendOutboundMessage } from '../services/outbound.js';
+import { requirementsTurn } from './requirements.js';
+import { inactivityCheck } from './inactivity.js';
 import type { HandlerContext } from '../orchestrator.js';
 
 export type JobHandler = (ctx: HandlerContext, job: JobRow) => Promise<void>;
@@ -33,7 +35,7 @@ const echoReply: JobHandler = async (ctx, job) => {
   });
 
   try {
-    const existing = await identityRepo.listMessages(ctx.db, payload.conversationId, { limit: 200 });
+    const existing = await identityRepo.listRecentMessages(ctx.db, payload.conversationId, 200);
     const alreadyReplied = existing.some((m) => m.direction === 'OUTBOUND' && m.agentRunId === job.id);
 
     if (!alreadyReplied) {
@@ -84,7 +86,7 @@ const notImplemented = (phase: string): JobHandler => async (_ctx, job) => {
 export const HANDLERS: Partial<Record<JobType, JobHandler>> = {
   ECHO_REPLY: echoReply,
   SEND_OUTBOUND: sendOutbound,
-  REQUIREMENTS_TURN: echoReply, // Phase 2 swaps in the real agent implementation
+  REQUIREMENTS_TURN: requirementsTurn,
   SPEC_GENERATE: notImplemented('Phase 3'),
   SPEC_REVISE: notImplemented('Phase 3'),
   SPEC_AUDIT: notImplemented('Phase 4'),
@@ -92,7 +94,8 @@ export const HANDLERS: Partial<Record<JobType, JobHandler>> = {
   CLIENT_APPROVAL_TIMEOUT: notImplemented('Phase 3'),
   BUILD_RUN: notImplemented('Phase 5'),
   CODE_CHECK: notImplemented('Phase 6'),
+  INACTIVITY_CHECK: inactivityCheck,
   TOKEN_REFRESH: notImplemented('Phase 5'),
 };
 
-export { echoReply, sendOutbound, projectsRepo };
+export { echoReply, sendOutbound };

@@ -3,6 +3,7 @@
  *  - /webhooks/instagram        GET verification handshake, POST signed events
  *  - /dev/simulator/*           dev-only channel (CHANNEL_SIMULATOR_ENABLED)
  *  - /api/v1/*                  minimal inspection + internal send endpoint
+ *  - /, /simulator           dev console (HTML, simulator channel only)
  *  - /healthz, /readyz
  */
 import Fastify, { type FastifyInstance } from 'fastify';
@@ -13,6 +14,7 @@ import { registerWebhookRoutes } from './routes/webhooks.js';
 import { registerSimulatorRoutes } from './routes/simulator.js';
 import { registerInspectorRoutes } from './routes/inspector.js';
 import { registerHealthRoutes } from './routes/health.js';
+import { registerSimulatorConsoleRoutes } from './routes/simulator-console.js';
 
 export interface AppDeps {
   db: Db;
@@ -54,6 +56,7 @@ export async function buildApp(deps: AppDeps): Promise<FastifyInstance> {
   await registerWebhookRoutes(app, deps);
   await registerSimulatorRoutes(app, deps);
   await registerInspectorRoutes(app, deps);
+  await registerSimulatorConsoleRoutes(app, deps);
 
   return app;
 }

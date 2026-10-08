@@ -206,6 +206,23 @@ export async function listMessages(ex: Executor, conversationId: string, opts: {
     .limit(opts.limit ?? 200);
 }
 
+/**
+ * The most recent `limit` messages of a conversation, oldest first.
+ *
+ * `listMessages` deliberately pages from the beginning (audit/panel use); every *runtime*
+ * decision (which turn are we in, what did the client just say, are we waiting for an answer)
+ * must look at the newest messages, not at the first 40 ever exchanged (Phase 2 fix).
+ */
+export async function listRecentMessages(ex: Executor, conversationId: string, limit = 40) {
+  const rows = await ex
+    .select()
+    .from(messages)
+    .where(eq(messages.conversationId, conversationId))
+    .orderBy(desc(messages.createdAt), desc(messages.id))
+    .limit(limit);
+  return rows.reverse();
+}
+
 export async function markMessageSent(ex: Executor, id: string, channelMessageId?: string | null, at = new Date()): Promise<void> {
   await ex
     .update(messages)

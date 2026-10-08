@@ -8,7 +8,7 @@ import { and, asc, eq, sql } from 'drizzle-orm';
 import { z } from 'zod';
 import { buildSimulatorPayload, ingestInboundEvent, parseInstagramWebhook } from '@wpp/channels';
 import { schema, queueRepo, identityRepo } from '@wpp/db';
-import { getConnectionForChannel, getDefaultOrgId } from '../services/context.js';
+import { getConnectionForChannel, getDefaultOrgId, turnJobType } from '../services/context.js';
 import type { AppDeps } from '../app.js';
 
 const InboundSchema = z.object({
@@ -53,6 +53,7 @@ export async function registerSimulatorRoutes(app: FastifyInstance, deps: AppDep
       connectionId: connection.id,
       channel: 'SIMULATOR',
       event: events[0]!,
+      turnJobType: turnJobType(config),
     });
     return reply.send({ ok: true, data: result });
   });
@@ -86,6 +87,6 @@ export async function registerSimulatorRoutes(app: FastifyInstance, deps: AppDep
       db.execute(sql`SELECT count(*)::int AS n FROM messages WHERE direction = 'OUTBOUND' AND status = 'QUEUED'`),
     ]);
     const pendingRows = (Array.isArray(pending) ? pending : ((pending as { rows?: unknown[] }).rows ?? [])) as Array<{ n: number }>;
-    return reply.send({ ok: true, data: { jobs, conversations, pendingOutbound: pendingRows[0]?.n ?? 0 } });
+    return reply.send({ ok: true, data: { jobs, conversations, pendingOutbound: pendingRows[0]?.n ?? 0, llm: config.LLM_PROVIDER } });
   });
 }

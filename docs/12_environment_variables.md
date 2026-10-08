@@ -56,8 +56,14 @@ Legend: **R** required, **O** optional, **D** dev-only.
 
 | Var | R/O | Purpose |
 |---|---|---|
-| `OPENAI_API_KEY` | O | OpenAI adapter |
-| `ANTHROPIC_API_KEY` | O | Anthropic adapter |
+| `LLM_PROVIDER` | D | `none` (default — no AI configured), `scripted` (in-process client persona for demos/CI, D-025), `openai`, `openrouter`, `openai-compatible`, `anthropic` |
+| `LLM_API_KEY` | O | provider key; absent key + a real provider ⇒ the platform runs with **no** LLM (`resolveLlmClient` → null), never a silent fallback |
+| `LLM_BASE_URL` | O | OpenAI-compatible gateway / proxy / self-hosted endpoint |
+| `LLM_MODEL` | O | default model for agents that do not pin one in `agent_config_versions` |
+| `REQUIREMENTS_LLM_PROVIDER` / `REQUIREMENTS_LLM_MODEL` | O | per-agent override (SPEC §51); the Spec Auditor must point at a *different* provider than the main agents |
+| `LLM_DAILY_BUDGET_USD` | D | `10` — runaway-cost guard (§26) |
+| `AGENT_MAX_REPAIRS` | D | `1` — the single repair attempt of §49 |
+| `OPENAI_API_KEY` / `ANTHROPIC_API_KEY` | — | **not read by the code today**: the factory only reads `LLM_API_KEY`. Kept in this table as the names an operator would expect; adopt them (as aliases) if they are preferred over the generic key |
 | `OPENROUTER_API_KEY` | O | OpenRouter adapter |
 | `OLLAMA_BASE_URL` | O | local/self-hosted OpenAI-compatible endpoint |
 | `LLM_FAKE_MODE` | D | `true` → deterministic fake provider for tests |

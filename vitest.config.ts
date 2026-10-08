@@ -6,6 +6,8 @@ const alias = {
   '@wpp/infra': fileURLToPath(new URL('./packages/infra/src/index.ts', import.meta.url)),
   '@wpp/db': fileURLToPath(new URL('./packages/db/src/index.ts', import.meta.url)),
   '@wpp/channels': fileURLToPath(new URL('./packages/channels/src/index.ts', import.meta.url)),
+  '@wpp/agents': fileURLToPath(new URL('./packages/agents/src/index.ts', import.meta.url)),
+  '@wpp/testing': fileURLToPath(new URL('./packages/testing/src/index.ts', import.meta.url)),
 };
 
 export default defineConfig({

@@ -8,7 +8,7 @@ import type { FastifyInstance } from 'fastify';
 import { channelsRepo, obsRepo } from '@wpp/db';
 import { ingestInboundEvent, parseInstagramWebhook, verifyHandshake, verifySignature } from '@wpp/channels';
 import type { AppDeps } from '../app.js';
-import { getDefaultOrgId, getConnectionForChannel } from '../services/context.js';
+import { getDefaultOrgId, getConnectionForChannel, turnJobType } from '../services/context.js';
 
 export async function registerWebhookRoutes(app: FastifyInstance, deps: AppDeps): Promise<void> {
   const { db, config } = deps;
@@ -82,6 +82,7 @@ export async function registerWebhookRoutes(app: FastifyInstance, deps: AppDeps)
         connectionId: connection.id,
         channel: 'INSTAGRAM',
         event,
+        turnJobType: turnJobType(config),
       });
       if (result.duplicate) duplicates += 1;
       else processed += 1;

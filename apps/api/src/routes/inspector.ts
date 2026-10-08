@@ -6,9 +6,11 @@
 import type { FastifyInstance } from 'fastify';
 import { asc, eq } from 'drizzle-orm';
 import {
-  getConversation, getProject, identityRepo, listMessages, listOpenTasks,
+  getConversation, getProject, getArtifact, identityRepo, listContradictions,
+  listCurrentRequirementSnapshot, listMessages, listOpenTasks,
   listProjects, listTransitions, obsRepo, queueRepo, schema,
 } from '@wpp/db';
+import { readArtifact } from '@wpp/infra';
 import { hoursUntilExpiry } from '@wpp/core';
 import type { AppDeps } from '../app.js';
 
@@ -60,6 +62,61 @@ export async function registerInspectorRoutes(app: FastifyInstance, deps: AppDep
         transitions,
         timeline,
         openTasks: tasks.filter((t) => t.status === 'OPEN'),
+      },
+    });
+  });
+
+  /**
+   * Structured requirements of a project (Phase 2 acceptance: "structured requirements can be
+   * inspected"): fields with §10A statuses, contradictions, status history count and the
+   * internal summary artifact the Specification Agent will consume.
+   */
+  app.get('/api/v1/projects/:id/requirements', async (request, reply) => {
+    const { id } = request.params as { id: string };
+    const project = await getProject(db, id);
+    if (!project) return reply.status(404).send({ ok: false, error: { code: 'NOT_FOUND', message: 'project not found' } });
+
+    const snapshot = await listCurrentRequirementSnapshot(db, id);
+    const contradictions = await listContradictions(db, id);
+    const summaryArtifact = snapshot.version?.summaryArtifactId
+      ? await getArtifact(db, snapshot.version.summaryArtifactId)
+      : null;
+
+    return reply.send({
+      ok: true,
+      data: {
+        projectId: id,
+        projectType: project.projectType,
+        state: project.state,
+        version: snapshot.version
+          ? {
+              id: snapshot.version.id,
+              version: snapshot.version.version,
+              completeness: Number(snapshot.version.completeness),
+              pendingFieldPath: snapshot.version.pendingFieldPath,
+              vision: snapshot.version.vision,
+              summaryArtifactId: snapshot.version.summaryArtifactId,
+              createdAt: snapshot.version.createdAt,
+            }
+          : null,
+        fields: snapshot.fields.map((f) => ({
+          fieldPath: f.fieldPath,
+          category: f.category,
+          value: f.value,
+          status: f.status,
+          priority: f.priority,
+          mandatory: f.mandatory,
+          sourceMessageId: f.sourceMessageId,
+          note: f.note,
+          updatedAt: f.updatedAt,
+        })),
+        contradictions: contradictions.map((c) => ({
+          fieldA: c.fieldA, fieldB: c.fieldB, description: c.description,
+          severity: c.severity, status: c.status, resolutionNote: c.resolutionNote,
+        })),
+        summary: summaryArtifact
+          ? { artifactId: summaryArtifact.id, path: summaryArtifact.path, sha256: summaryArtifact.sha256, markdown: readArtifact(summaryArtifact.path) }
+          : null,
       },
     });
   });

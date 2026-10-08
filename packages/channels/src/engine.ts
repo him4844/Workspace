@@ -10,7 +10,7 @@
  */
 import type { Db, Executor } from '@wpp/db';
 import { obsRepo, channelsRepo, identityRepo, projectsRepo, queueRepo } from '@wpp/db';
-import { computeWindowExpiry, type ChannelType } from '@wpp/core';
+import { computeWindowExpiry, detectProjectTypeHint, type ChannelType } from '@wpp/core';
 import type { ConversationEvent } from './events.js';
 
 export interface IngestResult {
@@ -39,11 +39,13 @@ export async function ingestInboundEvent(
     connectionId: string;
     channel: ChannelType;
     event: ConversationEvent;
+    /** which job answers this turn: ECHO_REPLY without an LLM, REQUIREMENTS_TURN with one (§5) */
+    turnJobType?: 'ECHO_REPLY' | 'REQUIREMENTS_TURN';
   },
   options: IngestOptions = {},
 ): Promise<IngestResult> {
   const { orgId, connectionId, channel, event } = params;
-  const turnJobType = options.turnJobType ?? 'ECHO_REPLY';
+  const turnJobType = params.turnJobType ?? options.turnJobType ?? 'ECHO_REPLY';
 
   return db.transaction(async (tx: Executor) => {
     // 1. identity resolution (creates the client on first contact)
@@ -100,6 +102,9 @@ export async function ingestInboundEvent(
         clientId: client.id,
         conversationId: conversation.id,
         name: null,
+        // best effort from the first message (§7); the client's answer to `website_type.type`
+        // overwrites this later through the requirements handler.
+        projectType: detectProjectTypeHint(event.text),
       });
       projectCreated = true;
       // audit row for creation (T01) — self-transition kept explicit for the timeline

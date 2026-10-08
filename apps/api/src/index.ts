@@ -1,6 +1,7 @@
 /** API entrypoint: config → db → migrate → serve (and the worker loop when embedded). */
 import { createDb, applyMigrations } from '@wpp/db';
 import { createLogger, loadConfig, uuidv7 } from '@wpp/infra';
+import { resolveLlmClient } from '../../worker/src/services/llm.js';
 import { runLoop } from '../../worker/src/orchestrator.js';
 import { buildApp } from './app.js';
 
@@ -21,8 +22,12 @@ async function main(): Promise<void> {
   const embeddedWorker = config.EMBEDDED_WORKER || config.DB_DRIVER === 'pglite';
   if (embeddedWorker) {
     const workerId = `embedded-${uuidv7().slice(0, 8)}`;
-    logger.info({ workerId }, 'embedded worker loop starting');
-    void runLoop({ db: handle.db, config, logger, workerId }, { signal: workerController.signal }).catch((err) => {
+    const resolved = await resolveLlmClient(config);
+    logger.info({ workerId, llm: resolved?.defaultProvider ?? 'none', model: resolved?.defaultModel ?? null }, 'embedded worker loop starting');
+    void runLoop(
+      { db: handle.db, config, logger, workerId, llm: resolved?.client ?? null, artifactsRoot: 'data' },
+      { signal: workerController.signal },
+    ).catch((err) => {
       logger.error({ err }, 'embedded worker loop stopped unexpectedly');
     });
   }

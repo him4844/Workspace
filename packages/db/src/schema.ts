@@ -36,7 +36,7 @@ export const taskTypeEnum = pgEnum('task_type', [
 export const taskStatusEnum = pgEnum('task_status', ['OPEN', 'IN_PROGRESS', 'BLOCKED', 'DONE', 'CANCELLED']);
 export const eventTypeEnum = pgEnum('event_type', [
   'PROJECT_CREATED', 'STATE_CHANGED', 'MESSAGE_INBOUND', 'MESSAGE_OUTBOUND', 'MESSAGE_SEND_BLOCKED',
-  'REQUIREMENTS_COMPLETE', 'SPEC_GENERATED', 'SPEC_LOCKED', 'SPEC_AUDIT_RESULT', 'BUILD_STARTED', 'BUILD_FINISHED',
+  'REQUIREMENTS_COMPLETE', 'PROJECT_TYPE_DETECTED', 'SPEC_GENERATED', 'SPEC_LOCKED', 'SPEC_AUDIT_RESULT', 'BUILD_STARTED', 'BUILD_FINISHED',
   'CODE_CHECK_RESULT', 'TASK_CREATED', 'TASK_STATUS_CHANGED', 'APPROVAL_RECORDED', 'CHANGE_REQUEST', 'AGENT_RUN_FINISHED',
   'HUMAN_ACTION', 'SECURITY_ALERT', 'SYSTEM_ERROR', 'WEBHOOK_RECEIVED', 'WEBHOOK_DUPLICATE',
 ]);
@@ -299,6 +299,9 @@ export const agentRuns = pgTable('agent_runs', {
   errorDetail: text('error_detail'),
   model: text('model'),
   provider: text('provider'),
+  configVersionId: text('config_version_id'),
+  turnIndex: integer('turn_index'),
+  stopReason: text('stop_reason'),
   promptTokens: integer('prompt_tokens'),
   completionTokens: integer('completion_tokens'),
   costUsd: numeric('cost_usd', { precision: 10, scale: 4 }),
@@ -339,6 +342,115 @@ export const artifacts = pgTable('artifacts', {
   mime: text('mime'),
   version: integer('version'),
   createdByRunId: text('created_by_run_id'),
+  createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+});
+
+// ---------------------------------------------------------------- Phase 2 (docs/03 §5, §8)
+
+export const questionnaires = pgTable('questionnaires', {
+  id: text('id').primaryKey(),
+  code: text('code').notNull(),
+  version: integer('version').notNull().default(1),
+  type: text('type').notNull(),
+  appliesToProjectType: text('applies_to_project_type'),
+  definition: jsonb('definition').notNull(),
+  isActive: boolean('is_active').notNull().default(true),
+  createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+}, (t) => ({ codeVersionUq: uniqueIndex('questionnaires_code_version_uq').on(t.code, t.version) }));
+
+export const agentConfigs = pgTable('agent_configs', {
+  id: text('id').primaryKey(),
+  orgId: text('org_id').notNull().references(() => organizations.id),
+  agentType: agentTypeEnum('agent_type').notNull(),
+  name: text('name').notNull(),
+  isActive: boolean('is_active').notNull().default(true),
+  currentVersion: integer('current_version').notNull().default(1),
+  createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+}, (t) => ({ orgTypeNameUq: uniqueIndex('agent_configs_org_type_name_uq').on(t.orgId, t.agentType, t.name) }));
+
+export const agentConfigVersions = pgTable('agent_config_versions', {
+  id: text('id').primaryKey(),
+  agentConfigId: text('agent_config_id').notNull().references(() => agentConfigs.id),
+  version: integer('version').notNull(),
+  provider: text('provider').notNull(),
+  model: text('model').notNull(),
+  temperature: numeric('temperature', { precision: 3, scale: 2 }),
+  maxOutputTokens: integer('max_output_tokens'),
+  timeoutMs: integer('timeout_ms').notNull().default(60000),
+  maxRetries: integer('max_retries').notNull().default(2),
+  systemInstructions: text('system_instructions').notNull(),
+  outputSchema: jsonb('output_schema').notNull(),
+  enabledTools: jsonb('enabled_tools').notNull().default([]),
+  notes: text('notes'),
+  createdByMemberId: text('created_by_member_id').references(() => teamMembers.id),
+  createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+}, (t) => ({ configVersionUq: uniqueIndex('agent_config_versions_uq').on(t.agentConfigId, t.version) }));
+
+export const requirementVersions = pgTable('requirement_versions', {
+  id: text('id').primaryKey(),
+  projectId: text('project_id').notNull().references(() => projects.id),
+  version: integer('version').notNull(),
+  questionnaireSchemaVersion: text('questionnaire_schema_version').notNull().default('1.0.0'),
+  completeness: numeric('completeness', { precision: 4, scale: 3 }).notNull().default('0'),
+  summaryArtifactId: text('summary_artifact_id').references(() => artifacts.id),
+  vision: jsonb('vision').notNull().default({}),
+  pendingFieldPath: text('pending_field_path'),
+  isCurrent: boolean('is_current').notNull().default(false),
+  createdByRunId: text('created_by_run_id'),
+  createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+}, (t) => ({ projectVersionUq: uniqueIndex('requirement_versions_project_version_uq').on(t.projectId, t.version) }));
+
+export const requirementFields = pgTable('requirement_fields', {
+  id: text('id').primaryKey(),
+  requirementVersionId: text('requirement_version_id').notNull().references(() => requirementVersions.id),
+  fieldPath: text('field_path').notNull(),
+  category: text('category').notNull(),
+  value: jsonb('value'),
+  status: requirementStatusEnum('status').notNull().default('EMPTY'),
+  priority: priorityLevelEnum('priority').notNull().default('MUST'),
+  mandatory: boolean('mandatory').notNull().default(false),
+  confidence: numeric('confidence', { precision: 4, scale: 3 }),
+  sourceMessageId: text('source_message_id').references(() => messages.id),
+  sourceRunId: text('source_run_id'),
+  note: text('note'),
+  updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
+}, (t) => ({ versionPathUq: uniqueIndex('requirement_fields_version_path_uq').on(t.requirementVersionId, t.fieldPath) }));
+
+export const fieldStatusHistory = pgTable('field_status_history', {
+  id: text('id').primaryKey(),
+  fieldId: text('field_id').notNull().references(() => requirementFields.id),
+  fromStatus: requirementStatusEnum('from_status'),
+  toStatus: requirementStatusEnum('to_status').notNull(),
+  reason: text('reason'),
+  messageId: text('message_id').references(() => messages.id),
+  agentRunId: text('agent_run_id'),
+  createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+});
+
+export const contradictions = pgTable('contradictions', {
+  id: text('id').primaryKey(),
+  projectId: text('project_id').notNull().references(() => projects.id),
+  requirementVersionId: text('requirement_version_id').notNull().references(() => requirementVersions.id),
+  fieldA: text('field_a').notNull(),
+  fieldB: text('field_b').notNull(),
+  description: text('description').notNull(),
+  severity: severityEnum('severity').notNull().default('MAJOR'),
+  status: text('status').notNull().default('OPEN'),
+  resolutionNote: text('resolution_note'),
+  resolvedAt: timestamp('resolved_at', { withTimezone: true }),
+  createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+});
+
+export const llmUsage = pgTable('llm_usage', {
+  id: text('id').primaryKey(),
+  orgId: text('org_id').notNull().references(() => organizations.id),
+  projectId: text('project_id'),
+  agentRunId: text('agent_run_id'),
+  provider: text('provider').notNull(),
+  model: text('model').notNull(),
+  promptTokens: integer('prompt_tokens').notNull().default(0),
+  completionTokens: integer('completion_tokens').notNull().default(0),
+  costUsd: numeric('cost_usd', { precision: 10, scale: 4 }),
   createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
 });
 

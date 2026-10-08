@@ -131,10 +131,27 @@
 
 | Method | Path | Notes |
 |---|---|---|
-| POST | `/dev/simulator/:connectionId/inbound` | inject a client DM as if from Instagram (used by tests + demos) |
-| GET | `/dev/simulator/:connectionId/outbox` | messages the system "sent" |
-| POST | `/dev/simulator/clock` | advance simulated time (tests the 24h window & inactivity jobs deterministically) |
-| POST | `/dev/webhooks/instagram/replay` | replay a captured Meta payload with a valid signature (webhook regression tests) |
+| GET | `/` | human dev console (HTML) for the simulator channel — chat view + live project/requirements state (**implemented**, D-027) |
+| POST | `/dev/simulator/inbound` | inject a client DM as if from Instagram; goes through the *same* parser + ingestion path as the webhook (**implemented**) |
+| GET | `/dev/simulator/outbox` | messages the system "sent", optional `?conversationId=` (**implemented**) |
+| GET | `/dev/simulator/stats` | queue stats, conversation overview and the active `LLM_PROVIDER` (**implemented**) |
+| GET | `/dev/simulator/project/:id` | project card for the console: state, completeness, fields, contradictions, open tasks, summary (**implemented**) |
+| GET | `/dev/simulator/lookup?senderId=` | resolve a demo sender to conversation + project + messages (**implemented**, console reload) |
+| POST | `/dev/simulator/:connectionId/inbound` … | earlier drafts of the same endpoints; the connection is resolved from the channel, so no id is required |
+| POST | `/dev/simulator/clock` | advance simulated time (tests the 24h window & inactivity jobs deterministically) — *not implemented*; tests pull future-dated jobs forward instead |
+| POST | `/dev/webhooks/instagram/replay` | replay a captured Meta payload with a valid signature — *not implemented* |
+
+### 2.10.1 Inspection API implemented so far (Phase 1–2, `X-Internal-Token`)
+
+| Method | Path | Notes |
+|---|---|---|
+| GET | `/healthz`, `/readyz` | liveness (no DB) / readiness (DB + migrations + queue) |
+| GET | `/api/v1/projects` | project list (state, type, client, conversation) |
+| GET | `/api/v1/projects/:id` | project + conversation/window (`hoursLeft`) + transitions + event timeline + open tasks |
+| GET | `/api/v1/projects/:id/requirements` | version (incl. `completeness`, `pendingFieldPath`, `vision`), every field with its §10A status, contradictions, summary artifact markdown |
+| GET | `/api/v1/conversations/:id/messages` | full message page (audit order) |
+| GET | `/api/v1/messages`, `/api/v1/jobs`, `/api/v1/agent-runs` | operational views for humans before the panel exists |
+| POST | `/api/v1/conversations/:id/send` | internal human/dev send (window guard + §31A escalation still apply) |
 
 ### 2.11 Health & ops
 

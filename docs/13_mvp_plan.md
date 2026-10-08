@@ -35,6 +35,11 @@ Every phase delivers: working feature + tests that actually ran + a minimal insp
 | **P7 Team Panel** | auth+RBAC, dashboard, project page (10 questions), tasks, price/deadline with human-only rule, Team Assistant drafts, observability, window warnings | one project followed from first DM to TEAM_REVIEW without touching the DB; AI never sends price; unauth users blocked | 6–10 days |
 | **P8 Advanced** (mini-phases) | Design Swap, Stitch prompt versioning, additional website types (restaurant → e-commerce → education → corporate), CR workflow, better orchestration | Design Swap keeps backend tests green; each new type passes the full vertical slice before the next starts | iterative |
 
+**Status (2026-10-08):** P0 approved · **P1 built, verified, committed** (`068c5f4`, `PHASE_REPORTS/phase1.md`) ·
+**P2 built and verified** — 96/96 tests green, live simulator interview reaches `REQUIREMENTS_COMPLETE`
+(`PHASE_REPORTS/phase2.md`), awaiting human approval before P3. P3 (Specification + client approval) is the
+next planned phase; the only external blockers remain the Meta app (track A) and real LLM keys (track D).
+
 ## 2. MVP scope guardrails (§47)
 
 **In:** the vertical slice above, page-per-website-type = landing page only, channels = Instagram + simulator, single org, single IG account, no design swap until P8.

@@ -1,6 +1,6 @@
 import type { Db } from '@wpp/db';
 import { channelsRepo, orgRepo } from '@wpp/db';
-import { uuidv7 } from '@wpp/infra';
+import { uuidv7, type Config } from '@wpp/infra';
 import type { ChannelType } from '@wpp/core';
 
 /**
@@ -28,4 +28,13 @@ export async function getConnectionForChannel(db: Db, channel: ChannelType): Pro
 
 export function newId(): string {
   return uuidv7();
+}
+
+/**
+ * Which job answers a client message (SPEC §5, D-015).
+ * With an LLM provider configured the requirements agent takes the turn; without one the
+ * pipeline degrades to the Phase 1 acknowledgment instead of failing silently.
+ */
+export function turnJobType(config: Config): 'ECHO_REPLY' | 'REQUIREMENTS_TURN' {
+  return config.LLM_PROVIDER && config.LLM_PROVIDER !== 'none' ? 'REQUIREMENTS_TURN' : 'ECHO_REPLY';
 }

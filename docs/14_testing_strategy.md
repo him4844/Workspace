@@ -105,3 +105,37 @@ Any phase is only "done" when `verify` is green **and** the phase's acceptance s
 - "Tested" is only written next to an actual command + result output.
 - Static-only verification is labelled `STATIC_ONLY` in check results (§25A) — including our own platform features when the environment cannot run something (e.g. no Chromium available in a sandbox: the report says so explicitly).
 - Flaky tests are quarantined with an issue, not muted silently.
+
+---
+
+## 9. Status after Phase 2 (2026-10-08) — what actually exists
+
+| Layer | File(s) | Tests |
+|---|---|---|
+| Unit — state machine | `tests/unit/state-machine.test.ts` | 17 |
+| Unit — requirements core (completeness, planner, apply, detection, questionnaire data) | `tests/unit/requirements-core.test.ts` | 24 |
+| Unit — security, window math, config data (`config/` is the source of truth) | `tests/unit/security-and-window.test.ts`, `tests/unit/config-validation.test.ts` | 11 + 9 |
+| Integration — ingestion + repositories (real PGlite) | `tests/integration/ingest.test.ts` | 11 |
+| Integration — HTTP webhook (signature, dedupe, batch) | `tests/integration/webhook-http.test.ts` | 7 |
+| Integration — requirements inspection API | `tests/integration/requirements-api.test.ts` | 2 |
+| E2E — Phase-1 slice (echo, parking, blocked send) | `tests/e2e/simulated-conversation.test.ts` | 5 |
+| E2E — Phase-2 requirements interview (11 scenarios incl. §8A vague, §8B contradiction, §10A bogus source, repair, injection, caps, inactivity) | `tests/e2e/requirements-interview.test.ts` | 11 |
+
+`vitest run` = **9 files / 96 tests**, `tsc --noEmit` clean. The scripted provider is the default in
+tests (`packages/testing`), so the suite is deterministic and offline; the same provider can be
+selected in the running system with `LLM_PROVIDER=scripted` for demos (D-025).
+
+**Live acceptance drivers (not part of `vitest run`, both quoted in `PHASE_REPORTS/phase2.md`):**
+
+```bash
+npm run simulate:requirements   # in-memory: seeds config/ + one restaurant DM → REQUIREMENTS_COMPLETE
+npm run dev                     # LLM_PROVIDER=scripted …: API :3000 + embedded worker (PGlite, D-022)
+npm run demo:live               # drives the RUNNING API over HTTP (simulator channel) and prints the result
+```
+
+Operational note: stop the dev server (`npm run dev`) before the suite — with the API+worker process
+alive the fork workers can die under memory pressure (`Worker exited unexpectedly`), which looks like a
+test failure but is sandbox contention.
+
+Playwright/Chromium is **not** available in this sandbox: browser-level tests remain Phase-6 work and
+are explicitly reported as not-run until a VPS with Chromium exists (§8 honesty rules).

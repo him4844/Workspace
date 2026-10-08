@@ -6,6 +6,7 @@
 export * from './client.js';
 export * from './migrate.js';
 export * from './schema.js';
+export * from './seeding.js';
 
 export * as orgRepo from './repositories/org.js';
 export * as channelsRepo from './repositories/channels.js';
@@ -13,10 +14,14 @@ export * as identityRepo from './repositories/identity.js';
 export * as projectsRepo from './repositories/projects.js';
 export * as queueRepo from './repositories/queue.js';
 export * as obsRepo from './repositories/observability.js';
+export * as requirementsRepo from './repositories/requirements.js';
+export * as questionnairesRepo from './repositories/questionnaires.js';
+export * as agentConfigRepo from './repositories/agentConfig.js';
+export * as artifactsRepo from './repositories/artifacts.js';
 
 // ---- flat exports (projects & state machine) ----
 export {
-  getProject, listProjects, createProject, applyTransition, listTransitions,
+  getProject, listProjects, createProject, setProjectType, applyTransition, listTransitions,
   getLoopCounter, incrementLoopCounter, resetLoopCounter,
   findOpenProjectForConversation, countProjects,
 } from './repositories/projects.js';
@@ -25,7 +30,7 @@ export type { ProjectRow, ApplyTransitionInput, ApplyTransitionResult } from './
 // ---- flat exports (identity & conversations) ----
 export {
   resolveClientByIdentity, findOrCreateConversation, getConversation, listConversations,
-  insertMessage, getMessage, listMessages, markMessageSent, markMessageFailed,
+  insertMessage, getMessage, listMessages, listRecentMessages, markMessageSent, markMessageFailed,
   markMessageSendBlocked, touchInbound, touchOutbound, attachMessageToProject,
   conversationOverview, pendingOutbound, findIdentity, getClient,
 } from './repositories/identity.js';
@@ -33,7 +38,7 @@ export type { ConversationRow, MessageRow, ClientRow, ClientIdentityRow } from '
 
 // ---- flat exports (queue) ----
 export {
-  enqueueJob, claimNextJob, completeJob, failJob, getJob, listJobs, jobStats,
+  enqueueJob, replacePendingJob, claimNextJob, completeJob, failJob, getJob, listJobs, jobStats,
   parkJob, listParkedJobs, unparkJobs, requeueExpiredLeases, rememberIdempotencyKey,
 } from './repositories/queue.js';
 export type { JobRow, EnqueueInput } from './repositories/queue.js';
@@ -50,3 +55,20 @@ export {
   recordWebhookEvent, markWebhookProcessed,
 } from './repositories/channels.js';
 export { getOrCreateDefaultOrg, getConfigValue, setConfigValue, findMemberByEmail } from './repositories/org.js';
+
+// ---- flat exports (Phase 2: requirements, questionnaires, agent config, artifacts) ----
+export {
+  getCurrentRequirementVersion, createRequirementVersion, cloneFieldsFromVersion, setPendingFieldPath,
+  setRequirementCompleteness, listRequirementFields, seedFieldsFromQuestionnaire,
+  upsertRequirementField, recordFieldStatusChange, listFieldHistory,
+  upsertContradiction, listContradictions, listCurrentRequirementSnapshot,
+} from './repositories/requirements.js';
+export type { RequirementVersionRow, RequirementFieldRow, ContradictionRow, FieldMutation } from './repositories/requirements.js';
+export {
+  upsertQuestionnaireDefinition, getQuestionnaireDefinition, listQuestionnaireDefinitions,
+  loadQuestionnaireSources,
+} from './repositories/questionnaires.js';
+export { getActiveAgentConfig, recordLlmUsage, sumCostSince } from './repositories/agentConfig.js';
+export type { AgentConfigVersionRow } from './repositories/agentConfig.js';
+export { createArtifact, getArtifact, listArtifacts } from './repositories/artifacts.js';
+export type { ArtifactRow } from './repositories/artifacts.js';

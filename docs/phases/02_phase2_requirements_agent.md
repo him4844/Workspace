@@ -32,3 +32,20 @@ Specification generation, client approval, coding.
 
 ## When finished
 STOP and send the phase report described in 00_COMMON_RULES.md. Wait for human approval before the next phase.
+
+
+---
+
+## Status: COMPLETE — 2026-10-08 (awaiting human approval before Phase 3)
+
+All ten tasks above are implemented as data + engine + one agent turn; the four acceptance checks were
+re-run against the live system and quoted in `PHASE_REPORTS/phase2.md`:
+
+- full restaurant-style conversation ends in `REQUIREMENTS_COMPLETE` (31 client turns, completeness 1.000,
+  39 fields, 24/24 mandatory, summary artifact written);
+- contradiction test (minimal design vs many animations) triggers a clarification question and resolves it;
+- injection test is flagged once (`SECURITY_ALERT`) and treated as ordinary content;
+- no field reaches `CLIENT_CONFIRMED` without a real client message reference (`CLIENT_TRUTH_NEEDS_SOURCE`).
+
+Evidence: `npm run verify` (typecheck + 96 tests + docs check), `npm run simulate:requirements`,
+`npm run demo:live` against the running API (dev console at `/`). Decisions added: D-025 … D-028.

@@ -31,6 +31,12 @@
       ],
       "@wpp/channels": [
         "./packages/channels/src/index.ts"
+      ],
+      "@wpp/agents": [
+        "./packages/agents/src/index.ts"
+      ],
+      "@wpp/testing": [
+        "./packages/testing/src/index.ts"
       ]
     },
     "baseUrl": "."

@@ -6,7 +6,7 @@ import type { ActorType, Severity } from '@wpp/core';
 
 export type EventTypeLike =
   | 'PROJECT_CREATED' | 'STATE_CHANGED' | 'MESSAGE_INBOUND' | 'MESSAGE_OUTBOUND' | 'MESSAGE_SEND_BLOCKED'
-  | 'REQUIREMENTS_COMPLETE' | 'SPEC_GENERATED' | 'SPEC_LOCKED' | 'SPEC_AUDIT_RESULT' | 'BUILD_STARTED' | 'BUILD_FINISHED'
+  | 'REQUIREMENTS_COMPLETE' | 'PROJECT_TYPE_DETECTED' | 'SPEC_GENERATED' | 'SPEC_LOCKED' | 'SPEC_AUDIT_RESULT' | 'BUILD_STARTED' | 'BUILD_FINISHED'
   | 'CODE_CHECK_RESULT' | 'TASK_CREATED' | 'TASK_STATUS_CHANGED' | 'APPROVAL_RECORDED' | 'CHANGE_REQUEST'
   | 'AGENT_RUN_FINISHED' | 'HUMAN_ACTION' | 'SECURITY_ALERT' | 'SYSTEM_ERROR' | 'WEBHOOK_RECEIVED' | 'WEBHOOK_DUPLICATE';
 
@@ -51,6 +51,7 @@ export async function startAgentRun(
     jobId?: string | null;
     model?: string | null;
     provider?: string | null;
+    configVersionId?: string | null;
     inputSummary?: Record<string, unknown>;
   },
 ): Promise<string> {
@@ -63,6 +64,7 @@ export async function startAgentRun(
     jobId: params.jobId ?? null,
     model: params.model ?? null,
     provider: params.provider ?? null,
+    configVersionId: params.configVersionId ?? null,
     inputSummary: (params.inputSummary ?? {}) as object,
     status: 'RUNNING',
     startedAt: new Date(),

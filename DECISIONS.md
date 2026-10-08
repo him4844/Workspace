@@ -77,6 +77,18 @@ Reasoning: Phase 1 test finding — a human-authored message created outside the
 **D-024 | 2026-10-07 | `jobs_idem_uq` is a plain unique index (not partial); `ON CONFLICT (idempotency_key)` relies on it for job enqueue idempotency.**
 Reasoning: Phase 1 finding — a partial index (`WHERE idempotency_key IS NOT NULL`) cannot be inferred by `ON CONFLICT (idempotency_key)`, so every enqueue outside a test failed with "no unique or exclusion constraint matching the ON CONFLICT specification". Postgres treats NULLs as distinct, so a plain unique index still allows many keyless jobs. Status: ACCEPTED → `db/migrations/0001_init.sql`.
 
+**D-025 | 2026-10-08 | `LLM_PROVIDER=scripted` is an explicit provider mode (client persona) for dev demos and CI; the platform never falls back to it, and a missing provider/key yields "no LLM configured" (`resolveLlmClient` → `null`).**
+Reasoning: SPEC §51 + COMMON_RULES #7 require that every reported result comes from a real run. Demo/test runs must therefore execute the *production* code path (prompt assembly → contract validation → repair → persistence) while only the network call is replaced. Falling back silently would make "no key" look like "works", which is the kind of fake that later phasing cannot absorb. Status: ACCEPTED → `apps/worker/src/services/llm.ts`, `packages/testing/src/persona.ts`, `docs/14`.
+
+**D-026 | 2026-10-08 | The §10 minimum interval is enforced *before* the LLM call, and §10 inactivity reminders use `replacePendingJob` so each conversation has exactly one live timer.**
+Reasoning: two Phase-2 cost/quality findings. (1) The interval guard originally ran after `runTurn`: the model was paid for, then the question was deferred. Deferring now costs zero tokens and only applies when the turn would actually ask something (`plan.kind === 'ASK'` and the last message is not ours). (2) A per-job idempotency key made the job table grow by one timer per question; a keyed replace (`inactivity:<conversationId>`) keeps the queue flat and makes "when will we remind?" a single row. Status: ACCEPTED → `apps/worker/src/handlers/requirements.ts`, `packages/db/src/repositories/queue.ts`.
+
+**D-027 | 2026-10-08 | The live demo console (`GET /`) is a simulator-channel read/act view over production endpoints — it is not the Phase-7 Team Panel and carries no auth beyond the simulator flag.**
+Reasoning: COMMON_RULES requires every phase result to be inspectable by a human before the panel exists (§57 "visible in state"). The console reuses `/dev/simulator/*` (same ingestion path as the webhook) plus two read-only helpers (`/dev/simulator/project/:id`, `/dev/simulator/lookup`) instead of introducing a second, parallel backend; it disappears with `CHANNEL_SIMULATOR_ENABLED=false`, so no Phase-7 surface is pre-empted. Status: ACCEPTED → `apps/api/src/routes/simulator-console.ts`.
+
+**D-028 | 2026-10-08 | Question wording belongs to the agent contract (free text, ≤900 chars); tests assert *which field* a question is about, never the literal sentence.**
+Reasoning: the §49 contract fixes the shape and limits of a question, not its words — a real model must phrase questions in the client's language. A Phase-2 e2e test broke when the scripted persona switched from machine-style text (`field.path: …`) to human-readable questions, which is exactly the coupling to avoid: `@wpp/testing` now exports `questionTextFor(fieldPath)` and the test counts messages that ask about `design.style`. Status: ACCEPTED → `packages/testing/src/persona.ts`, `tests/e2e/requirements-interview.test.ts`.
+
 ---
 
 ## Format for future entries

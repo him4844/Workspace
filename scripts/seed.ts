@@ -1,8 +1,9 @@
 /**
- * Seed: organization, initial admin member, channel connections, config defaults
- * (docs/14 §11). Idempotent — safe to run repeatedly.
+ * Seed: organization, initial admin member, channel connections, questionnaires,
+ * agent config versions and config values (docs/14 §11, docs/11 §2.4).
+ * Idempotent — safe to run repeatedly.
  */
-import { applyMigrations, createDb, channelsRepo, orgRepo, schema } from '@wpp/db';
+import { applyMigrations, createDb, channelsRepo, orgRepo, schema, seedConfigFromFiles } from '@wpp/db';
 import { createHash } from 'node:crypto';
 import { loadConfig, uuidv7 } from '@wpp/infra';
 import { eq } from 'drizzle-orm';
@@ -55,24 +56,16 @@ if (config.IG_APP_ID) {
   console.log('instagram connection skipped (IG_APP_ID not set) — Phase 1 runs on the simulator channel');
 }
 
-// config defaults (docs/12 §7: DB config wins over env for tunables)
-const defaults: Array<[string, unknown, string]> = [
-  ['loop.spec_audit.max', 3, 'Spec Auditor revision attempts (SPEC §21)'],
-  ['loop.code_check.max', 3, 'Code Checker correction attempts (SPEC §26)'],
-  ['loop.client_revision.max', 5, 'Client change cycles before a human task'],
-  ['loop.requirements.max_questions', 40, 'Maximum questions per requirements session'],
-  ['loop.requirements.max_clarifications_per_field', 2, 'Clarification cycles per field'],
-  ['loop.job.max_attempts', 5, 'Job retry ceiling'],
-  ['requirements.inactivity_reminder_hours', 24, 'Client silence reminder (hours)'],
-  ['requirements.inactivity_max_reminders', 2, 'Reminders before human escalation'],
-  ['send.rate_per_minute', config.SEND_RATE_PER_MINUTE, 'Outbound message cap per connection'],
-  ['window.warning_hours', config.WINDOW_WARNING_HOURS, 'Panel warning before the 24h window closes'],
-  ['agent.audit_independent_provider', true, 'Spec Auditor must use a different provider (Q4 answer)'],
-];
-for (const [key, value, description] of defaults) {
-  await orgRepo.setConfigValue(db, key, value, description);
+// questionnaires + agent configs + tunables come from `config/` (the reviewable source of
+// truth); the runtime reads them back from the DB only (docs/11 §2.4).
+const seeded = await seedConfigFromFiles(db, orgId, { configDir: 'config' });
+console.log(`questionnaires: ${seeded.questionnaires.length} → ${seeded.questionnaires.join(' | ')}`);
+if (seeded.questionnaireProblems.length > 0) {
+  console.error('questionnaire problems:', seeded.questionnaireProblems);
+  process.exitCode = 1;
 }
-console.log(`config values: ${defaults.length} keys`);
+console.log(`agent configs: ${seeded.agentConfigs.length} → ${seeded.agentConfigs.join(' | ')}`);
+console.log(`config values: ${seeded.configValues} keys`);
 
 // sanity: existing projects (idempotency check for repeated seeding)
 const projects = await db.select().from(schema.projects).where(eq(schema.projects.orgId, orgId));

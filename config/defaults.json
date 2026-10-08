@@ -1,0 +1,19 @@
+{
+  "$comment": "config_values defaults (SPEC §10 'do not hard-code these values', docs/12 §7, docs/11 §2.4). Seeded into the config_values table; the runtime prefers the DB value over the env fallback.",
+  "schemaVersion": "1.0.0",
+  "values": [
+    { "key": "loop.spec_audit.max", "value": 3, "description": "Spec Auditor revision attempts (SPEC §21)" },
+    { "key": "loop.code_check.max", "value": 3, "description": "Code Checker correction attempts (SPEC §26)" },
+    { "key": "loop.client_revision.max", "value": 5, "description": "Client change cycles before a human task" },
+    { "key": "loop.requirements.max_questions", "value": 40, "description": "Maximum questions per requirements session (§10)" },
+    { "key": "loop.requirements.max_clarifications_per_field", "value": 2, "description": "Clarification cycles per field (§10)" },
+    { "key": "loop.job.max_attempts", "value": 5, "description": "Job retry ceiling" },
+    { "key": "requirements.inactivity_reminder_hours", "value": 24, "description": "Client silence reminder delay in hours (§10)" },
+    { "key": "requirements.inactivity_max_reminders", "value": 2, "description": "Reminders before a human task is opened" },
+    { "key": "requirements.min_question_interval_seconds", "value": 8, "description": "Do not flood the DM: minimum gap between two agent questions" },
+    { "key": "send.rate_per_minute", "value": 30, "description": "Outbound message cap per connection" },
+    { "key": "window.warning_hours", "value": 2, "description": "Panel warning before the 24h window closes" },
+    { "key": "agent.audit_independent_provider", "value": true, "description": "Spec Auditor must use a different provider (Phase 0 Q4)" },
+    { "key": "requirements.complete_message", "value": "Rahmat! Asosiy ma'lumotlar yig'ildi. Endi jamoamiz texnik taklifni tayyorlaydi — keyingi qadamda uni sizga yuboraman.", "description": "Courtesy message after REQUIREMENTS_COMPLETE (not an approval request, §10)" }
+  ]
+}

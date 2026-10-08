@@ -9,6 +9,7 @@ import type { Db, JobRow } from '@wpp/db';
 import { claimNextJob, completeJob, failJob, getProject, listParkedJobs, queueRepo, unparkJobs } from '@wpp/db';
 import { isJobAllowedInState, toWppError, type JobType } from '@wpp/core';
 import type { Config, Logger } from '@wpp/infra';
+import type { LlmClient } from '@wpp/agents';
 import { HANDLERS } from './handlers/index.js';
 
 export interface HandlerContext {
@@ -16,6 +17,13 @@ export interface HandlerContext {
   config: Config;
   logger: Logger;
   workerId: string;
+  /**
+   * LLM client injected by the entrypoint (null when no provider is configured — the
+   * pipeline then runs the Phase 1 acknowledgment path instead of failing, §51/D-015).
+   */
+  llm?: LlmClient | null;
+  /** filesystem root for artifacts (SPEC §45); tests point this at a temp directory */
+  artifactsRoot?: string;
 }
 
 export interface OrchestratorDeps extends HandlerContext {}

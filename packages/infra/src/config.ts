@@ -56,6 +56,16 @@ const ConfigSchema = z.object({
   // PGlite is a single-process embedded database: with the pglite driver the worker
   // loop always runs inside the API process (see DECISIONS.md D-022).
   EMBEDDED_WORKER: bool(false),
+  // ---- LLM providers (SPEC §51, D-015). 'none' = run without AI (Phase 1 behaviour).
+  LLM_PROVIDER: z.enum(['none', 'scripted', 'openai', 'openrouter', 'openai-compatible', 'anthropic']).default('none'),
+  LLM_API_KEY: z.string().optional(),
+  LLM_BASE_URL: z.string().optional(),
+  LLM_MODEL: z.string().optional(),
+  REQUIREMENTS_LLM_PROVIDER: z.string().optional(),
+  REQUIREMENTS_LLM_MODEL: z.string().optional(),
+  LLM_DAILY_BUDGET_USD: z.string().optional().transform((v) => (v === undefined || v === '' ? 10 : Number.parseFloat(v))),
+  AGENT_MAX_REPAIRS: int(1),
+
   WORKER_CONCURRENCY: int(2),
   JOB_POLL_INTERVAL_MS: int(2000),
   JOB_LEASE_SECONDS: int(120),
