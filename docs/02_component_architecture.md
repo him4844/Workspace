@@ -112,14 +112,16 @@ Policy table (data, in `config_values`, not code):
 
 | Job type | Concurrency | Timeout | Max attempts | Backoff |
 |---|---|---|---|---|
-| `REQUIREMENTS_TURN` | 4 | 60 s | 3 | 5 s ×2 |
+| `REQUIREMENTS_TURN` | 4 | 180 s | 3 | 5 s ×2 |
 | `SPEC_GENERATE` / `SPEC_REVISE` | 2 | 300 s | 3 | 30 s ×2 |
-| `CLIENT_INTENT_PARSE` | 4 | 30 s | 2 | 5 s |
+| `CLIENT_INTENT_PARSE` | 4 | 120 s | 2 | 5 s |
 | `SPEC_AUDIT` | 2 | 300 s | 3 | 30 s ×2 |
 | `BUILD_RUN` | 1–2 (CPU-bound) | 1800 s | 2 (LLM) / 1 (install) | manual |
 | `CODE_CHECK` | 1–2 | 1200 s | 2 | manual |
 | `SEND_OUTBOUND` | 4 | 20 s | 5 | 2 s ×2 |
 | `WATCHDOG`/`INACTIVITY_CHECK` | 1 | 30 s | 1 | — |
+
+A retryable provider 429 carrying `retryAfterMs` is scheduled at `run_at = provider deadline + 1 s` instead of ordinary backoff (D-052); waits above 24 h or exhausted attempts go to `DEAD_LETTER`. A dead-letter is atomic with a CRITICAL `SYSTEM_ERROR`, a CRITICAL `HUMAN_REVIEW` task and T30 → `BLOCKED` (D-044), so the project cannot keep consuming jobs silently.
 
 ## 5. Failure isolation
 

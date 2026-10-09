@@ -27,6 +27,7 @@ import {
   runAgentTurn, type ClientIntent,
 } from '@wpp/agents';
 import { effectiveModel } from '../services/llm.js';
+import { createDailyBudgetGuard } from '../services/llm-budget.js';
 import type { HandlerContext } from '../orchestrator.js';
 import { sendOutboundMessage } from '../services/outbound.js';
 
@@ -272,8 +273,15 @@ async function classifyWithAgent(
     text: `${m.direction === 'INBOUND' ? 'CLIENT' : 'US'}: ${m.text ?? '[attachment]'}`,
   }));
 
+  const budgetGuard = createDailyBudgetGuard({ db, orgId: params.project.orgId, config: ctx.config, provider: ctx.llm!.provider });
   const envelope = await runAgentTurn(
-    { client: ctx.llm!, systemInstructions: agentConfig.version.systemInstructions, logger: ctx.logger },
+    {
+      client: ctx.llm!,
+      systemInstructions: agentConfig.version.systemInstructions,
+      logger: ctx.logger,
+      beforeRequest: budgetGuard.beforeRequest,
+      afterRequest: budgetGuard.afterRequest,
+    },
     buildIntentRunInput({
       task: buildIntentTaskBlock(),
       projectData: buildIntentProjectDataSafe({

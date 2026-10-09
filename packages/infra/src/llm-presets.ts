@@ -75,6 +75,7 @@ export interface RouteDecision {
 export function decideRoute(params: {
   provider: string;
   baseUrl?: string | null;
+  model?: string | null;
   presetId?: string | null;
   presets?: LlmPreset[];
   freeOnly: boolean;
@@ -85,6 +86,10 @@ export function decideRoute(params: {
 
   const preset = params.presetId ? params.presets?.find((p) => p.id === params.presetId) ?? null : null;
   const freeKnown = preset ? preset.free : isFreeEndpointHost(params.baseUrl);
+  const model = params.model?.trim() ?? '';
+  const openRouterRoute = provider === 'openrouter' || (() => {
+    try { return new URL(params.baseUrl ?? '').hostname === 'openrouter.ai'; } catch { return false; }
+  })();
 
   if (!params.freeOnly) {
     return {
@@ -95,6 +100,17 @@ export function decideRoute(params: {
     };
   }
   if (freeKnown) {
+    // OpenRouter's host is not itself free: paid and free models share the same endpoint. Under
+    // the zero-cost constraint, only a :free slug is an auditable free model. A preset cannot turn
+    // a paid model override into a free call.
+    if (openRouterRoute && !model.endsWith(':free')) {
+      return {
+        allowed: false,
+        free: false,
+        presetId: preset?.id ?? null,
+        reason: `OpenRouter free-only requires a model slug ending in :free (configured: ${model || 'missing'})`,
+      };
+    }
     return {
       allowed: true,
       free: true,

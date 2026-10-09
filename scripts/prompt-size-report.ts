@@ -20,13 +20,17 @@ import {
 } from '@wpp/db';
 import { createLogger, loadConfig } from '@wpp/infra';
 import { buildSimulatorPayload, ingestInboundEvent, parseInstagramWebhook } from '@wpp/channels';
-import { createPipelineLlm } from '@wpp/testing';
+import { createPipelineLlm, isAuditTask, readPrompt } from '@wpp/testing';
 import { tick } from '../apps/worker/src/orchestrator.js';
 import { getConnectionForChannel } from '../apps/api/src/services/context.js';
 
 const BUDGET = Number(process.env.FREE_TPM_BUDGET ?? 8000);
 
-const config = loadConfig();
+// This is a prompt-measurement script, never a live-model probe. Force the scripted route even if
+// the developer's .env contains real keys; the API text and output shape are still assembled for
+// the auditor by the production handler and measured exactly.
+const loadedConfig = loadConfig();
+const config = { ...loadedConfig, LLM_PROVIDER: 'scripted' as const, LLM_FREE_ONLY: true };
 const handle = await createDb({ memory: true });
 await applyMigrations(handle);
 const db = handle.db;
@@ -37,8 +41,9 @@ const orgId = await orgRepo.getOrCreateDefaultOrg(db);
 await seedConfigFromFiles(db, orgId, { configDir: 'config', env: {} });
 const connection = await getConnectionForChannel(db, 'SIMULATOR');
 
-interface Sample { task: string; promptChars: number; maxOutputTokens: number | null }
+interface Sample { task: string; route: string; promptChars: number; maxOutputTokens: number | null }
 const samples: Sample[] = [];
+const auditRouteLabel = `${loadedConfig.AUDITOR_LLM_PROVIDER ?? 'OpenRouter'} ${loadedConfig.AUDITOR_LLM_MODEL ?? ':free'}`;
 const base = createPipelineLlm();
 const llm = {
   provider: base.provider,
@@ -50,7 +55,10 @@ const llm = {
       ? firstUser.slice(firstUser.indexOf('[3] TASK SPECIFICATION') + '[3] TASK SPECIFICATION'.length)
       : firstUser;
     const task = afterTaskHeader.split('\n').find((line) => line.trim().length > 0)?.trim().slice(0, 70) ?? 'unknown';
-    samples.push({ task, promptChars, maxOutputTokens: request.maxOutputTokens ?? null });
+    const route = isAuditTask(readPrompt(request).task)
+      ? `auditor: ${auditRouteLabel} (RPM/RPD; no published TPM)`
+      : `writer: ${loadedConfig.LLM_PROVIDER}/${loadedConfig.LLM_MODEL ?? 'preset model'} (reference TPM=${BUDGET})`;
+    samples.push({ task, route, promptChars, maxOutputTokens: request.maxOutputTokens ?? null });
     return base.complete(request);
   },
 };
@@ -68,7 +76,7 @@ async function clientSays(text: string, mid: string) {
   });
 }
 
-async function advance(types: string[] = ['REQUIREMENTS_TURN', 'SPEC_GENERATE', 'CLIENT_INTENT_PARSE']) {
+async function advance(types: string[] = ['REQUIREMENTS_TURN', 'SPEC_GENERATE', 'SPEC_REVISE', 'SPEC_AUDIT', 'CLIENT_INTENT_PARSE']) {
   for (let i = 0; i < 400; i += 1) {
     const { empty } = await tickAll();
     if (!empty) continue;
@@ -107,28 +115,43 @@ while (turn < 40) {
 await advance(['SPEC_GENERATE', 'SPEC_REVISE']);
 const project = (await projectsRepo.listProjects(db, { limit: 1 }))[0];
 
+// 3. Exercise the two-step approval and SPEC_AUDIT too. The LLM client is still scripted, so this
+// measures the real audit prompt/schema and never makes a network call.
+if (project?.state === 'CLIENT_REVIEW') {
+  const c = await convo();
+  await clientSays('Rahmat, tushunarli', 'summary_ack');
+  await advance(['CLIENT_INTENT_PARSE']);
+  await clientSays('Ha, tasdiqlayman', 'approve');
+  await advance(['CLIENT_INTENT_PARSE', 'SPEC_AUDIT', 'SPEC_REVISE']);
+  await advance(['SPEC_AUDIT', 'SPEC_REVISE']);
+}
+const finalProject = (await projectsRepo.listProjects(db, { limit: 1 }))[0];
+
 const byTask = new Map<string, Sample[]>();
 for (const s of samples) {
-  const key = s.task.replace(/v\d+/g, 'vN').replace(/\d+/g, 'N').slice(0, 52);
+  const key = `${s.route} | ${s.task.replace(/v\d+/g, 'vN').replace(/\d+/g, 'N').slice(0, 46)}`;
   byTask.set(key, [...(byTask.get(key) ?? []), s]);
 }
 
-console.log(`project state after run: ${project?.state}   LLM calls measured: ${samples.length}   budget: ${BUDGET} TPM\n`);
-console.log('task (first words of the task block)                     calls  prompt est   max_out  reserved  verdict');
+console.log(`project state after run: ${finalProject?.state}   LLM calls measured: ${samples.length}   TPM reference for writer: ${BUDGET}\n`);
+console.log('route + task                                             calls  prompt est   max_out  reserved  verdict');
 for (const [task, list] of [...byTask.entries()].sort((a, b) => b[1].length - a[1].length)) {
   const maxPrompt = Math.max(...list.map((s) => Math.round(s.promptChars / 4)));
   const maxOut = Math.max(...list.map((s) => s.maxOutputTokens ?? 0));
   const reserved = maxPrompt + maxOut;
-  const verdict = 2 * reserved <= BUDGET
-    ? 'OK (two calls/min)'
-    : reserved <= BUDGET
-      ? 'one call/min (wait between calls)'
-      : 'NEVER fits — lower max_tokens or generate in chunks';
-  console.log(`${task.padEnd(56)} ${String(list.length).padStart(5)}  ${String(maxPrompt).padStart(10)}  ${String(maxOut).padStart(8)}  ${String(reserved).padStart(8)}  ${verdict}`);
+  const isAuditor = task.startsWith('auditor:');
+  const verdict = isAuditor
+    ? 'measured; route limit is RPM/RPD (TPM unpublished)'
+    : 2 * reserved <= BUDGET
+      ? 'OK (two calls/min at reference budget)'
+      : reserved <= BUDGET
+        ? 'one call/min (wait between calls at reference budget)'
+        : 'exceeds reference TPM; use this route only if its published tier allows it';
+  console.log(`${task.padEnd(58)} ${String(list.length).padStart(5)}  ${String(maxPrompt).padStart(10)}  ${String(maxOut).padStart(8)}  ${String(reserved).padStart(8)}  ${verdict}`);
 }
-console.log('\nreserved = provider-side reservation for ONE request (prompt + max_tokens). Provider TPM windows');
-console.log('are rolling: `prompt+max_tokens` above the budget means the request is rejected while the window is');
-console.log('full. Fix by trimming the prompt or lowering the agent-config maxOutputTokens (config as data, §50).');
+console.log('\nPrompt token estimates use chars/4 (±20%). `reserved = prompt + max_tokens`; TPM verdicts are only');
+console.log('applied to writer/reference routes. OpenRouter :free has published RPM/RPD limits, not TPM; its');
+console.log('auditor prompt is measured here for observability, and the real route must still be probed.');
 
 rmSync(artifactsRoot, { recursive: true, force: true });
 await handle.close();

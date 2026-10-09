@@ -75,7 +75,7 @@ const echoReply: JobHandler = async (ctx, job) => {
 const sendOutbound: JobHandler = async (ctx, job) => {
   const payload = job.payload as { messageId?: string };
   if (!payload.messageId) throw new WppError('INVALID_JOB_PAYLOAD', 'SEND_OUTBOUND requires messageId', 'VALIDATION');
-  const outcome = await sendOutboundMessage(ctx, payload.messageId);
+  const outcome = await sendOutboundMessage(ctx, payload.messageId, { jobId: job.id });
   if (outcome.status === 'FAILED' && outcome.retryable) {
     throw new WppError(outcome.code, outcome.detail, 'RETRYABLE');
   }

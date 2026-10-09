@@ -62,16 +62,15 @@ Legend: **R** required, **O** optional, **D** dev-only.
 | `LLM_MODEL` | O | default model for agents that do not pin one in `agent_config_versions` |
 | `REQUIREMENTS_LLM_PROVIDER` / `REQUIREMENTS_LLM_MODEL` | O | per-agent override (SPEC §51); the Spec Auditor uses the `AUDITOR_LLM_*` route above so it never writes and reviews on one route (D-037 — a *different provider* is the intent, a different model+key is what the available free keys allow) |
 | `LLM_PRESET` | O | named route from `config/llm-presets.json` (`gemini-free`, `groq-free`, `openrouter-free`, `ollama-local`, `scripted`, `none`, `openai-paid`, `anthropic-paid`); when set, its base URL and model are the defaults (env still overrides) |
-| `LLM_FREE_ONLY` | D | `true` — **the project is free-only** (D-029): a route that is not marked `free` in the presets file, and whose host is not a documented free tier or a local/LAN address, is refused and the platform runs with no LLM instead of spending money |
-| `LLM_DAILY_BUDGET_USD` | D | `10` — runaway-cost guard (§26); with `LLM_FREE_ONLY=true` the realistic spend is $0 |
+| `LLM_FREE_ONLY` | D | `true` — **the project is free-only** (D-029): a route that is not marked `free` in the presets file, and whose host is not a documented free tier or a local/LAN address, is refused; OpenRouter additionally requires a model slug ending in `:free` (paid models share its host) |
+| `LLM_DAILY_BUDGET_USD` | D | `10` — enforced before every paid LLM request (§26), UTC day. The worker atomically reserves a 25%-padded worst-case prompt+output estimate, settles actual usage afterward, and blocks unknown-price paid models. Free presets make no reservation; with `LLM_FREE_ONLY=true` expected spend remains $0 |
 | `AGENT_MAX_REPAIRS` | D | `1` — the single repair attempt of §49 |
 | `OPENAI_API_KEY` / `ANTHROPIC_API_KEY` | — | **not read by the code today**: the factory only reads `LLM_API_KEY`. Kept in this table as the names an operator would expect; adopt them (as aliases) if they are preferred over the generic key |
 | `OPENROUTER_API_KEY` | O | OpenRouter adapter |
 | `OLLAMA_BASE_URL` | O | local/self-hosted OpenAI-compatible endpoint |
-| `AUDITOR_LLM_PROVIDER` / `AUDITOR_LLM_PRESET` / `AUDITOR_LLM_BASE_URL` / `AUDITOR_LLM_MODEL` / `AUDITOR_LLM_API_KEY` | O | the Spec Auditor's **own route** (§20, D-037): when set it wins over the main route, so the reviewer does not share the writer's key, model or quota. Independence is achieved by model + key; with a single provider (all keys Groq) it is *not* vendor independence, and the audit row records exactly which model answered |
+| `AUDITOR_LLM_PROVIDER` / `AUDITOR_LLM_PRESET` / `AUDITOR_LLM_BASE_URL` / `AUDITOR_LLM_MODEL` / `AUDITOR_LLM_API_KEY` | O | the Spec Auditor's **own route** (§20): real routes are refused if they resolve to the writer's vendor or reuse its key; there is no silent same-provider fallback. Current free setup: Gemini writer + OpenRouter `:free` auditor (D-055). Scripted tests stay hermetic; the audit row records the actual provider/model |
 | `GROQ_API_KEY_SPARE_1` / `GROQ_API_KEY_SPARE_2` | O | extra free-tier keys for manual rotation; note that Groq's request/TPM limits are **per organization**, so spares do not multiply the budget (they only survive a revoked key) |
 | `LLM_FAKE_MODE` | D | `true` → deterministic fake provider for tests |
-| `LLM_DAILY_SPEND_CAP_USD` | O | kills runaway cost (§sec) |
 
 ## 6. Builds & code checking (coderunner)
 
@@ -103,7 +102,7 @@ Legend: **R** required, **O** optional, **D** dev-only.
 | `LOOP_CLIENT_REVISION_MAX` | O | `5` | client change cycles |
 | `LOOP_REQUIREMENTS_MAX_QUESTIONS` | O | `40` | questionnaire cap (§10) |
 | `INACTIVITY_REMINDER_HOURS` / `INACTIVITY_MAX_REMINDERS` | O | `24` / `2` | client silence handling (§10) |
-| `SEND_RATE_PER_MINUTE` | O | `30` | outbound messages per connection |
+| `SEND_RATE_PER_MINUTE` | O | `30` | enforced outbound limit per Instagram connection, fixed 60-second window; excess inline sends are queued and worker sends retry at the next window |
 | `WINDOW_WARNING_HOURS` | O | `2` | panel warning before 24 h window closes (§31A) |
 
 ## 8. Deploy & ops

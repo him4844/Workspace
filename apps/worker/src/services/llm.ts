@@ -11,7 +11,7 @@
  */
 import type { Logger } from 'pino';
 import { createLlmClient, routeDecision, type LlmClient, type ResolvedLlm } from '@wpp/agents';
-import type { Config } from '@wpp/infra';
+import { findPreset, type Config } from '@wpp/infra';
 
 export async function resolveLlmClient(config: Config, logger?: Logger): Promise<ResolvedLlm | null> {
   if (config.LLM_PROVIDER === 'scripted') {
@@ -48,6 +48,28 @@ export function effectiveModel(
   return agentConfig.model ?? undefined;
 }
 
+/** Normalize a configured endpoint to the actual vendor, not merely the OpenAI-compatible API shape. */
+function vendorKey(provider: string | null | undefined, baseUrl: string | null | undefined): string {
+  if (baseUrl) {
+    try {
+      const host = new URL(baseUrl).hostname.toLowerCase();
+      if (host === 'generativelanguage.googleapis.com') return 'google';
+      if (host === 'openrouter.ai') return 'openrouter';
+      if (host === 'api.groq.com') return 'groq';
+      if (host === 'api.openai.com') return 'openai';
+      if (host === 'api.anthropic.com') return 'anthropic';
+      return host;
+    } catch { /* fall through to configured provider */ }
+  }
+  return (provider ?? 'none').toLowerCase();
+}
+
+function routeBaseUrl(config: Config, presetId: string | null | undefined, explicit?: string | null): string | null {
+  if (explicit) return explicit;
+  const preset = presetId ? findPreset(presetId) : null;
+  return preset?.baseUrl ?? null;
+}
+
 /**
  * The Spec Auditor's route (§20, D-037).
  *
@@ -76,33 +98,22 @@ export async function resolveAuditorLlm(ctx: {
   }
 
   const hasDedicatedRoute = Boolean(
-    config.AUDITOR_LLM_PROVIDER || config.AUDITOR_LLM_API_KEY || config.AUDITOR_LLM_MODEL || config.AUDITOR_LLM_PRESET,
+    config.AUDITOR_LLM_PROVIDER || config.AUDITOR_LLM_API_KEY || config.AUDITOR_LLM_MODEL || config.AUDITOR_LLM_PRESET || config.AUDITOR_LLM_BASE_URL,
   );
   if (!hasDedicatedRoute) {
-    if (!ctx.llm) return null;
-    return {
-      client: ctx.llm,
-      defaultProvider: ctx.llmRoute?.provider ?? config.LLM_PROVIDER,
-      defaultModel: ctx.llmRoute?.model ?? config.LLM_MODEL ?? '',
-    };
+    // Unit/e2e suites inject a scripted client while no network route is configured; keep those
+    // hermetic. A real provider may NOT silently audit its own spec — the user explicitly asked for
+    // a different provider, and the audit row must never imply independence that did not happen.
+    if (config.LLM_PROVIDER === 'none' && ctx.llm) {
+      return { client: ctx.llm, defaultProvider: ctx.llmRoute?.provider ?? ctx.llm.provider, defaultModel: ctx.llmRoute?.model ?? 'scripted-router' };
+    }
+    ctx.logger?.warn({ writerProvider: ctx.llmRoute?.provider ?? config.LLM_PROVIDER }, 'independent Spec Auditor route is not configured; refusing same-provider fallback');
+    return null;
   }
 
-  // No dedicated auditor route configured: the auditor answers on the entrypoint's route, and the
-  // audit row records that fact (model + provider) instead of pretending independence. Tests and
-  // demos inject their client here too, so a scripted run stays hermetic (no network, no key).
-  const hasOwnRoute = Boolean(
-    config.AUDITOR_LLM_PROVIDER || config.AUDITOR_LLM_API_KEY || config.AUDITOR_LLM_MODEL || config.AUDITOR_LLM_PRESET,
-  );
-  if (!hasOwnRoute) {
-    if (!ctx.llm) return null;
-    return {
-      client: ctx.llm,
-      defaultProvider: ctx.llmRoute?.provider ?? config.LLM_PROVIDER,
-      defaultModel: ctx.llmRoute?.model ?? config.LLM_MODEL ?? '',
-    };
-  }
-
-  const provider = config.AUDITOR_LLM_PROVIDER ?? config.LLM_PROVIDER;
+  const auditorPresetId = config.AUDITOR_LLM_PRESET ?? config.LLM_PRESET;
+  const auditorPreset = auditorPresetId ? findPreset(auditorPresetId) : null;
+  const provider = config.AUDITOR_LLM_PROVIDER ?? auditorPreset?.provider ?? config.LLM_PROVIDER;
   if (!provider || provider === 'none') {
     if (ctx.llm) {
       return {
@@ -113,25 +124,32 @@ export async function resolveAuditorLlm(ctx: {
     }
     return null;
   }
+  // If an auditor preset is explicit, its host wins over the writer's custom base URL.
+  const auditorBaseUrl = config.AUDITOR_LLM_BASE_URL
+    ?? (config.AUDITOR_LLM_PRESET ? auditorPreset?.baseUrl ?? null : config.LLM_BASE_URL ?? auditorPreset?.baseUrl ?? null);
+  const writerBaseUrl = routeBaseUrl(config, config.LLM_PRESET, config.LLM_BASE_URL);
+  const auditorVendor = vendorKey(provider, auditorBaseUrl);
+  const writerVendor = vendorKey(ctx.llmRoute?.provider ?? config.LLM_PROVIDER, writerBaseUrl);
+  const auditorKey = config.AUDITOR_LLM_API_KEY ?? config.LLM_API_KEY;
+  if (auditorVendor === writerVendor) {
+    ctx.logger?.error({ writerVendor, auditorVendor, model: config.AUDITOR_LLM_MODEL ?? config.LLM_MODEL ?? null }, 'Spec Auditor must use a different vendor from the specification writer');
+    return null;
+  }
+  // For an independent provider, require an explicitly separate credential rather than accidentally
+  // reusing the writer key. Do not include either key in logs.
+  if (!config.AUDITOR_LLM_API_KEY || config.AUDITOR_LLM_API_KEY === config.LLM_API_KEY) {
+    ctx.logger?.error({ writerVendor, auditorVendor }, 'independent Spec Auditor route requires its own API key');
+    return null;
+  }
+
   const resolved = createLlmClient({
     ...config,
     LLM_PROVIDER: provider as Config['LLM_PROVIDER'],
-    LLM_PRESET: config.AUDITOR_LLM_PRESET ?? config.LLM_PRESET,
-    LLM_API_KEY: config.AUDITOR_LLM_API_KEY ?? config.LLM_API_KEY,
+    LLM_PRESET: auditorPresetId,
+    LLM_API_KEY: auditorKey,
     LLM_MODEL: config.AUDITOR_LLM_MODEL ?? undefined,
-    LLM_BASE_URL: config.AUDITOR_LLM_BASE_URL ?? config.LLM_BASE_URL,
+    LLM_BASE_URL: auditorBaseUrl ?? undefined,
   });
-  if (!resolved && ctx.llm) {
-    ctx.logger?.warn(
-      { provider, preset: config.AUDITOR_LLM_PRESET ?? config.LLM_PRESET ?? null, freeOnly: config.LLM_FREE_ONLY },
-      'spec auditor route unusable (paid route blocked or key missing) — auditing on the main route instead',
-    );
-    return {
-      client: ctx.llm,
-      defaultProvider: ctx.llmRoute?.provider ?? config.LLM_PROVIDER,
-      defaultModel: ctx.llmRoute?.model ?? config.LLM_MODEL ?? '',
-    };
-  }
   if (!resolved) {
     ctx.logger?.warn(
       { provider, preset: config.AUDITOR_LLM_PRESET ?? config.LLM_PRESET ?? null, freeOnly: config.LLM_FREE_ONLY },

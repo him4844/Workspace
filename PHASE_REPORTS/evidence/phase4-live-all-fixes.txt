@@ -1,0 +1,69 @@
+
+> wpp@0.1.0 simulate:phase4
+> tsx scripts/simulate-phase4.ts
+
+=== 0. Config seeded from config/ (the reviewable source of truth) ===
+agent configs: REQUIREMENTS v1 (openai-compatible/gemini-3.1-flash-lite) | SPECIFICATION v1 (openai-compatible/gemini-3.1-flash-lite) | SPEC_AUDITOR v1 (openrouter/cohere/north-mini-code:free)
+scripted auditor mode: pass
+LIVE route: writer=openai-compatible/gemini-3.1-flash-lite · auditor=openrouter/cohere/north-mini-code:free
+live calls: SPEC_GENERATE/SPEC_REVISE + SPEC_AUDIT (the rest stays scripted)
+
+=== 1. Phase 2 interview (real pipeline, scripted provider) ===
+{"level":40,"time":"2026-10-09T13:43:20.591Z","projectId":"01a120e7-6db9-7c32-a5a8-a8b6de28deba","runId":"01a120e7-6f00-7ec4-95a2-f802a739585a","plannedField":"business_purpose.company_name","modelField":"business_purpose.purpose","msg":"requirements model asked about a different field than the planner — sending the questionnaire wording"}
+{"level":40,"time":"2026-10-09T13:43:20.724Z","projectId":"01a120e7-6db9-7c32-a5a8-a8b6de28deba","runId":"01a120e7-6f88-72bb-b56f-000ff37bc092","plannedField":"target_audience.primary","modelField":"business_purpose.company_name","msg":"requirements model asked about a different field than the planner — sending the questionnaire wording"}
+{"level":40,"time":"2026-10-09T13:43:20.863Z","projectId":"01a120e7-6db9-7c32-a5a8-a8b6de28deba","runId":"01a120e7-700f-7973-89ce-eb5e0082eed0","plannedField":"target_audience.languages","modelField":"target_audience.primary","msg":"requirements model asked about a different field than the planner — sending the questionnaire wording"}
+{"level":40,"time":"2026-10-09T13:43:21.013Z","projectId":"01a120e7-6db9-7c32-a5a8-a8b6de28deba","runId":"01a120e7-70a9-72a0-8ef4-7f213adef840","plannedField":"website_type.type","modelField":"target_audience.languages","msg":"requirements model asked about a different field than the planner — sending the questionnaire wording"}
+{"level":40,"time":"2026-10-09T13:43:21.154Z","projectId":"01a120e7-6db9-7c32-a5a8-a8b6de28deba","runId":"01a120e7-7134-7085-a94e-067a421e0501","plannedField":"pages.list","modelField":"website_type.type","msg":"requirements model asked about a different field than the planner — sending the questionnaire wording"}
+{"level":40,"time":"2026-10-09T13:43:21.278Z","projectId":"01a120e7-6db9-7c32-a5a8-a8b6de28deba","runId":"01a120e7-71b4-7c59-b529-7243cfd3343e","plannedField":"features.core","modelField":"pages.list","msg":"requirements model asked about a different field than the planner — sending the questionnaire wording"}
+{"level":40,"time":"2026-10-09T13:43:21.433Z","projectId":"01a120e7-6db9-7c32-a5a8-a8b6de28deba","runId":"01a120e7-724e-79ff-b93a-c65ef85fd9f2","plannedField":"reservations.enabled","modelField":"features.core","msg":"requirements model asked about a different field than the planner — sending the questionnaire wording"}
+{"level":40,"time":"2026-10-09T13:43:21.558Z","projectId":"01a120e7-6db9-7c32-a5a8-a8b6de28deba","runId":"01a120e7-72cc-7c65-9333-2721da5e7a74","plannedField":"reservations.confirmation","modelField":"reservations.enabled","msg":"requirements model asked about a different field than the planner — sending the questionnaire wording"}
+{"level":40,"time":"2026-10-09T13:43:21.694Z","projectId":"01a120e7-6db9-7c32-a5a8-a8b6de28deba","runId":"01a120e7-7352-7b55-904f-76b7a26057d3","plannedField":"online_ordering.enabled","modelField":"reservations.confirmation","msg":"requirements model asked about a different field than the planner — sending the questionnaire wording"}
+{"level":40,"time":"2026-10-09T13:43:21.824Z","projectId":"01a120e7-6db9-7c32-a5a8-a8b6de28deba","runId":"01a120e7-73d5-768e-8154-10dc464c3dea","plannedField":"authentication.needed","modelField":"online_ordering.enabled","msg":"requirements model asked about a different field than the planner — sending the questionnaire wording"}
+{"level":40,"time":"2026-10-09T13:43:21.949Z","projectId":"01a120e7-6db9-7c32-a5a8-a8b6de28deba","runId":"01a120e7-7453-7054-a4a7-d99e56f958ba","plannedField":"payments.needed","modelField":"authentication.needed","msg":"requirements model asked about a different field than the planner — sending the questionnaire wording"}
+{"level":40,"time":"2026-10-09T13:43:22.069Z","projectId":"01a120e7-6db9-7c32-a5a8-a8b6de28deba","runId":"01a120e7-74cb-7a41-9e7c-b01a49723419","plannedField":"products_services.description","modelField":"payments.needed","msg":"requirements model asked about a different field than the planner — sending the questionnaire wording"}
+{"level":40,"time":"2026-10-09T13:43:22.193Z","projectId":"01a120e7-6db9-7c32-a5a8-a8b6de28deba","runId":"01a120e7-7546-7982-87ac-27248ba7687a","plannedField":"menu.kind","modelField":"products_services.description","msg":"requirements model asked about a different field than the planner — sending the questionnaire wording"}
+{"level":40,"time":"2026-10-09T13:43:22.305Z","projectId":"01a120e7-6db9-7c32-a5a8-a8b6de28deba","runId":"01a120e7-75b8-77d4-b647-98bfb52298f6","plannedField":"delivery.enabled","modelField":"menu.kind","msg":"requirements model asked about a different field than the planner — sending the questionnaire wording"}
+{"level":40,"time":"2026-10-09T13:43:22.419Z","projectId":"01a120e7-6db9-7c32-a5a8-a8b6de28deba","runId":"01a120e7-7629-7348-a0a4-70e7852945fb","plannedField":"delivery.zone","modelField":"delivery.enabled","msg":"requirements model asked about a different field than the planner — sending the questionnaire wording"}
+{"level":40,"time":"2026-10-09T13:43:22.526Z","projectId":"01a120e7-6db9-7c32-a5a8-a8b6de28deba","runId":"01a120e7-7695-7192-9c58-6016ad34abcb","plannedField":"branches.count","modelField":"delivery.zone","msg":"requirements model asked about a different field than the planner — sending the questionnaire wording"}
+{"level":40,"time":"2026-10-09T13:43:22.626Z","projectId":"01a120e7-6db9-7c32-a5a8-a8b6de28deba","runId":"01a120e7-76f9-73ad-bec1-fc1ae3d9fdb3","plannedField":"admin_panel.needed","modelField":"branches.count","msg":"requirements model asked about a different field than the planner — sending the questionnaire wording"}
+{"level":40,"time":"2026-10-09T13:43:22.736Z","projectId":"01a120e7-6db9-7c32-a5a8-a8b6de28deba","runId":"01a120e7-7765-7284-a82b-c57be0a5c3d1","plannedField":"admin_panel.roles","modelField":"admin_panel.needed","msg":"requirements model asked about a different field than the planner — sending the questionnaire wording"}
+{"level":40,"time":"2026-10-09T13:43:22.834Z","projectId":"01a120e7-6db9-7c32-a5a8-a8b6de28deba","runId":"01a120e7-77ca-7766-9847-95aa385139c1","plannedField":"design.style","modelField":"admin_panel.roles","msg":"requirements model asked about a different field than the planner — sending the questionnaire wording"}
+{"level":40,"time":"2026-10-09T13:43:22.954Z","projectId":"01a120e7-6db9-7c32-a5a8-a8b6de28deba","runId":"01a120e7-7841-7b6c-8dc6-fd19f02c885b","plannedField":"content.languages","modelField":"design.style","msg":"requirements model asked about a different field than the planner — sending the questionnaire wording"}
+{"level":40,"time":"2026-10-09T13:43:23.059Z","projectId":"01a120e7-6db9-7c32-a5a8-a8b6de28deba","runId":"01a120e7-78a9-7c5b-a9e1-afcbf8660aba","plannedField":"branches.hours","modelField":"content.languages","msg":"requirements model asked about a different field than the planner — sending the questionnaire wording"}
+{"level":40,"time":"2026-10-09T13:43:23.164Z","projectId":"01a120e7-6db9-7c32-a5a8-a8b6de28deba","runId":"01a120e7-7911-7836-a6ad-5ea78dd6cd1f","plannedField":"seo.needed","modelField":"branches.hours","msg":"requirements model asked about a different field than the planner — sending the questionnaire wording"}
+{"level":40,"time":"2026-10-09T13:43:23.266Z","projectId":"01a120e7-6db9-7c32-a5a8-a8b6de28deba","runId":"01a120e7-7979-76be-a2d2-69667a5e8d35","plannedField":"seo.keywords","modelField":"seo.needed","msg":"requirements model asked about a different field than the planner — sending the questionnaire wording"}
+{"level":40,"time":"2026-10-09T13:43:23.372Z","projectId":"01a120e7-6db9-7c32-a5a8-a8b6de28deba","runId":"01a120e7-79e2-7b6e-b82d-065ebdf7f56d","plannedField":"integrations.list","modelField":"seo.keywords","msg":"requirements model asked about a different field than the planner — sending the questionnaire wording"}
+{"level":40,"time":"2026-10-09T13:43:23.479Z","projectId":"01a120e7-6db9-7c32-a5a8-a8b6de28deba","runId":"01a120e7-7a4d-772f-9ac3-b5d27a3dbcb6","plannedField":"security.requirements","modelField":"integrations.list","msg":"requirements model asked about a different field than the planner — sending the questionnaire wording"}
+{"level":40,"time":"2026-10-09T13:43:23.588Z","projectId":"01a120e7-6db9-7c32-a5a8-a8b6de28deba","runId":"01a120e7-7aba-76f7-8c72-3f2cd560e7a5","plannedField":"hosting.preference","modelField":"security.requirements","msg":"requirements model asked about a different field than the planner — sending the questionnaire wording"}
+{"level":40,"time":"2026-10-09T13:43:23.694Z","projectId":"01a120e7-6db9-7c32-a5a8-a8b6de28deba","runId":"01a120e7-7b24-781f-8725-60d986de6445","plannedField":"domain.name","modelField":"hosting.preference","msg":"requirements model asked about a different field than the planner — sending the questionnaire wording"}
+{"level":40,"time":"2026-10-09T13:43:23.796Z","projectId":"01a120e7-6db9-7c32-a5a8-a8b6de28deba","runId":"01a120e7-7b8b-7cae-ab65-8dedd1df8117","plannedField":"budget.range","modelField":"domain.name","msg":"requirements model asked about a different field than the planner — sending the questionnaire wording"}
+{"level":40,"time":"2026-10-09T13:43:23.893Z","projectId":"01a120e7-6db9-7c32-a5a8-a8b6de28deba","runId":"01a120e7-7bec-72b2-b936-fd036132c747","plannedField":"deadline.expected","modelField":"budget.range","msg":"requirements model asked about a different field than the planner — sending the questionnaire wording"}
+{"level":40,"time":"2026-10-09T13:43:24.027Z","task":"Produce specification v1 for this project.\nYou have two outp","provider":"hybrid(scripted-router->openai-compatible)","promptTokens":5127,"reservedTokens":13127,"budgetTokens":8000,"fits":false,"overBy":5127,"msg":"prompt exceeds the 8000 TPM heuristic (Groq free-tier budget; provider=hybrid(scripted-router->openai-compatible)) — the request still goes out; trim the prompt if the provider 429s"}
+{"level":40,"time":"2026-10-09T13:43:33.741Z","errors":["spec.requirements.29.description: Too small: expected string to have >=10 characters"],"msg":"agent output failed validation; one repair attempt"}
+turns=30  state=CLIENT_REVIEW  completeness=100%
+
+=== 2. Specification (T06/T07) and the two-step client approval (Phase 3) ===
+spec v1 status=IN_REVIEW  SPEC-REQ: 30
+client approved → v1 LOCKED, state=CLIENT_APPROVED
+
+=== 7. Approval enqueues SPEC_AUDIT → T11, the Spec Auditor runs (§20) ===
+{"level":40,"time":"2026-10-09T13:44:09.028Z","task":"Audit specification v1 of a RESTAURANT website project.\nThis","provider":"openrouter","promptTokens":6715,"reservedTokens":9215,"budgetTokens":8000,"fits":false,"overBy":1215,"msg":"prompt exceeds the 8000 TPM heuristic (Groq free-tier budget; provider=openrouter) — the request still goes out; trim the prompt if the provider 429s"}
+audit attempts: 1   final state: READY_FOR_BUILD
+  attempt 1/3  provider=openrouter model=cohere/north-mini-code:free  PASS  score=100  structuralForcedFail=false  modelSaid=PASS  checks=ambiguity:PASS consistency:PASS completeness:PASS clientAlignment:PASS codingReadiness:PASS
+  spec v1  status=LOCKED     change=""
+transitions: T01 → T02 → T03 → T05 → T06 → T07 → T10 → T11 → T12
+
+=== 8. PASS → T12 READY_FOR_BUILD: the build may start from a locked, audited specification ===
+current spec: v1 status=LOCKED (locked = immutable, §34)
+open human tasks: 0
+
+=== 11. Audit trail ===
+events: SPEC_GENERATED×1, SPEC_LOCKED×1, SPEC_AUDIT_RESULT×1, APPROVAL_RECORDED×1, TASK_CREATED×0
+spec-audit artifact: /tmp/wpp-phase4-e2gN19/projects/01a120e7-6db9-7c32-a5a8-a8b6de28deba/spec-audit/v1-a1.md
+  **Verdict: PASS** — score 100/100 (auditor openrouter/cohere/north-mini-code:free) | checks: completeness=PASS consistency=PASS ambiguity=PASS codingReadiness=PASS clientAlignment=PASS
+agent runs: 1 audit run(s) of 36 total
+jobs: [{"status":"DONE","n":66},{"status":"PENDING","n":1}]
+LLM calls: 32 total, 0 audit, 0 specification
+client messages during the audit loop: 0 (0 = the loop never wakes the client)
+
+DONE — spec audit (pass) → READY_FOR_BUILD

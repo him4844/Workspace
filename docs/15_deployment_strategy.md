@@ -75,4 +75,4 @@ git tag vX.Y.Z  → CI (verify) → build images → push to registry (or local 
 | CPU | api+worker ~0.5 core idle | build/check bursts (1 core each) | `BUILD_MAX_CONCURRENCY`, `CHECK` caps |
 | RAM | ~1.5 GB total idle | +900 MB per build job | caps + queue |
 | Disk | 20–40 GB usable (Postgres + workspaces) | prune workspaces after N builds (config) | nightly `df` check + alert |
-| LLM | see `18_stack_proposal.md` §2.3 | daily cap `LLM_DAILY_SPEND_CAP_USD` | alert at 80% |
+| LLM | see `18_stack_proposal.md` §2.3 | `LLM_DAILY_BUDGET_USD` is atomically reserved per org/UTC day for paid routes; current operation remains `LLM_FREE_ONLY=true` | review usage and provider free-tier quotas; no paid fallback |

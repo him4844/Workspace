@@ -25,7 +25,7 @@
         "pdf"
       ],
       "order": 82,
-      "clarifyPrompt": "Menyuni aniqlashtiraylik: rasmlar kim tomonidan tayyorlanadi va narxlar tez-tez o'zgaradimi?"
+      "clarifyPrompt": "Menyu formatini tanlaylik: taomlar rasmi bilan, faqat matn ko'rinishidami yoki PDF bo'ladimi? Menyu va narxlarni kim yangilaydi?"
     },
     {
       "path": "menu.categories_count",
@@ -104,7 +104,7 @@
       ],
       "order": 84,
       "defaultSuggestion": "buyurtma telefon/Telegram orqali, yetkazib berishni oshxona boshqaradi",
-      "clarifyPrompt": "Yetkazib berishni aniqlashtiraylik: hudud qanday, minimal summa bormi, kim yetkazadi?"
+      "clarifyPrompt": "Yetkazib berish variantini aniqlashtiraylik: restoranning o'z kuryerimi, agregatormi yoki umuman yetkazib berish bo'lmaydimi? Qaysi hududga?"
     },
     {
       "path": "delivery.zone",
@@ -165,7 +165,7 @@
       ],
       "order": 54,
       "defaultSuggestion": "telefon/Telegram orqali buyurtma (savat keyingi bosqichda)",
-      "clarifyPrompt": "Buyurtma oqimini aniqlashtiraylik: mijoz menyudan tanlaydimi va summani qanday ko'radi?"
+      "clarifyPrompt": "Buyurtma oqimini tanlaylik: saytda savat bilan buyurtmami, telefon orqali buyurtmami yoki hozircha qaror qilinmaganmi?"
     },
     {
       "path": "location.map",

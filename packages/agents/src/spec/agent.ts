@@ -39,8 +39,10 @@ export interface SpecRunParams {
     auditAttempt?: number | null;
     auditMaxAttempts?: number | null;
   } | null;
-  /** set when a previous attempt failed the traceability audit: the model must fix exactly these */
+  /** set when a previous attempt failed the deterministic spec/summary audit */
   repairGaps?: TraceabilityGap[] | null;
+  /** The exact candidate that failed — a repair must revise this, not regenerate blind. */
+  repairDraft?: SpecificationOutput | null;
   language: string;
   approveLabel: string;
   requestChangesLabel: string;
@@ -58,6 +60,21 @@ const SECTION_LIST = [
 
 /** [3] TASK SPECIFICATION. */
 export function buildSpecTaskBlock(params: SpecRunParams): string {
+  // §16 coverage, stated as a COUNT the model can check itself against. Measured live 2026-10-08
+  // (run #8): with a 5 000-token output cap the free writer compressed the document to fit and
+  // implemented only a fraction of the confirmed fields — the deterministic traceability check
+  // then failed it. A complete 30-field spec needs ~5.7k tokens, so the cap is 8 000 and the
+  // count is spelled out here (D-053).
+  const confirmedPaths = params.fields
+    .filter((f) => f.status === 'CLIENT_CONFIRMED' || f.status === 'CLIENT_APPROVED_DEFAULT')
+    .map((f) => f.fieldPath);
+  const confirmedCount = confirmedPaths.length;
+  const locale = params.language.toLowerCase().split(/[-_]/)[0];
+  const summaryHeadings = locale === 'uz'
+    ? ['Maqsad', 'Sahifalar', 'Imkoniyatlar', 'Dizayn', 'Asosiy taxminlar']
+    : locale === 'ru'
+      ? ['Цель', 'Страницы', 'Возможности', 'Дизайн', 'Основные допущения']
+      : ['Purpose', 'Pages', 'Features', 'Design', 'Major assumptions'];
   const lines: string[] = [
     params.revision
       ? `Produce specification v${(params.revision.previousVersion ?? 1) + 1}: a REVISION of the approved-in-review specification.`
@@ -70,6 +87,10 @@ export function buildSpecTaskBlock(params: SpecRunParams): string {
     '   It must cover: purpose, pages, features, design direction and the assumptions the client should know.',
     '   It must NOT contain technical jargon (no API/endpoint/database/stack words) and must not mention a page or',
     '   feature that the specification does not contain.',
+    '   Include the important client-visible features and major assumptions/defaults, but keep it SHORT:',
+    '   §18 says the client should not need to understand the full Technical Specification. Explain key',
+    '   outcomes in everyday language; do not dump every implementation-level MUST or copy technical titles.',
+    `   Use these headings so the client can scan it: ${summaryHeadings.map((h) => `## ${h}`).join(' · ')}.`,
     '',
     'TRACEABILITY (§16) — mandatory:',
     '- Every `spec.requirements[]` entry has code SPEC-REQ-###, a `section`, a `title`, a `description` and `priority`.',
@@ -78,6 +99,11 @@ export function buildSpecTaskBlock(params: SpecRunParams): string {
     '- Use ONLY field paths that exist in PROJECT DATA: a path that is not there fails the traceability audit.',
     '- Every client-confirmed or client-approved-default field in PROJECT DATA must be implemented by at',
     '  least one SPEC-REQ entry. Missing one fails the audit and forces a regeneration.',
+    `COVERAGE CHECK before you answer: there are ${confirmedCount} client-confirmed requirement fields.`,
+    'Create at least one separate SPEC-REQ for EVERY path below. Do not merge paths into one requirement:',
+    ...confirmedPaths.map((fieldPath) => `- ${fieldPath}`),
+    'Copy each path EXACTLY into that SPEC-REQ originReqField (same spelling, punctuation and case).',
+    'Before finalizing, count the DISTINCT originReqField values: the count MUST equal the list above.',
     '',
     'ACCEPTANCE CRITERIA (§17) — mandatory and testable:',
     '- Each requirement has 1..6 criteria AC-### with `testable: true` and a `verificationHint`',
@@ -130,7 +156,9 @@ export function buildSpecTaskBlock(params: SpecRunParams): string {
   if (params.repairGaps && params.repairGaps.length > 0) {
     lines.push(
       '',
-      'YOUR PREVIOUS ATTEMPT FAILED THE TRACEABILITY AUDIT — fix exactly these gaps and change nothing else:',
+      'YOUR PREVIOUS CANDIDATE (in PROJECT DATA.repairDraft) failed the deterministic audit below.',
+      'Revise THAT exact candidate: keep every correct requirement, page, and client-summary detail; do not regenerate from scratch.',
+      'Fix every listed gap, then re-check all confirmed fields and every MUST requirement in the client summary.',
       ...params.repairGaps.map((gap) => `- [${gap.kind}] ${gap.detail}`),
     );
   }
@@ -156,6 +184,9 @@ export function buildSpecProjectData(params: SpecRunParams): unknown {
     })),
     contradictions: params.contradictions,
     internalRequirementsSummary: params.internalSummaryMd,
+    // The bounded internal repair must see the previous candidate; without it the model was told
+    // "fix these gaps" but got no draft to fix, so it regenerated from scratch and repeated omissions.
+    repairDraft: params.repairDraft ?? null,
     revision: params.revision
       ? {
           changeRequestText: params.revision.changeRequestText,

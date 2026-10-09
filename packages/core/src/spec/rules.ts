@@ -7,7 +7,7 @@ import type { ClientSummary, SpecDocument, SpecStatus } from './traceability.js'
 // ---------------------------------------------------------------- §19 consistency
 
 export interface ConsistencyIssue {
-  kind: 'SUMMARY_MENTIONS_UNKNOWN_PAGE' | 'SUMMARY_MENTIONS_UNKNOWN_FEATURE' | 'SUMMARY_MISSING_REQUIRED_HEADING' | 'SUMMARY_TOO_TECHNICAL' | 'SUMMARY_EMPTY';
+  kind: 'SUMMARY_MENTIONS_UNKNOWN_PAGE' | 'SUMMARY_MISSING_REQUIRED_HEADING' | 'SUMMARY_TOO_TECHNICAL' | 'SUMMARY_EMPTY';
   detail: string;
 }
 
@@ -19,10 +19,10 @@ const TECHY_MARKERS = [
 ];
 
 const REQUIRED_SUMMARY_SECTIONS: Array<{ label: string; patterns: RegExp[] }> = [
-  { label: 'purpose', patterns: [/maqsad/i, /purpose/i, /nima uchun/i, /goal/i] },
-  { label: 'pages', patterns: [/sahifa/i, /pages/i, /bo‘lim/i, /section/i] },
-  { label: 'features', patterns: [/funksiya/i, /feature/i, /imkoniyat/i] },
-  { label: 'design', patterns: [/dizayn/i, /design/i, /uslub/i] },
+  { label: 'purpose', patterns: [/maqsad/i, /purpose/i, /nima uchun/i, /goal/i, /цель|зачем/i] },
+  { label: 'pages', patterns: [/sahifa/i, /pages/i, /bo‘lim/i, /section/i, /страниц/i] },
+  { label: 'features', patterns: [/funksiya/i, /feature/i, /imkoniyat/i, /возможност/i] },
+  { label: 'design', patterns: [/dizayn/i, /design/i, /uslub/i, /дизайн/i] },
 ];
 
 /**
@@ -55,19 +55,15 @@ export function auditSummaryConsistency(spec: SpecDocument, summary: ClientSumma
     }
   }
 
-  // Every MUST feature title must be recognisable in the summary (same words, either language is
-  // acceptable for short titles, so we compare on the first significant token).
-  for (const req of spec.requirements.filter((r) => r.priority === 'MUST')) {
-    const token = firstSignificantToken(req.title);
-    const descriptionToken = firstSignificantToken(req.description);
-    const mentioned = (token && lower.includes(token)) || (descriptionToken && lower.includes(descriptionToken));
-    if (!mentioned) {
-      issues.push({
-        kind: 'SUMMARY_MENTIONS_UNKNOWN_FEATURE',
-        detail: `MUST requirement ${req.code} ("${req.title}") is not mentioned in the client summary`,
-      });
-    }
-  }
+  // §18 deliberately asks for a SHORT summary of purpose, pages, important features, design and
+  // major assumptions — the client should not need to understand the full Technical Specification.
+  // Do not require every MUST requirement title to appear verbatim: MUST also includes hidden
+  // implementation details (budget, hosting, authentication, SEO, etc.), and a competent simple-
+  // language paraphrase will not contain the requirement title's first token. The old lexical rule
+  // blocked real client summaries (live 2026-10-09: 30/30 SPEC-REQs were traced, yet 7–16 MUST-title
+  // token misses caused T30). Client alignment of the full requirement set belongs to the §20
+  // Spec Auditor; deterministic Phase-3 checks enforce the required summary sections and reject
+  // pages the specification does not contain.
 
   for (const required of REQUIRED_SUMMARY_SECTIONS) {
     if (!required.patterns.some((re) => re.test(markdown))) {

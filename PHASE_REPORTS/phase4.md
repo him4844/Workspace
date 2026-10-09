@@ -1,14 +1,12 @@
 # PHASE 4 REPORT — Spec Auditor (`§20`), the `§21` audit loop and the `§42` human block
 
 **Phase file:** `docs/phases/04_phase4_spec_auditor.md` · **Report per:** `docs/phases/00_COMMON_RULES.md`
-**Date:** 2026-10-08 · **Status:** COMPLETE — **waiting for human approval before Phase 5**
-**Update (same day, evening):** the auditor now runs live on its own vendor route and the first
-**live audit row is captured** (D-049…D-051) — both the PASS path and the FAIL→BLOCK path are
-proven with real providers, not only scripted.
+**Phase-4 close (2026-10-08):** COMPLETE.
+**Current status (2026-10-09):** requested P0–P4 remediation is complete and serially verified; Phase 5 has not started. Awaiting explicit approval and the generated-site stack choice.
+**Phase-4 live proof:** the auditor ran on its own vendor route, with a real PASS row and a separately observed FAIL→BLOCK path (D-049…D-051). The latest full free chain after the summary/spec remediation is recorded in `evidence/phase4-live-all-fixes.txt` (D-061).
 
 Every number below comes from a command you can re-run; the raw output is in `PHASE_REPORTS/evidence/`.
-The whole phase was built and verified **at zero cost** (D-029): the auditor has its own free route, and
-every acceptance check is reproducible without any key (`LLM_PROVIDER=scripted`) as well as with one.
+The project remains free-only (D-029): Gemini writes requirements/specification, OpenRouter `:free` audits; paid routes are blocked by the standing policy. Scripted acceptance checks need no key.
 
 ---
 
@@ -32,15 +30,17 @@ every acceptance check is reproducible without any key (`LLM_PROVIDER=scripted`)
 
 ## 2. How it was verified (real results, 2026-10-08)
 
-### 2.1 The suite — `npm run verify` → `evidence/phase4-verify.txt`
+### 2.1 Original Phase-4 close suite — `evidence/phase4-verify.txt` (historical baseline)
+
+At the 2026-10-08 Phase-4 close:
 
 ```
 tsc --noEmit                                  clean
-vitest: 16 files, 179 tests                   ALL PASS   (213 s; Phase 3 left 138; +14 audit core, +6 audit e2e, +7 rate-limit, +14 requirements-core incl. the §10 rule, +0 misc regressions)
+vitest: 16 files, 179 tests                   ALL PASS   (213 s)
 node scripts/check-docs.mjs                   OK: 23 docs present, contracts valid JSON
 EXIT=0
 ```
-(Earlier same-day run: 15 files / 168 tests — see git history of `evidence/phase4-verify.txt`.)
+This is the historical Phase-4 close result, not the latest remediation verification. The newer full serial run is in §2.6 and `evidence/phase0-4-remediation-verify.txt`.
 
 ### 2.2 Phase-4 acceptance checks — `tests/e2e/spec-audit.test.ts` (5/5, scripted provider, real everything else)
 
@@ -73,11 +73,7 @@ empty content, which dead-lettered the audit).
   scripted interview → scripted spec → two-step approval → v1 LOCKED → live `SPEC_AUDIT`
   (`provider=openrouter`, `model=cohere/north-mini-code:free`) → **PASS, score 100, all five checks
   PASS, `structuralForcedFail=false`** → T12 **READY_FOR_BUILD**, whole leg ~11 s.
-* **Run #8 — spec+audit live leg** (`evidence/phase4-live-spec-audit.txt`) — the §21 loop proven
-  live on the FAIL path: the live-written spec (Gemini) fails the live audit with 26 deterministic
-  missing-requirement gaps → live revision → 27 gaps → third attempt → **T15 BLOCKED** + human task.
-  The auditor correctly refuses an under-specified spec; the writer's thin output is a Phase-3
-  follow-up (§3.2), not an auditor defect.
+* **Run #8 — spec+audit live leg** (`evidence/phase4-live-spec-audit.txt`) — historically proved the §21 FAIL→BLOCK route: it reported 26 then 27 deterministic gaps and ended at **T15 BLOCKED** + human task. That first diagnosis (“writer omitted confirmed requirements”) was later superseded: live inspection found 30/30 SPEC-REQ coverage, and the block came from the Phase-3 lexical summary checker rejecting short paraphrases. See D-053/D-061 and the corrected full-chain proof in §2.6; keep this file as historical evidence, not the current quality verdict.
 
 ### 2.4a The empty-content dead end (the root cause of the earlier live failures)
 
@@ -93,7 +89,7 @@ has no published TPM and demonstrably serves 9 704-token prompts.
 ### 2.5 Reproduce in a few minutes
 
 ```bash
-npm run verify                     # tsc + 168 tests + docs/contract checks
+npm run verify                    # typecheck + serial Vitest (1 thread) + docs/contracts check
 npm run simulate:phase4            # PASS → READY_FOR_BUILD
 DEMO_AUDIT_MODE=fail-first npm run simulate:phase4   # one revision, then PASS
 DEMO_AUDIT_MODE=fail-all   npm run simulate:phase4   # §21 ceiling → BLOCKED + human task
@@ -103,38 +99,59 @@ DEMO_LLM=real npm run simulate:phase4              # live audit leg (auditor onl
 DEMO_LLM=real DEMO_LIVE_LEGS=spec+audit npm run simulate:phase4   # live spec + audit
 ```
 
+
+### 2.6 P0–P4 remediation run (2026-10-09)
+
+The remediation was verified after its final code change with the serial command and raw evidence listed in §3.2. In addition, the latest recorded free live spec+audit run is `evidence/phase4-live-all-fixes.txt`: Gemini generated a 30-SPEC-REQ draft, the §18 summary gate passed, the two-step approval locked v1, and the vendor-separated OpenRouter auditor returned PASS 100 / five checks PASS → `READY_FOR_BUILD`. No P5 coding-agent route was run or implemented.
+
 ---
 
-## 3. Incomplete / risky (honest list)
+## 3. P0–P4 remediation status and remaining risks (updated 2026-10-09)
 
-1. **The auditor's judgement is shallower with reasoning off (D-049).** `reasoningEffort: 'none'`
-   was the only way to get a non-empty verdict from the free roster (both probed models are
-   reasoning models that burn the completion cap): the live PASS scored 100 with empty issue
-   buckets on the clean scripted spec. The deterministic `auditSpecStructure` findings and
-   `mergeAuditVerdict` remain the structural guarantee — the model can never vote away a
-   structural CRITICAL/MAJOR — but the *judgement* half (subtle inconsistencies no rule catches)
-   is thinner than it would be with reasoning on. A FAIL is always human-reviewable (report
-   artifact + task). If a paid/stronger auditor ever becomes available, re-enable reasoning and
-   re-probe before trusting score deltas.
-2. **Phase-3 follow-up (writer quality, surfaced BY the auditor — run #8):** the free-tier writer's
-   spec implements only a fraction of the 30 confirmed fields (26–27 deterministic gaps), and one
-   revision does not close them → BLOCKED. The cap raise (3 000 → 5 000) did not change the gap
-   count. Fixing the writer (prompt/model) is Phase-3 scope; the auditor did its job.
-3. **Daily-quota 429 is still a scheduling problem, not a retry problem** (unchanged): a ~7 h 45 m
-   `retryAfterMs` hint fails the in-run wait budget, the job re-queues on backoff and dead-letters.
-   Mitigation is the DEAD_LETTER escalation (D-044, live-proven); the real fix (propagate
-   `retryAfterMs` into the job's `runAt`) is still open.
-4. **`/api/v1/projects/:id/spec-audit` has never served a live request** — it is covered by the
-   inspector tests but the live demo reads the DB directly.
-5. **`agent.audit_independent_provider` (seeded config) is documentation only** — nothing enforces
-   "auditor ≠ writer provider"; with the OpenRouter route it *is* a different vendor now, and the
-   audit rows record provider/model so the claim is checkable (D-051).
-6. **Free-tier pacing is a first-class constraint** (SPEC §58): OpenRouter `:free` = 20 RPM / 50 RPD,
-   Gemini AI Studio = per-project daily caps (measured 20 req/day on one model; per-model buckets
-   are separate). Rosters and limits rotate; re-probe before each live leg.
-7. **Not built (later phases, deliberately)**: the Coding Agent, the runtime-verified Code Checker,
-   the Team Panel, deployment (Phase 5+). `T12` stops at `READY_FOR_BUILD`; enqueueing `BUILD_RUN`
-   is Phase 5's `T16` (documented in `docs/05`).
+### 3.1 Known issues closed in this remediation
+
+| Area | Resolution | Decision / proof |
+|---|---|---|
+| Provider 429 waits and dead-letter handling | Provider `retryAfterMs` now schedules `jobs.run_at` at the deadline + 1 s; excessive waits/exhausted retries dead-letter, create a critical human task, and T30-block the project. | D-052/D-057; queue and dead-letter tests |
+| Client Summary false-block; failed spec drafts | §18 checks now validate the short client-facing summary without requiring verbatim MUST titles. Failed technical-spec candidates and exact gaps are persisted; repair sees the previous candidate; accepted spec persistence is atomic. | D-053/D-058; spec unit/E2E tests; live evidence below |
+| Questionnaire clarifiers | Mismatched prompts/options were corrected and pinned with data-driven localized regression tests. | D-054; 11 tests |
+| Auditor route and fallback | OpenRouter `cohere/north-mini-code:free` is the tested preset. A real auditor route must use a different vendor and credential from the writer; no silent same-vendor fallback. | D-055; route/free-only tests |
+| Spend guard | Paid routes reserve worst-case estimated usage atomically per org/UTC day, with 25% margin; unknown pricing is refused. Free-only routes remain no-cost and bypass paid reservations. | D-056; budget integration tests (5/5) |
+| Missing auditor verdict / unhandled failure | Auditor-unavailable and dead-letter paths now leave a persisted, human-visible BLOCKED state rather than an unowned task or indefinite wait. | D-057; dead-letter + audit E2E tests |
+| `/spec-audit` API coverage | Fastify HTTP integration tests cover token auth, latest verdict/provider/model, attempts/tasks, and 404. | D-059; 2/2 |
+| Prompt visibility | Prompt-size tool now follows the full scripted Phase-2→3→4 flow, including the auditor request. | D-060; 32 calls, `READY_FOR_BUILD` |
+| Outbound Instagram pacing | `SEND_RATE_PER_MINUTE` is enforced per connection with a durable 60-second counter; overflow is queued and retried at the next window. Simulator messages bypass the external Graph limiter. | D-062; integration tests (2/2) |
+| Test hermeticity / deprecation noise | Tests no longer inherit real `.env` provider routes. Removed a redundant deprecated Fastify option; the final verification emitted no Fastify deprecation warnings. | `tests/helpers/context.ts`, `apps/api/src/app.ts`; full suite below |
+
+### 3.2 Final verification (2026-10-09)
+
+The full suite was run serially to avoid the sandbox's Vitest worker memory limit:
+
+```bash
+npm run verify
+```
+The `verify` script runs Vitest with one thread and file-parallelism disabled to avoid the sandbox's worker-memory failures.
+
+| Check | Result |
+|---|---|
+| TypeScript | ✅ clean |
+| Vitest | ✅ 24 files / 214 tests passed (244.84 s) |
+| Documentation/contracts | ✅ 23 docs present; contracts valid JSON |
+| Full command | ✅ exit 0; raw output `evidence/phase0-4-remediation-verify.txt` |
+
+### 3.3 Live/provider evidence and its boundary
+
+`evidence/phase4-live-all-fixes.txt` records the complete free live chain: 30/30 SPEC-REQs, Client Summary passes §18, v1 receives the two-step client approval and locks, writer is Gemini and auditor is the different-vendor OpenRouter `:free` route, audit returns PASS 100 with all five checks PASS, and the project reaches `READY_FOR_BUILD`. The scripted prompt-size run records 32 calls and estimates the auditor request at about 7,920 prompt tokens plus 2,500 output tokens (`evidence/phase4-prompt-sizes.txt`).
+
+The live full-chain capture predates the final outbound-throttle-only change; that change is covered by the post-change integration suite. The live chain uses the simulator channel, which intentionally bypasses Meta's Graph API limiter. No real Meta send/receive is claimed.
+
+### 3.4 Still open / externally constrained
+
+1. **Meta Graph integration is unverified.** No Meta test account, app token, review or real Instagram thread is configured here. Real send/receive, permission grants, and long-lived token refresh remain external work.
+2. **Free-provider limits rotate and are per provider/project.** The successful live run proves one RESTAURANT persona/model path, not every language/questionnaire or future free-tier roster. Keep `LLM_FREE_ONLY=true`; it is not permission to spend.
+3. **Auditor judgement is intentionally shallow on the tested free route.** Reasoning is disabled to avoid empty responses; deterministic structural checks and human BLOCKED escalation remain the safety net, but subtle judgement needs more live evaluation.
+4. **Sandbox != production.** Verification used PGlite and scripted HTTP integration; Docker/PostgreSQL deployment and browser/Chromium runs were not available. The later Code Checker, Team Panel, deployment and delivery phases are not built.
+5. **Phase 5 has not started.** The generated-site target (React/Next static site vs plain HTML/CSS) is still undecided, and this report is not approval to proceed.
 
 ---
 
@@ -149,30 +166,14 @@ DEMO_LLM=real DEMO_LIVE_LEGS=spec+audit npm run simulate:phase4   # live spec + 
 
 ## 5. Open questions (need a human answer)
 
-1. ~~The specification call cannot run on the Groq free tier~~ **ANSWERED 2026-10-08**: free Gemini
-   AI Studio keys + OpenRouter keys were supplied ("davom et"); the writer runs on Gemini
-   (`gemini-3.1-flash-lite`, D-048) and the auditor on OpenRouter `:free` (D-045) — option (A) from
-   the earlier list, implemented and live-proven (§2.4). The whole project stayed completely free.
-2. **Phase 5 scope** (`docs/phases/05_*` does not exist yet): the Coding Agent must produce an actual
-   runnable website (SPEC §22–§25) — in this sandbox that means a generated static/Next.js project
-   built without Docker. Confirm the target before I start: **a React/Next static marketing site**
-   (matches "website production pipeline" and needs no server), or a smaller plain HTML/CSS build
-   first? — also confirm the standing constraint that **Gemini must not write the code** (the coding
-   route will be a non-Gemini free model; the assistant authors all repo/pipeline code).
-3. **Phase-3 writer follow-up (§3.2):** accept the BLOCKED outcome of run #8 as correct behaviour
-   and improve the writer before Phase 5, or adjust the deterministic completeness rule's
-   strictness? (Recommendation: keep the rule — an under-specified spec must not reach a coder.)
+1. **Generated-site stack for Phase 5:** React/Next static marketing site, or plain HTML/CSS first? The platform monorepo stack (TypeScript/Fastify/Drizzle) is already approved; this question is about the website the coding agent will generate.
+2. **Explicit Phase-5 approval:** after reviewing this remediation report, confirm whether to begin P5. No P5 implementation has started. Any future coding-agent route must remain non-Gemini, vendor constraints and `LLM_FREE_ONLY=true` stay in force.
+3. **Non-blocking product policy choices** remain documented in `PHASE_REPORTS/phase3.md` (approval quick replies, reminder policy, and human handling of change requests); they do not authorize or block this remediation close.
 
 ---
 
 ## 6. Proposed next step
 
-**Phase 4 is complete and live-proven; awaiting approval.** On approval: Phase 5 (Coding Agent) per
-`SPEC.md` §22–§25, with `T16` starting from the `READY_FOR_BUILD` state — after question 2 (stack)
-is answered. The Phase-3 writer follow-up (question 3) can be scheduled alongside Phase 5's first
-live build, because a thin spec is exactly what the coding agent would trip over.
+P0–P4 remediation is verified and documented. **Stop here and await the user's explicit Phase-5 approval and generated-site stack choice.** If approved, implement P5 only, starting from `READY_FOR_BUILD`/T16; keep the coding-agent route non-Gemini and keep the entire project free-only. No Phase-5 code has been written in this remediation.
 
-**Files to look at first:** `PHASE_REPORTS/evidence/phase4-live-audit.txt` (the live PASS, ~11 s),
-`PHASE_REPORTS/evidence/phase4-live-spec-audit.txt` (the live FAIL→BLOCK), then
-`tests/e2e/spec-audit.test.ts` (the acceptance checks as executable prose), then
-`apps/worker/src/handlers/audit.ts` (the loop itself).
+**Review first:** `evidence/phase0-4-remediation-verify.txt` (final 24/214 suite), `evidence/phase4-live-all-fixes.txt` (live PASS chain), `evidence/phase4-prompt-sizes.txt` (prompt measurement), then `DECISIONS.md` D-052…D-062.

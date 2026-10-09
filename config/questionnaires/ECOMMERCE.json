@@ -83,7 +83,7 @@
         "quick"
       ],
       "order": 56,
-      "clarifyPrompt": "Checkout ni aniqlashtiraylik: mijoz manzilni kiritadimi, yetkazib berish narxi qanday hisoblanadi?"
+      "clarifyPrompt": "Checkout turini tanlaylik: odatiy savat orqali buyurtmami yoki tezkor buyurtma formasimi? Yetkazish manzili va narxini qaysi bosqichda olamiz?"
     },
     {
       "path": "payments.methods",
@@ -99,7 +99,7 @@
       "priority": "MUST",
       "valueType": "list",
       "order": 72,
-      "clarifyPrompt": "To'lovni aniqlashtiraylik: onlayn to'lov bo'lmasa ham, buyurtma qabul qilinadimi?"
+      "clarifyPrompt": "To'lov usullarini aniqlashtiraylik: Click/Payme kabi onlayn to'lov, karta, naqd pul yoki bank o'tkazmasidan qaysilari kerak?"
     },
     {
       "path": "delivery.options",

@@ -31,6 +31,8 @@ import {
   type AgentEnvelope, type SpecAuditOutput, parseReasoningEffort } from '@wpp/agents';
 import { writeArtifact } from '@wpp/infra';
 import { effectiveModel, resolveAuditorLlm } from '../services/llm.js';
+import { createDailyBudgetGuard } from '../services/llm-budget.js';
+import { findPreset } from '@wpp/infra';
 import type { HandlerContext } from '../orchestrator.js';
 
 const DEFAULT_MAX_ATTEMPTS = 3;
@@ -65,17 +67,26 @@ export async function specAudit(ctx: HandlerContext, job: JobRow): Promise<void>
   const agentConfig = await agentConfigRepo.getActiveAgentConfig(db, project.orgId, 'SPEC_AUDITOR');
   const auditorLlm = await resolveAuditorLlm({ config, llm: ctx.llm, llmRoute: ctx.llmRoute, logger });
   if (!agentConfig || !auditorLlm) {
-    logger.warn({ projectId, hasConfig: Boolean(agentConfig), hasClient: Boolean(auditorLlm) }, 'spec auditor unavailable');
-    await obsRepo.recordEvent(db, {
-      orgId: project.orgId, projectId, type: 'SYSTEM_ERROR', actorType: 'SYSTEM', severity: 'MAJOR',
-      payload: { code: 'SPEC_AUDITOR_NOT_CONFIGURED', jobId: job.id, hint: 'set AUDITOR_LLM_* or LLM_PROVIDER/LLM_API_KEY (docs/12 §5)' },
-    });
-    await obsRepo.createTask(db, {
-      orgId: project.orgId, projectId, type: 'HUMAN_REVIEW', priority: 'MAJOR',
-      title: 'Specification cannot be audited: no auditor LLM configured',
-      reason: 'SPEC_AUDIT ran without a usable auditor route (AUDITOR_LLM_* and LLM_* are missing or blocked by LLM_FREE_ONLY).',
-      suggestedAction: 'Configure the auditor route (config/llm-presets.json + .env, docs/12 §5) and re-run the SPEC_AUDIT job.',
-      aiReport: { jobId: job.id, specVersionId: audited.id },
+    logger.warn({ projectId, hasConfig: Boolean(agentConfig), hasClient: Boolean(auditorLlm) }, 'independent spec auditor unavailable');
+    await db.transaction(async (tx) => {
+      await obsRepo.recordEvent(tx, {
+        orgId: project.orgId, projectId, type: 'SYSTEM_ERROR', actorType: 'SYSTEM', severity: 'CRITICAL',
+        payload: { code: 'SPEC_AUDITOR_NOT_CONFIGURED', jobId: job.id, hint: 'set AUDITOR_LLM_* to a free provider distinct from the writer (docs/12 §5)' },
+      });
+      await obsRepo.createTask(tx, {
+        orgId: project.orgId, projectId, type: 'HUMAN_REVIEW', priority: 'CRITICAL',
+        title: 'Specification cannot be audited: no independent auditor route',
+        reason: 'SPEC_AUDIT ran without a usable, vendor-separated auditor route (AUDITOR_LLM_* missing, same vendor as writer, or blocked by LLM_FREE_ONLY).',
+        suggestedAction: 'Configure an independent free auditor provider and its own key in config/llm-presets.json + .env, then resume the blocked audit.',
+        aiReport: { jobId: job.id, specVersionId: audited.id },
+      });
+      if (!['BLOCKED', 'COMPLETED', 'FAILED'].includes(project.state)) {
+        await projectsRepo.applyTransition(tx, {
+          projectId, transitionId: 'T30', context: { reason: 'SPEC_AUDITOR_NOT_CONFIGURED' },
+          reason: 'No independent Spec Auditor route is configured.', actorType: 'SYSTEM',
+          meta: { jobId: job.id, specVersionId: audited.id },
+        });
+      }
     });
     return;
   }
@@ -158,8 +169,24 @@ export async function specAudit(ctx: HandlerContext, job: JobRow): Promise<void>
     language: config.DEFAULT_LOCALE,
   };
 
+  const budgetGuard = createDailyBudgetGuard({
+    db,
+    orgId: project.orgId,
+    config,
+    provider: auditorLlm.client.provider,
+    freeRoute: Boolean(
+      (config.AUDITOR_LLM_PRESET && findPreset(config.AUDITOR_LLM_PRESET)?.free)
+      || (auditorRoute.provider === 'openrouter' && model.endsWith(':free')),
+    ),
+  });
   const envelope: AgentEnvelope<SpecAuditOutput> = await runAgentTurn(
-    { client: auditorLlm.client, systemInstructions: agentConfig.version.systemInstructions, logger },
+    {
+      client: auditorLlm.client,
+      systemInstructions: agentConfig.version.systemInstructions,
+      logger,
+      beforeRequest: budgetGuard.beforeRequest,
+      afterRequest: budgetGuard.afterRequest,
+    },
     buildAuditRunInput({
       task: buildAuditTaskBlock(params),
       projectData: buildAuditProjectData(params),
@@ -196,19 +223,30 @@ export async function specAudit(ctx: HandlerContext, job: JobRow): Promise<void>
 
   if (envelope.status === 'FAILED') {
     // Provider trouble: the orchestrator retries with backoff — an audit that never ran must not PASS.
-    throw new WppError(envelope.errorCode, envelope.message, envelope.retryable ? 'RETRYABLE' : 'AI_QUALITY');
+    throw new WppError(envelope.errorCode, envelope.message, envelope.retryable ? 'RETRYABLE' : 'AI_QUALITY', undefined, envelope.retryAfterMs);
   }
   if (envelope.status === 'NEEDS_REVIEW') {
-    await obsRepo.recordEvent(db, {
-      orgId: project.orgId, projectId, type: 'SYSTEM_ERROR', actorType: 'AI_AGENT', severity: 'MAJOR',
-      payload: { code: 'SPEC_AUDIT_NEEDS_REVIEW', reason: envelope.reason, runId, attempt },
-    });
-    await obsRepo.createTask(db, {
-      orgId: project.orgId, projectId, type: 'HUMAN_REVIEW', priority: 'MAJOR',
-      title: `Spec Auditor produced no usable verdict for v${audited.version} (attempt ${attempt}/${maxAttempts})`,
-      reason: envelope.reason,
-      suggestedAction: 'Read the agent run. Either fix the auditor agent config (config/agent-configs/agents.json) / auditor route, or audit the specification manually.',
-      aiReport: { runId, specVersionId: audited.id, attempt, structuralFindings: structural.findings },
+    // No valid auditor verdict is NOT a PASS and must not leave the project parked forever in
+    // SPEC_AUDIT. Record the run and atomically block + escalate; a human can fix the route/output
+    // contract, then resume the audit (D-054 / §42).
+    logger.error({ projectId, specVersionId: audited.id, attempt, runId, reason: envelope.reason }, 'Spec Auditor returned no usable verdict');
+    await db.transaction(async (tx) => {
+      await obsRepo.recordEvent(tx, {
+        orgId: project.orgId, projectId, type: 'SYSTEM_ERROR', actorType: 'AI_AGENT', severity: 'MAJOR',
+        payload: { code: 'SPEC_AUDIT_NEEDS_REVIEW', reason: envelope.reason, runId, attempt },
+      });
+      await obsRepo.createTask(tx, {
+        orgId: project.orgId, projectId, type: 'HUMAN_REVIEW', priority: 'MAJOR',
+        title: `Spec Auditor produced no usable verdict for v${audited.version} (attempt ${attempt}/${maxAttempts})`,
+        reason: envelope.reason,
+        suggestedAction: 'Read the agent run. Either fix the auditor agent config (config/agent-configs/agents.json) / auditor route, or audit the specification manually, then resume the audit.',
+        aiReport: { runId, specVersionId: audited.id, attempt, structuralFindings: structural.findings, partialOutput: envelope.partialOutput ?? null },
+      });
+      await projectsRepo.applyTransition(tx, {
+        projectId, transitionId: 'T30', context: { reason: 'SPEC_AUDIT_NEEDS_REVIEW' },
+        reason: `Spec Auditor v${audited.version} produced no valid verdict: ${envelope.reason.slice(0, 120)}`,
+        actorType: 'SYSTEM', meta: { runId, specVersionId: audited.id, attempt },
+      });
     });
     return;
   }

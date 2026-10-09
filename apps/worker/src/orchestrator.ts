@@ -6,7 +6,7 @@
  * Agents never call other agents and never change state directly.
  */
 import type { Db, JobRow } from '@wpp/db';
-import { claimNextJob, completeJob, failJob, getProject, listParkedJobs, obsRepo, queueRepo, unparkJobs } from '@wpp/db';
+import { claimNextJob, completeJob, failJob, getProject, listParkedJobs, obsRepo, projectsRepo, queueRepo, unparkJobs } from '@wpp/db';
 import { isJobAllowedInState, JOB_POLICIES, toWppError, type JobType } from '@wpp/core';
 import type { Config, Logger } from '@wpp/infra';
 import type { LlmClient } from '@wpp/agents';
@@ -77,7 +77,9 @@ export async function tick(deps: OrchestratorDeps, opts: { maxJobs?: number } = 
 
       const handler = HANDLERS[job.type as JobType];
       if (!handler) {
-        await failJob(deps.db, job.id, { code: 'NO_HANDLER', message: `no handler for ${job.type}`, retryable: false });
+        await failAndEscalateDeadLetter(deps, job, {
+          code: 'NO_HANDLER', message: `no handler for ${job.type}`, retryable: false,
+        });
         failed += 1;
         continue;
       }
@@ -87,43 +89,83 @@ export async function tick(deps: OrchestratorDeps, opts: { maxJobs?: number } = 
       processed += 1;
     } catch (err) {
       const werr = toWppError(err);
-      const outcome = await failJob(deps.db, job.id, { code: werr.code, message: werr.message, retryable: werr.retryable });
+      const outcome = await failAndEscalateDeadLetter(deps, job, {
+        code: werr.code, message: werr.message, retryable: werr.retryable, retryAfterMs: werr.retryAfterMs,
+      });
       // §57: a failure nobody can read is a failure nobody can fix — log the provider's own words
-      // (truncated), not just the error class. Measured need 2026-10-08: a non-retryable audit call
-      // dead-lettered and the reason only existed inside the (volatile) job row.
+      // (truncated), not just the error class. D-052 wait is logged so operators can see the next runAt.
       deps.logger.error(
-        { jobId: job.id, type: job.type, code: werr.code, retryable: werr.retryable, outcome: outcome.status, message: werr.message.slice(0, 400) },
-        'job failed',
+        {
+          jobId: job.id, type: job.type, code: werr.code, retryable: werr.retryable, outcome: outcome.status,
+          retryAfterMs: werr.retryAfterMs,
+          message: werr.message.slice(0, 400),
+        },
+        werr.retryAfterMs !== undefined && outcome.status === 'PENDING'
+          ? 'job failed — re-queued at the provider\'s own deadline (D-052)'
+          : 'job failed',
       );
-      if (outcome.status === 'DEAD_LETTER' && job.projectId) {
-        // §42: when automation gives up, a human must be told WHY and what to do — a log line is not
-        // an escalation. Measured live 2026-10-08: a free-tier quota exhaustion dead-lettered an
-        // interview turn and the project silently stopped mid-interview.
-        await obsRepo.recordEvent(deps.db, {
-          orgId: (await getProject(deps.db, job.projectId))?.orgId ?? '',
-          projectId: job.projectId,
-          type: 'SYSTEM_ERROR',
-          actorType: 'SYSTEM',
-          severity: 'CRITICAL',
-          payload: { code: 'JOB_DEAD_LETTER', jobId: job.id, jobType: job.type, failureCode: werr.code, attempts: job.attempts },
-        });
-        await obsRepo.createTask(deps.db, {
-          orgId: (await getProject(deps.db, job.projectId))?.orgId ?? '',
-          projectId: job.projectId,
-          type: 'HUMAN_REVIEW',
-          priority: 'CRITICAL',
-          title: `${job.type} gave up after ${job.attempts} attempt(s)`,
-          reason: `${werr.code}: ${werr.message}`,
-          suggestedAction: werr.code === 'LLM_QUOTA_EXHAUSTED' || werr.code === 'LLM_RATE_LIMITED'
-            ? 'The free provider refused the call for longer than the in-run wait budget. Wait for the provider window (or use another free model/preset from config/llm-presets.json) and re-run the job.'
-            : 'Read the job attempt history (GET /api/v1/jobs), fix the cause, then re-run the job or resume the project.',
-          aiReport: { jobId: job.id, jobType: job.type, code: werr.code, retryable: werr.retryable, attempts: job.attempts },
-        });
-      }
       failed += 1;
     }
   }
   return { processed, parked, failed, empty: false };
+}
+
+/**
+ * Persist failure/backoff and §42 escalation in one transaction. A non-retryable/depleted job
+ * must not leave an otherwise runnable project silently mid-phase: T30 moves it to BLOCKED and
+ * the CRITICAL HUMAN_REVIEW task carries the provider wait and suggested recovery (D-044/D-052).
+ */
+export async function failAndEscalateDeadLetter(
+  deps: OrchestratorDeps,
+  job: JobRow,
+  error: { code: string; message: string; retryable: boolean; retryAfterMs?: number },
+): Promise<{ status: string }> {
+  return deps.db.transaction(async (tx) => {
+    const outcome = await failJob(tx, job.id, error);
+    if (outcome.status !== 'DEAD_LETTER' || !job.projectId) return outcome;
+
+    const project = await projectsRepo.getProject(tx, job.projectId);
+    if (!project) return outcome;
+    await obsRepo.recordEvent(tx, {
+      orgId: project.orgId,
+      projectId: job.projectId,
+      type: 'SYSTEM_ERROR',
+      actorType: 'SYSTEM',
+      severity: 'CRITICAL',
+      payload: {
+        code: 'JOB_DEAD_LETTER', jobId: job.id, jobType: job.type, failureCode: error.code,
+        attempts: job.attempts, retryAfterMs: error.retryAfterMs ?? null,
+      },
+    });
+    await obsRepo.createTask(tx, {
+      orgId: project.orgId,
+      projectId: job.projectId,
+      type: 'HUMAN_REVIEW',
+      priority: 'CRITICAL',
+      title: `${job.type} gave up after ${job.attempts} attempt(s)`,
+      reason: `${error.code}: ${error.message}`,
+      suggestedAction: error.code === 'LLM_BUDGET_EXCEEDED'
+        ? `The configured daily LLM budget ($${deps.config.LLM_DAILY_BUDGET_USD.toFixed(2)}, UTC day) would be exceeded. Wait for the next UTC day or, if the owner approves, raise the cap and verify the model's pricing before resuming.`
+        : error.code === 'LLM_QUOTA_EXHAUSTED' || error.code === 'LLM_RATE_LIMITED'
+          ? `The free provider refused the call${error.retryAfterMs !== undefined ? ` and asked us to wait ${Math.ceil(error.retryAfterMs / 60_000)} minute(s)` : ''}. The queue scheduled waits up to 24 hours; this failure exceeded that window or exhausted attempts. Wait for the provider window (or select another free model/preset in config/llm-presets.json), then resume the blocked project.`
+          : 'Read the job attempt history (GET /api/v1/jobs), fix the cause, then resume the blocked project.',
+      aiReport: {
+        jobId: job.id, jobType: job.type, code: error.code, retryable: error.retryable,
+        attempts: job.attempts, retryAfterMs: error.retryAfterMs ?? null,
+      },
+    });
+    if (!['BLOCKED', 'COMPLETED', 'FAILED'].includes(project.state)) {
+      await projectsRepo.applyTransition(tx, {
+        projectId: job.projectId,
+        transitionId: 'T30',
+        context: { reason: 'JOB_DEAD_LETTER' },
+        reason: `${job.type} dead-lettered after ${job.attempts} attempt(s): ${error.code}`,
+        actorType: 'SYSTEM',
+        meta: { jobId: job.id, jobType: job.type, failureCode: error.code },
+      });
+    }
+    return outcome;
+  });
 }
 
 async function runWithTimeout(handler: (ctx: HandlerContext, job: JobRow) => Promise<void>, deps: OrchestratorDeps, job: JobRow): Promise<void> {

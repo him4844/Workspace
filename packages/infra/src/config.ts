@@ -76,14 +76,14 @@ const ConfigSchema = z.object({
   AUDITOR_LLM_MODEL: z.string().optional(),
   AUDITOR_LLM_API_KEY: z.string().optional(),
   AUDITOR_LLM_BASE_URL: z.string().optional(),
-  LLM_DAILY_BUDGET_USD: z.string().optional().transform((v) => (v === undefined || v === '' ? 10 : Number.parseFloat(v))),
+  LLM_DAILY_BUDGET_USD: z.string().optional().transform((v) => (v === undefined || v === '' ? 10 : Number.parseFloat(v))).pipe(z.number().finite().min(0)),
   AGENT_MAX_REPAIRS: int(1),
 
   WORKER_CONCURRENCY: int(2),
   JOB_POLL_INTERVAL_MS: int(2000),
   JOB_LEASE_SECONDS: int(120),
 
-  SEND_RATE_PER_MINUTE: int(30),
+  SEND_RATE_PER_MINUTE: int(30).pipe(z.number().int().positive()),
   WINDOW_WARNING_HOURS: int(2),
   ECHO_REPLY_TEMPLATE: z.string().default(
     'Assalomu alaykum! Xabaringiz uchun rahmat — tez orada savollaringizni beraman. (WPP intake)',

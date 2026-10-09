@@ -3,7 +3,7 @@
  * Only packages/db may hold SQL; everything else uses repositories (docs/02 §1).
  */
 import {
-  bigint, boolean, date, index, integer, jsonb, numeric, pgEnum, pgTable, text, timestamp, uniqueIndex,
+  bigint, boolean, date, index, integer, jsonb, numeric, pgEnum, pgTable, primaryKey, text, timestamp, uniqueIndex,
 } from 'drizzle-orm/pg-core';
 
 export const projectStateEnum = pgEnum('project_state', [
@@ -457,6 +457,40 @@ export const llmUsage = pgTable('llm_usage', {
   createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
 });
 
+/** Atomic daily spend ledger used by the worker's pre-request budget guard (§26). */
+export const llmDailyBudgets = pgTable('llm_daily_budgets', {
+  orgId: text('org_id').notNull().references(() => organizations.id, { onDelete: 'cascade' }),
+  utcDay: date('utc_day').notNull(),
+  reservedUsd: numeric('reserved_usd', { precision: 14, scale: 6 }).notNull().default('0'),
+  actualUsd: numeric('actual_usd', { precision: 14, scale: 6 }).notNull().default('0'),
+  updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
+}, (t) => ({
+  orgDayPk: primaryKey({ columns: [t.orgId, t.utcDay], name: 'llm_daily_budgets_org_day_pk' }),
+}));
+
+export const llmBudgetReservations = pgTable('llm_budget_reservations', {
+  id: text('id').primaryKey(),
+  orgId: text('org_id').notNull().references(() => organizations.id, { onDelete: 'cascade' }),
+  utcDay: date('utc_day').notNull(),
+  provider: text('provider').notNull(),
+  model: text('model').notNull(),
+  reservedUsd: numeric('reserved_usd', { precision: 14, scale: 6 }).notNull(),
+  actualUsd: numeric('actual_usd', { precision: 14, scale: 6 }),
+  status: text('status').notNull().default('RESERVED'),
+  createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+  settledAt: timestamp('settled_at', { withTimezone: true }),
+}, (t) => ({
+  dayStatusIx: index('llm_budget_reservations_day_status_ix').on(t.orgId, t.utcDay, t.status),
+}));
+
+/** Per-Instagram-connection fixed-window sender throttle (Phase 1 `SEND_RATE_PER_MINUTE`). */
+export const sendRateLimits = pgTable('send_rate_limits', {
+  connectionId: text('connection_id').primaryKey().references(() => channelConnections.id, { onDelete: 'cascade' }),
+  windowStartedAt: timestamp('window_started_at', { withTimezone: true }).notNull(),
+  sentCount: integer('sent_count').notNull().default(0),
+  updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
+});
+
 export const configValues = pgTable('config_values', {
   key: text('key').primaryKey(),
   value: jsonb('value').notNull(),
@@ -599,6 +633,6 @@ export const schema = {
   clients, clientIdentities, channelConnections, webhookEvents,
   conversations, conversationState, projects, projectStateTransitions, loopCounters,
   messages, jobs, jobAttempts, idempotencyKeys, events, agentRuns,
-  tasks, artifacts, configValues,
+  tasks, artifacts, configValues, llmDailyBudgets, llmBudgetReservations, sendRateLimits,
   specVersions, specRequirements, acceptanceCriteria, clientApprovals, changeRequests, specAudits,
 };

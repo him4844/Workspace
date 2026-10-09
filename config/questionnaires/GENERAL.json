@@ -511,7 +511,7 @@
       ],
       "order": 170,
       "defaultSuggestion": "oraliqni keyinroq, taklif bilan birga muhokama qilish",
-      "clarifyPrompt": "Byudjetni aniqlashtiraylik: bir martalik loyiha byudjetimi yoki oylik xizmat to'lovi ham bo'ladimi?"
+      "clarifyPrompt": "Byudjet oralig'ini belgilang: past, o'rtacha, yuqori yoki hozircha oshkor qilinmaydimi? Bu bir martalik loyiha byudjetimi yoki oylik to'lov ham bormi?"
     },
     {
       "path": "deadline.expected",

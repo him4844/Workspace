@@ -14,14 +14,17 @@ export class WppError extends Error {
   readonly errorClass: ErrorClass;
   readonly retryable: boolean;
   readonly detail?: unknown;
+  /** 429: how long the provider asked us to wait — the orchestrator schedules `runAt` from it (D-052) */
+  readonly retryAfterMs?: number;
 
-  constructor(code: string, message: string, errorClass: ErrorClass, detail?: unknown) {
+  constructor(code: string, message: string, errorClass: ErrorClass, detail?: unknown, retryAfterMs?: number) {
     super(message);
     this.name = 'WppError';
     this.code = code;
     this.errorClass = errorClass;
     this.retryable = errorClass === 'RETRYABLE' || errorClass === 'INTEGRATION';
     this.detail = detail;
+    this.retryAfterMs = retryAfterMs;
   }
 }
 
@@ -41,6 +44,11 @@ export const ERR = {
 
 export function toWppError(e: unknown): WppError {
   if (e instanceof WppError) return e;
-  if (e instanceof Error) return new WppError('INTERNAL_ERROR', e.message, 'RETRYABLE', { stack: e.stack });
+  // An LlmError that escaped a handler keeps its provider wait so the queue can schedule from it.
+  const retryAfterMs = (e as { retryAfterMs?: unknown } | null)?.retryAfterMs;
+  if (e instanceof Error) {
+    return new WppError('INTERNAL_ERROR', e.message, 'RETRYABLE', { stack: e.stack },
+      typeof retryAfterMs === 'number' && Number.isFinite(retryAfterMs) ? retryAfterMs : undefined);
+  }
   return new WppError('INTERNAL_ERROR', String(e), 'RETRYABLE');
 }

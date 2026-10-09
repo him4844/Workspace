@@ -7,11 +7,11 @@
  */
 import type { Db } from '@wpp/db';
 import {
-  attachMessageToProject, findOpenProjectForConversation, getConnectionById, getConversation,
-  getMessage, identityRepo, markMessageFailed, markMessageSent, markMessageSendBlocked, obsRepo,
+  attachMessageToProject, consumeSendRateLimit, findOpenProjectForConversation, getConnectionById, getConversation,
+  getMessage, identityRepo, markMessageFailed, markMessageSent, markMessageSendBlocked, obsRepo, queueRepo,
 } from '@wpp/db';
 import { decryptSecret, type Config, type Logger } from '@wpp/infra';
-import { decideSend } from '@wpp/core';
+import { decideSend, WppError } from '@wpp/core';
 import { sendInstagramMessage, simulatorAdapter } from '@wpp/channels';
 
 export interface OutboundDeps {
@@ -24,9 +24,10 @@ export type OutboundOutcome =
   | { status: 'SENT'; channelMessageId: string | null }
   | { status: 'SEND_BLOCKED'; reason: string }
   | { status: 'FAILED'; code: string; detail: string; retryable: boolean }
+  | { status: 'RATE_LIMITED'; retryAfterMs: number }
   | { status: 'SKIPPED'; reason: string };
 
-export async function sendOutboundMessage(deps: OutboundDeps, messageId: string): Promise<OutboundOutcome> {
+export async function sendOutboundMessage(deps: OutboundDeps, messageId: string, opts: { jobId?: string } = {}): Promise<OutboundOutcome> {
   const { db, config, logger } = deps;
   const message = await getMessage(db, messageId);
   if (!message) return { status: 'SKIPPED', reason: 'message not found' };
@@ -83,6 +84,33 @@ export async function sendOutboundMessage(deps: OutboundDeps, messageId: string)
 
   const connection = await getConnectionById(db, conversation.connectionId);
   if (!connection) return { status: 'FAILED', code: 'NO_CONNECTION', detail: 'conversation has no channel connection', retryable: false };
+
+  // §31A: real Instagram sends are paced per connection. The durable fixed-window counter is
+  // shared by concurrent workers; a rate-limited message stays QUEUED and resumes at the provider
+  // window instead of failing or silently disappearing. Simulator sends intentionally bypass it.
+  if (connection.channel === 'INSTAGRAM') {
+    const rate = await consumeSendRateLimit(db, connection.id, config.SEND_RATE_PER_MINUTE);
+    if (!rate.allowed) {
+      if (opts.jobId) {
+        throw new WppError(
+          'SEND_RATE_LIMITED',
+          `Instagram send rate limit reached; retry after ${rate.retryAfterMs}ms`,
+          'RETRYABLE', undefined, rate.retryAfterMs,
+        );
+      }
+      const runAt = new Date(Date.now() + rate.retryAfterMs + 1_000);
+      await queueRepo.enqueueJob(db, {
+        orgId: conversation.orgId,
+        projectId,
+        type: 'SEND_OUTBOUND',
+        payload: { messageId, conversationId: conversation.id },
+        idempotencyKey: `send-rate-limit:${messageId}`,
+        runAt,
+      });
+      logger.warn({ messageId, connectionId: connection.id, retryAfterMs: rate.retryAfterMs, runAt }, 'Instagram send queued behind per-connection rate limit');
+      return { status: 'RATE_LIMITED', retryAfterMs: rate.retryAfterMs };
+    }
+  }
 
   let result: { ok: boolean; channelMessageId?: string | null; errorCode?: string; errorDetail?: string; blocked?: boolean };
 

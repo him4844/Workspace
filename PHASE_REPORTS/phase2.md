@@ -1,9 +1,10 @@
 # PHASE 2 REPORT — Requirements Agent
 
 **Phase file:** `docs/phases/02_phase2_requirements_agent.md` · **Report per:** `docs/phases/00_COMMON_RULES.md`
-**Date:** 2026-10-08 · **Status:** COMPLETE — **waiting for human approval before Phase 3**
+**Date:** 2026-10-08 · **Status at original phase close:** COMPLETE (before Phase 3).
+**Cross-phase update (2026-10-09):** questionnaire clarification mismatches are corrected (D-054); provider 429 retry scheduling, paid-route daily spend reservations, and Instagram outbound pacing are now enforced (D-052/D-056/D-062). Final serial verification: 24 test files / 214 tests passed; details in `PHASE_REPORTS/evidence/phase0-4-remediation-verify.txt`.
 
-Every claim in this report is backed by a command you can re-run. Phase 2 was developed **without Meta
+Every claim in this report is backed by a command you can re-run. Phase 2 was originally developed **without Meta
 access and without a provider key**: the scripted provider (`LLM_PROVIDER=scripted`) replaces only the
 network call — prompt assembly, contract validation, the single repair, persistence, the state machine,
 the completeness engine and the artifact writer all execute for real (D-025).
@@ -144,10 +145,7 @@ npm run inspect                # CLI dump: projects, requirements, jobs, transit
 
 ## 4. Incomplete / risky (honest list)
 
-1. **No real LLM has been called yet.** Everything above ran on the scripted provider; `createLlmClient`
-   (OpenAI-compatible + Anthropic HTTP) is written and unit-covered at the client level, but the first
-   live-provider run needs a key. Until then, prompt quality for a real model is *unverified* — the
-   contracts, limits and repair path are.
+1. **Real model output is provider/model-specific.** Since the Phase-2 close, Gemini AI Studio and OpenRouter `:free` have been called live; the final restaurant run reached 30/30 requirement fields and a live spec+audit PASS. This is one client persona/model path, not proof for every provider, language or business questionnaire (see the remedial evidence in `phase4-live-all-fixes.txt`).
 2. **The scripted demo's answers are a persona, not a client.** Some optional fields stay `EMPTY` (9 of 39
    in §3.3) and the demo driver must be told the live pending field (`requirement_versions.pending_field_path`)
    to answer sensibly; a real model does not need that hint.
@@ -160,41 +158,24 @@ npm run inspect                # CLI dump: projects, requirements, jobs, transit
 5. **Vision/score fields are structural.** `requirement_versions.vision` and the completeness score are
    persisted and shown, but no UI lists "AI-inferred vs client-confirmed" per field other than through the
    API/console table; a proper diff view is Phase-7 work.
-6. **Cost accounting is recorded, not enforced.** `llm_usage` rows and mock pricing exist
-   (`costUsd` = 0.0000 on the fake provider); the `$10/day` cap is config but not yet a hard gate (§26),
-   because no paid provider is enabled.
-7. **Do not run the test suite while the dev server is up.** One `vitest run` with the API+worker
-   process alive ended in `Worker forks emitted error / Worker exited unexpectedly` (94/96 + 1 error);
-   with the server stopped the same command is 96/96 green. It is sandbox resource contention (PGlite +
-   fork workers), not a failing test — stop the server before `npm run verify`.
-8. **Rate limiting remains structural** (unchanged from Phase 1) and the real Meta send path is still
-   untested against the Graph API — both deliberate, both listed again for honesty.
+6. **Paid-route spend cap — RESOLVED 2026-10-09 (D-056).** `LLM_DAILY_BUDGET_USD` is now checked before each paid provider call with an atomic per-org/UTC-day reservation; unknown-price routes are refused. With the standing `LLM_FREE_ONLY=true` and verified free presets, no spend reservation is needed and expected cost is $0.
+7. **Test resource limits still matter.** On this 1.9 GB sandbox, parallel Vitest workers can exit unexpectedly; final full verification passed with `--pool=threads --maxWorkers=1 --fileParallelism=false`. Stop the dev server before running the suite.
+8. **429 scheduling and Instagram outbound pacing — RESOLVED 2026-10-09 (D-052/D-062).** Provider waits now become `jobs.run_at`; Instagram sends use an enforced per-connection minute window. Actual Meta Graph send/receive remains untested because no Meta app token/test account is configured.
 
 ---
 
 ## 5. Open questions (need a human answer)
 
-1. **LLM providers & keys (blocking for Phase 3 quality, not for starting it).** Which providers for the
-   main agents and for the Spec Auditor (Phase 0 decision: *different* provider for the auditor)? A key is
-   needed to validate prompt quality against a real model; until then Phase 3 can start on the scripted
-   provider.
-2. **Budget cap.** Default `LLM_DAILY_BUDGET_USD=10` is recorded but not enforced — should Phase 3 wire it
-   as a hard gate before any paid call?
+1. **LLM providers & keys — ANSWERED 2026-10-08.** The user supplied free Gemini AI Studio keys for the writer and OpenRouter `:free` keys for the Spec Auditor. The vendor-separated routes were live-proven on 2026-10-09; details in `DECISIONS.md` D-045/D-051/D-055/D-061.
+2. **Budget cap — RESOLVED 2026-10-09 (D-056).** `LLM_DAILY_BUDGET_USD=10` now has an atomic per-org/UTC-day reservation gate before paid calls; unknown-price paid models are blocked. `LLM_FREE_ONLY=true` remains the stricter standing requirement, so the configured run stays at $0.
 3. **Instagram route (still open from Phase 0, Q3).** Instagram-Login vs Facebook-Login for the Meta
    submission; the code targets Instagram-Login today. No Phase-2 impact.
 4. **Human-agent tag.** Still `HUMAN_AGENT_TAG_ENABLED=false`. Phase 3 will send the *client approval*
    request — automated, inside the 24 h window, so the tag is not needed yet; confirm it stays off.
-5. **Approval UX for Phase 3.** The client will be asked to approve the specification in a DM (§16): one
-   message with a short summary + "reply 'OK' to approve", or a two-step (send summary → ask)? The phase
-   file allows both; a decision simplifies the implementation.
+5. **Approval UX — ANSWERED 2026-10-08.** User selected the two-step flow: send the Client Summary first, wait for a client reply, then ask explicitly to approve or request changes. Implemented and tested in Phase 3 (D-030).
 
 ---
 
-## 6. Proposed next step
+## 6. Next step (historical plan; status updated 2026-10-09)
 
-**Phase 3 — Specification Agent & client approval (`docs/phases/03_*.md`)** on top of the Phase-2
-foundation: the Spec Agent consumes the internal summary + structured requirements, produces the technical
-specification with traceability (REQ → SPEC-REQ → acceptance criteria) and the client-facing summary,
-registers version v1, sends exactly one approval request, and locks the approved version (T06…T10).
-
-**Awaiting your explicit approval to start Phase 3.**
+Phase 3 and Phase 4 have since been completed. The current user instruction is to fix identified P0–P4 shortcomings before Phase 5; that remediation is now verified and reported. No Phase 5 work has started. See `PHASE_REPORTS/phase4.md` for the consolidated closure, remaining risks, and the required approval/stack gate.

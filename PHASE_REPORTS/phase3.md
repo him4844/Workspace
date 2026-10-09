@@ -1,7 +1,8 @@
 # PHASE 3 REPORT — Specification Agent, Client Summary & two-step client approval
 
 **Phase file:** `docs/phases/03_phase3_specification_and_client_approval.md` · **Report per:** `docs/phases/00_COMMON_RULES.md`
-**Date:** 2026-10-08 · **Status:** COMPLETE — **waiting for human approval before Phase 4**
+**Date:** 2026-10-08 · **Status at Phase-3 close:** COMPLETE.
+**Later update (2026-10-09):** remediation corrected the §18 summary false-block, made failed spec drafts inspectable, and improved bounded repair (D-053/D-058). The full free live chain reached `READY_FOR_BUILD` (D-061). Phase 4 and the cross-phase remediation are complete; no Phase 5 work has started.
 
 Every claim in this report is backed by a command you can re-run, and the command output is stored in
 `PHASE_REPORTS/evidence/` so the numbers below can be checked without re-running anything.
@@ -145,11 +146,12 @@ npm run verify                                     # tsc + 138 tests + docs chec
 1. **No real Instagram thread has ever run through this.** The webhook, the 24 h window and the send
    path are exercised against the simulator and signed fixture payloads; Meta's real delivery is Phase-8
    work and requires the app review the user still has to start (`docs/17`).
-2. **No paid provider was ever called — by design.** The free tier is the only tier the routing can
-   reach (D-029). Free tiers have rate limits (Groq 30 RPM / 1 000 RPD; Gemini Flash-Lite ≈15 RPM;
-   OpenRouter `:free` 50 RPD) — a long live conversation against a real free provider has not been run
-   yet because **no key exists in this workspace**. Cost is recorded per run; the §26 budget cap is
-   still recorded-not-enforced (unchanged from Phase 1–2).
+2. **No paid provider was called; free live routes are now exercised.** The initial Phase-3 report
+   had no keys at the time. The user later supplied free Gemini AI Studio + OpenRouter keys; a 30-field
+   live spec passed the §18 short-summary gate, then the live OpenRouter auditor returned PASS 100 →
+   `READY_FOR_BUILD` (evidence `phase4-live-all-fixes.txt`). OpenRouter/Gemini quota pacing remains
+   provider-specific and dynamic. The §26 daily cap is now enforced atomically for paid escape-hatch
+   routes (D-056); the active `LLM_FREE_ONLY=true` routes remain zero-cost.
 3. **The approval classifier is a keyword fast path + agent fallback.** An ambiguous reply becomes
    `UNCLEAR` → one clarifying question (max 2) → human task; it cannot loop. Quality of the fallback in
    a non-Uzbek/Russian language is untested (the labels are config, §50).
@@ -164,10 +166,7 @@ npm run verify                                     # tsc + 138 tests + docs chec
 
 ## 5. Open questions (need a human answer)
 
-1. **Will you provide the free-tier keys now** (Groq and/or Gemini), or should Phase 4 stay
-   `LLM_PROVIDER=scripted` and defer any real-provider run? Phase 4 needs the Spec Auditor on a
-   **different provider** than the Main agent (your earlier choice, `docs/17`), so at least two free
-   routes must exist — Groq + Gemini free would satisfy it; two keys on one host would not.
+1. **Free-tier keys & auditor vendor — ANSWERED 2026-10-08/09.** The user provided free Gemini keys for the writer and OpenRouter `:free` keys for the auditor. Different-vendor routing is now enforced (same-vendor or shared-key fallback is refused) and was live-proven in the Phase-4 row (D-055/D-061).
 2. **Approval wording:** the two labels are config (`spec.approve_label`,
    `spec.request_changes_label`). Keep “Ha, tasdiqlayman / O‘zgartirish kerak”, or should the client
    also be able to approve by tapping a quick reply (currently typed text only)?
@@ -179,13 +178,6 @@ npm run verify                                     # tsc + 138 tests + docs chec
 
 ---
 
-## 6. Proposed next step
+## 6. Next step (historical plan; status updated 2026-10-09)
 
-**Phase 4 — Specification Auditor (§20+)** — a second agent on a *different* free provider that audits
-the LOCKED specification before coding starts, with its own structured contract and its own audit trail.
-Nothing of Phase 4 (no auditor, no coding) exists in the code today; this is the first phase where an
-agent gets real power to send work back.
-
-**I stop here and wait for your explicit approval** per `docs/phases/00_COMMON_RULES.md` §1. If you
-approve, Phase 4 starts with the auditor contract + prompt package (data, §50) and the free-provider
-pairing answered from question 1 above.
+Phase 4 (Spec Auditor) and the requested P0–P4 remediation have since been completed and verified. No P5 code has started. See `PHASE_REPORTS/phase4.md` for the consolidated report, full verification evidence, remaining external risks, and the explicit approval/stack gate before Phase 5.

@@ -11,7 +11,7 @@ import { AGENT_RULES } from './prompt.js';
 import { budgetReport } from './prompt-budget.js';
 
 export type AgentErrorCode =
-  | 'LLM_TIMEOUT' | 'LLM_RATE_LIMITED' | 'LLM_PROVIDER_ERROR' | 'INVALID_JSON'
+  | 'LLM_TIMEOUT' | 'LLM_RATE_LIMITED' | 'LLM_PROVIDER_ERROR' | 'LLM_BUDGET_EXCEEDED' | 'INVALID_JSON'
   | 'SCHEMA_VALIDATION_FAILED' | 'CONTENT_POLICY' | 'INPUT_MISSING' | 'INTERNAL_ERROR';
 
 export type AgentEnvelope<T> =
@@ -23,7 +23,7 @@ export type AgentEnvelope<T> =
       nextAction?: string | null;
       confidence?: number;
     }
-  | { status: 'FAILED'; errorCode: AgentErrorCode; message: string; retryable: boolean; usage?: LlmUsage }
+  | { status: 'FAILED'; errorCode: AgentErrorCode; message: string; retryable: boolean; usage?: LlmUsage; retryAfterMs?: number }
   | { status: 'NEEDS_REVIEW'; reason: string; partialOutput?: unknown; usage?: LlmUsage };
 
 export type ValidateResult<T> =
@@ -61,6 +61,10 @@ export interface RunAgentDeps {
   maxRateLimitWaits?: number;
   maxRateLimitWaitMs?: number;
   sleepMs?: (ms: number) => Promise<void>;
+  /** Atomic/persisted cost reservation before each model request; thrown LlmError becomes a FAILED envelope. */
+  beforeRequest?: (request: LlmRequest) => Promise<unknown>;
+  /** Settle/release the reservation after the provider returns or rejects. */
+  afterRequest?: (reservation: unknown, outcome: { usage?: LlmUsage; error?: unknown }) => Promise<void>;
 }
 
 /** Strip markdown fences and tolerate leading/trailing prose around a JSON object. */
@@ -142,10 +146,44 @@ export async function runAgentTurn<T>(deps: RunAgentDeps, input: RunAgentInput<T
     let rateLimitWaits = 0;
     // eslint-disable-next-line no-constant-condition
     while (true) {
+      let budgetReservation: unknown;
+      if (deps.beforeRequest) {
+        try {
+          budgetReservation = await deps.beforeRequest(request);
+        } catch (err) {
+          const guardError = err instanceof LlmError
+            ? err
+            : new LlmError('LLM_BUDGET_EXCEEDED', (err as Error).message ?? String(err), false, err);
+          deps.logger?.warn({ code: guardError.code, model: request.model, message: guardError.message }, 'LLM call refused by the persisted daily budget guard');
+          return {
+            status: 'FAILED',
+            errorCode: guardError.code,
+            message: guardError.message,
+            retryable: false,
+            usage,
+            retryAfterMs: guardError.retryAfterMs,
+          };
+        }
+      }
       try {
         completion = await deps.client.complete(request);
+        if (deps.afterRequest) {
+          try {
+            await deps.afterRequest(budgetReservation, { usage: completion.usage });
+          } catch (settleError) {
+            // Keep the request result; an unsettled reservation remains counted conservatively.
+            deps.logger?.warn({ model: request.model, error: (settleError as Error).message }, 'daily LLM budget settlement failed; reservation remains held');
+          }
+        }
         break;
       } catch (err) {
+        if (deps.afterRequest) {
+          try {
+            await deps.afterRequest(budgetReservation, { error: err });
+          } catch (settleError) {
+            deps.logger?.warn({ model: request.model, error: (settleError as Error).message }, 'daily LLM budget release/settlement failed; reservation remains held');
+          }
+        }
         const llmError = err instanceof LlmError
           ? err
           : new LlmError('LLM_PROVIDER_ERROR', (err as Error).message, true, err);
@@ -171,6 +209,9 @@ export async function runAgentTurn<T>(deps: RunAgentDeps, input: RunAgentInput<T
           message: llmError.message,
           retryable: llmError.retryable,
           usage,
+          // Carried so the orchestrator can SCHEDULE the retry at the provider's own deadline
+          // instead of burning the attempt budget on backoff re-queries (D-052).
+          retryAfterMs: llmError.retryAfterMs,
         };
       }
     }

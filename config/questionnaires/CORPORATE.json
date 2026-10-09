@@ -106,7 +106,7 @@
         "one"
       ],
       "order": 118,
-      "clarifyPrompt": "Tillarni aniqlashtiraylik: barcha sahifalar tarjima bo'ladimi va URL da til ko'rinadimi?"
+      "clarifyPrompt": "Tillar sonini aniqlashtiraylik: bir til yetarlimi, ikki tilmi yoki uchta til kerakmi? Qaysi tillar bo'ladi?"
     },
     {
       "path": "careers.enabled",

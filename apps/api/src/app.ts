@@ -29,7 +29,6 @@ export async function buildApp(deps: AppDeps): Promise<FastifyInstance> {
   const app = Fastify({
     loggerInstance: deps.logger,
     bodyLimit: 1024 * 1024,
-    disableRequestLogging: false,
   }) as unknown as FastifyInstance;
 
   // Raw body is required for HMAC signature verification, so application/json is

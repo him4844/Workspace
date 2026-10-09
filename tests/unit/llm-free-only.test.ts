@@ -66,6 +66,18 @@ describe('routing under LLM_FREE_ONLY (the default)', () => {
     expect(allowed.free).toBe(false);
   });
 
+  it('requires an OpenRouter :free model even when the host/preset is marked free', () => {
+    const paidModel = routeDecision(config({
+      LLM_PROVIDER: 'openrouter', LLM_PRESET: 'openrouter-free', LLM_MODEL: 'openai/gpt-5-mini',
+    }));
+    expect(paidModel.allowed).toBe(false);
+    expect(paidModel.reason).toMatch(/ending in :free/i);
+    const freeModel = routeDecision(config({
+      LLM_PROVIDER: 'openrouter', LLM_PRESET: 'openrouter-free', LLM_MODEL: 'cohere/north-mini-code:free',
+    }));
+    expect(freeModel.allowed).toBe(true);
+  });
+
   it('refuses a custom endpoint on a host that is neither free-tier nor local', () => {
     const decision = routeDecision(config({
       LLM_PROVIDER: 'openai-compatible', LLM_BASE_URL: 'https://api.not-free.example.com/v1', LLM_MODEL: 'gpt-5',

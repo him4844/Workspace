@@ -53,7 +53,7 @@
         "internal"
       ],
       "order": 113,
-      "clarifyPrompt": "Videoni aniqlashtiraylik: yopiq kontentmi (faqat to'lovdan keyin) va yuklab olish mumkinmi?"
+      "clarifyPrompt": "Video qayerda joylashadi: YouTube, Vimeo yoki platformaning o'zidami? Darslar yopiq bo'ladimi va yuklab olishga ruxsat bormi?"
     },
     {
       "path": "accounts.students",
@@ -127,7 +127,7 @@
         "offline"
       ],
       "order": 73,
-      "clarifyPrompt": "To'lovni aniqlashtiraylik: kursga alohida to'lovmi, obuna (oylik)mi?"
+      "clarifyPrompt": "To'lov turini aniqlashtiraylik: onlayn bir martalik to'lovmi, bo'lib to'lashmi yoki oflayn to'lovmi? Oylik obuna ham kerakmi?"
     },
     {
       "path": "instructor.panel",

@@ -23,6 +23,20 @@ export async function createTestContext(env: Record<string, string> = {}): Promi
     IG_APP_SECRET: 'test-app-secret',
     IG_VERIFY_TOKEN: 'test-verify-token',
     INTERNAL_API_TOKEN: 'test-internal-token',
+    // Tests must never inherit the developer's real .env and accidentally call a free/paid provider.
+    // The client is injected explicitly by each harness; route resolution stays hermetic.
+    LLM_PROVIDER: 'none',
+    LLM_PRESET: '',
+    LLM_API_KEY: '',
+    LLM_BASE_URL: '',
+    LLM_MODEL: '',
+    LLM_FREE_ONLY: 'true',
+    LLM_DAILY_BUDGET_USD: '10',
+    AUDITOR_LLM_PROVIDER: '',
+    AUDITOR_LLM_PRESET: '',
+    AUDITOR_LLM_API_KEY: '',
+    AUDITOR_LLM_BASE_URL: '',
+    AUDITOR_LLM_MODEL: '',
     LOG_LEVEL: 'silent',
     ...env,
   });

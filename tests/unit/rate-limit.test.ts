@@ -47,6 +47,21 @@ describe('parseRetryAfterMs (provider headers and prose)', () => {
 });
 
 describe('runtime rate-limit waiting', () => {
+  it('runs the persisted budget preflight before any provider request (§26)', async () => {
+    let providerCalls = 0;
+    const envelope = await runAgentTurn<{ ok: boolean }>(
+      {
+        client: clientOf(async () => { providerCalls += 1; return { text: '{\"ok\":true}' }; }),
+        systemInstructions: 'test',
+        beforeRequest: async () => { throw new LlmError('LLM_BUDGET_EXCEEDED', 'daily spend cap reached', false); },
+      },
+      input(),
+    );
+    expect(envelope.status).toBe('FAILED');
+    if (envelope.status === 'FAILED') expect(envelope.errorCode).toBe('LLM_BUDGET_EXCEEDED');
+    expect(providerCalls).toBe(0);
+  });
+
   it('waits for the interval the provider asked for, then succeeds (§58 free tier)', async () => {
     let calls = 0;
     const sleeps: number[] = [];
@@ -97,6 +112,7 @@ describe('runtime rate-limit waiting', () => {
     expect(envelope.status).toBe('FAILED');
     expect(calls).toBe(3);      // one attempt + two bounded waits
     expect(sleeps.length).toBe(2);
+    if (envelope.status === 'FAILED') expect(envelope.retryAfterMs).toBe(1_000); // D-052 carries it to jobs.runAt
   });
 
   it('waits out a provider 5xx spike (Gemini "high demand" 503) instead of dead-lettering the job', async () => {

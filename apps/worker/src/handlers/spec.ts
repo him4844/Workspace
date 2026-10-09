@@ -29,6 +29,7 @@ import {
   runAgentTurn, type AgentEnvelope, type SpecificationOutput, parseReasoningEffort } from '@wpp/agents';
 import { readArtifact, writeArtifact } from '@wpp/infra';
 import { effectiveModel } from '../services/llm.js';
+import { createDailyBudgetGuard } from '../services/llm-budget.js';
 import type { HandlerContext } from '../orchestrator.js';
 import { sendOutboundMessage } from '../services/outbound.js';
 
@@ -154,12 +155,13 @@ async function specTurn(ctx: HandlerContext, job: JobRow, opts: { mode: 'GENERAT
 
   // ---------------------------------------------------------------- 5. run the agent (with bounded audit repair)
   let repairGaps: TraceabilityGap[] | null = null;
+  let repairDraft: SpecificationOutput | null = null;
   let output: SpecificationOutput | null = null;
   let runId: string | null = null;
   let lastEnvelope: AgentEnvelope<SpecificationOutput> | null = null;
 
   for (let attempt = 0; attempt <= MAX_TRACEABILITY_REPAIRS; attempt += 1) {
-    const params = {
+    const params: Parameters<typeof buildSpecTaskBlock>[0] = {
       projectType: project.projectType ?? 'UNKNOWN',
       requirementsVersion: requirementVersion.version,
       fields: fieldRows.map((f) => ({
@@ -192,6 +194,7 @@ async function specTurn(ctx: HandlerContext, job: JobRow, opts: { mode: 'GENERAT
             }
           : null,
       repairGaps,
+      repairDraft,
       language: config.DEFAULT_LOCALE,
       approveLabel: approvalLabels.approve,
       requestChangesLabel: approvalLabels.change,
@@ -208,8 +211,15 @@ async function specTurn(ctx: HandlerContext, job: JobRow, opts: { mode: 'GENERAT
       inputSummary: { task: opts.mode === 'REVISE' ? 'revise' : 'generate', attempt, specVersion: versionNumber, requirementsVersion: requirementVersion.version },
     });
 
+    const budgetGuard = createDailyBudgetGuard({ db, orgId: project.orgId, config, provider: ctx.llm.provider });
     const envelope = await runAgentTurn(
-      { client: ctx.llm, systemInstructions: agentConfig.version.systemInstructions, logger },
+      {
+        client: ctx.llm,
+        systemInstructions: agentConfig.version.systemInstructions,
+        logger,
+        beforeRequest: budgetGuard.beforeRequest,
+        afterRequest: budgetGuard.afterRequest,
+      },
       buildSpecRunInput({
         task: buildSpecTaskBlock(params),
         projectData: buildSpecProjectData(params),
@@ -250,28 +260,36 @@ async function specTurn(ctx: HandlerContext, job: JobRow, opts: { mode: 'GENERAT
 
     if (envelope.status === 'FAILED') {
       // Retryable provider problems bubble up to the orchestrator (backoff, max attempts).
-      throw new WppError(envelope.errorCode, envelope.message, envelope.retryable ? 'RETRYABLE' : 'AI_QUALITY');
+      throw new WppError(envelope.errorCode, envelope.message, envelope.retryable ? 'RETRYABLE' : 'AI_QUALITY', undefined, envelope.retryAfterMs);
     }
     if (envelope.status === 'NEEDS_REVIEW') {
-      await obsRepo.recordEvent(db, {
-        orgId: project.orgId, projectId, type: 'SYSTEM_ERROR', actorType: 'AI_AGENT', severity: 'MAJOR',
-        payload: { code: 'SPEC_NEEDS_REVIEW', reason: envelope.reason, runId },
-      });
-      await obsRepo.createTask(db, {
-        orgId: project.orgId, projectId, type: 'HUMAN_REVIEW', priority: 'MAJOR',
-        title: `Specification v${versionNumber} needs human review`,
-        reason: envelope.reason,
-        suggestedAction: 'Read the agent run, fix the agent config (config/agent-configs/agents.json) or the source requirements, then re-run SPEC_GENERATE.',
-        aiReport: { runId, specVersionId: specVersion.id },
+      await db.transaction(async (tx) => {
+        await obsRepo.recordEvent(tx, {
+          orgId: project.orgId, projectId, type: 'SYSTEM_ERROR', actorType: 'AI_AGENT', severity: 'MAJOR',
+          payload: { code: 'SPEC_NEEDS_REVIEW', reason: envelope.reason, runId },
+        });
+        await obsRepo.createTask(tx, {
+          orgId: project.orgId, projectId, type: 'HUMAN_REVIEW', priority: 'MAJOR',
+          title: `Specification v${versionNumber} needs human review`,
+          reason: envelope.reason,
+          suggestedAction: 'Read the agent run and partial output, fix the agent config (config/agent-configs/agents.json) or source requirements, then resume via the human review workflow.',
+          aiReport: { runId, specVersionId: specVersion.id, partialOutput: envelope.partialOutput ?? null },
+        });
+        await projectsRepo.applyTransition(tx, {
+          projectId, transitionId: 'T30', context: { reason: 'SPEC_NEEDS_REVIEW' },
+          reason: `Specification v${versionNumber} needs human review: ${envelope.reason.slice(0, 120)}`,
+          actorType: 'SYSTEM', meta: { runId, specVersionId: specVersion.id },
+        });
       });
       return;
     }
 
-    output = envelope.output;
+    const candidate = envelope.output;
+    output = candidate;
 
     // ---- audits (§16, §17, §19)
-    const traceability = auditTraceability(output.spec, params.fields);
-    const consistency = auditSummaryConsistency(output.spec, output.clientSummary);
+    const traceability = auditTraceability(candidate.spec, params.fields);
+    const consistency = auditSummaryConsistency(candidate.spec, candidate.clientSummary);
     const summaryProblems = consistency.filter((issue) => issue.kind !== 'SUMMARY_TOO_TECHNICAL');
 
     if (summaryProblems.length > 0) {
@@ -293,7 +311,18 @@ async function specTurn(ctx: HandlerContext, job: JobRow, opts: { mode: 'GENERAT
       ...traceability.gaps,
       ...summaryProblems.map((issue) => ({ kind: 'UNTRACEABLE' as const, detail: `client summary: ${issue.detail}` })),
     ];
-    logger.warn({ projectId, attempt, gaps: repairGaps.length }, 'specification failed the audit — asking for one repair');
+    repairDraft = candidate;
+    logger.warn(
+      {
+        projectId,
+        attempt,
+        gaps: repairGaps.length,
+        details: repairGaps.slice(0, 30).map((gap) => ({
+          kind: gap.kind, fieldPath: gap.fieldPath, specReqCode: gap.specReqCode, detail: gap.detail,
+        })),
+      },
+      'specification failed the audit — asking for one repair',
+    );
   }
 
   if (!output || !runId) return;
@@ -305,28 +334,65 @@ async function specTurn(ctx: HandlerContext, job: JobRow, opts: { mode: 'GENERAT
   const blockingSummaryIssues = finalConsistency.filter((i) => i.kind !== 'SUMMARY_TOO_TECHNICAL');
 
   if (!finalTraceability.ok || blockingSummaryIssues.length > 0) {
-    await obsRepo.recordEvent(db, {
-      orgId: project.orgId, projectId, type: 'SPEC_TRACEABILITY_FAILED', actorType: 'SYSTEM', severity: 'MAJOR',
-      payload: {
-        specVersion: versionNumber,
-        specVersionId: specVersion.id,
-        coverage: finalTraceability.coverage,
-        gaps: finalTraceability.gaps.map((g) => `${g.kind}: ${g.detail}`),
-        summaryIssues: blockingSummaryIssues.map((i) => i.detail),
-        attempts: MAX_TRACEABILITY_REPAIRS + 1,
-      },
+    // §57: a failed candidate is still useful evidence for the human. Previously this branch
+    // discarded the model's entire output (the spec_versions row stayed an empty placeholder and
+    // no artifact existed), so neither the client nor the reviewer could see what needed fixing.
+    // Persist it as a CHANGES_REQUESTED draft, clearly separate from a client-approved spec; never
+    // send the summary, never enqueue approval, and keep the pipeline blocked until human review.
+    const draftMarkdown = [
+      '> INTERNAL DRAFT — NOT CLIENT-APPROVED. Traceability/summary audit failed; inspect the gaps below.',
+      '',
+      renderSpecMarkdown(output!.spec, {
+        version: versionNumber,
+        projectName: project.name,
+        traceability: finalTraceability.rows,
+      }),
+      '',
+      '## Deterministic audit gaps',
+      ...finalTraceability.gaps.map((gap) => `- [${gap.kind}] ${gap.detail}`),
+      ...blockingSummaryIssues.map((issue) => `- [SUMMARY_${issue.kind}] ${issue.detail}`),
+    ].join('\n');
+    const draftArtifact = await writeArtifactRow(ctx, {
+      orgId: project.orgId, projectId, kind: 'technical-spec-draft', version: versionNumber,
+      content: draftMarkdown, runId, extension: 'md',
     });
-    await specsRepo.setSpecStatus(db, specVersion.id, 'CHANGES_REQUESTED');
-    await obsRepo.createTask(db, {
-      orgId: project.orgId, projectId, type: 'HUMAN_REVIEW', priority: 'MAJOR',
-      title: `Specification v${versionNumber} failed the traceability audit`,
-      reason: `${finalTraceability.gaps.length} gap(s); coverage ${Math.round(finalTraceability.coverage * 100)}%. First: ${finalTraceability.gaps[0]?.detail ?? blockingSummaryIssues[0]?.detail}`,
-      suggestedAction: 'Decide whether the requirement is missing from the spec or the client-confirmed field list; then re-run SPEC_GENERATE.',
-      aiReport: { specVersionId: specVersion.id, runId, gaps: finalTraceability.gaps, summaryIssues: blockingSummaryIssues },
-    });
-    await projectsRepo.applyTransition(db, {
-      projectId, transitionId: 'T30', context: { reason: 'SPEC_TRACEABILITY_FAILED' }, actorType: 'SYSTEM',
-      meta: { specVersionId: specVersion.id },
+
+    // Persist the candidate, diagnostics, human task and T30 atomically. One bad AC code or a
+    // database error must not leave half a version in SPEC_GENERATING with no usable escalation.
+    await db.transaction(async (tx) => {
+      await specsRepo.setSpecStatus(tx, specVersion.id, 'CHANGES_REQUESTED', {
+        spec: output!.spec as unknown as Record<string, unknown>,
+        clientSummaryMd: output!.clientSummary.markdown,
+        specArtifactId: draftArtifact.id,
+        createdByRunId: runId,
+      });
+      await specsRepo.insertSpecRequirements(tx, specVersion.id, output!.spec.requirements);
+      await specsRepo.insertAcceptanceCriteria(tx, specVersion.id, output!.spec);
+      await obsRepo.recordEvent(tx, {
+        orgId: project.orgId, projectId, type: 'SPEC_TRACEABILITY_FAILED', actorType: 'SYSTEM', severity: 'MAJOR',
+        payload: {
+          specVersion: versionNumber,
+          specVersionId: specVersion.id,
+          coverage: finalTraceability.coverage,
+          gaps: finalTraceability.gaps.map((g) => `${g.kind}: ${g.detail}`),
+          summaryIssues: blockingSummaryIssues.map((i) => i.detail),
+          attempts: MAX_TRACEABILITY_REPAIRS + 1,
+          draftArtifactId: draftArtifact.id,
+          draftArtifactPath: draftArtifact.path,
+        },
+      });
+      await obsRepo.createTask(tx, {
+        orgId: project.orgId, projectId, type: 'HUMAN_REVIEW', priority: 'MAJOR',
+        title: `Specification v${versionNumber} failed the traceability audit`,
+        reason: `${finalTraceability.gaps.length} traceability gap(s); coverage ${Math.round(finalTraceability.coverage * 100)}%. Draft artifact: ${draftArtifact.path}. First: ${finalTraceability.gaps[0]?.detail ?? blockingSummaryIssues[0]?.detail}`,
+        suggestedAction: 'Inspect the internal technical-spec-draft artifact, decide whether each confirmed field is missing or the requirements snapshot is wrong, then correct the source and re-run SPEC_GENERATE.',
+        aiReport: { specVersionId: specVersion.id, runId, draftArtifactId: draftArtifact.id, draftArtifactPath: draftArtifact.path, gaps: finalTraceability.gaps, summaryIssues: blockingSummaryIssues },
+      });
+      await projectsRepo.applyTransition(tx, {
+        projectId, transitionId: 'T30', context: { reason: 'SPEC_TRACEABILITY_FAILED' },
+        reason: `Spec v${versionNumber} failed deterministic review: ${finalTraceability.gaps.length + blockingSummaryIssues.length} gap(s)`,
+        actorType: 'SYSTEM', meta: { specVersionId: specVersion.id, draftArtifactId: draftArtifact.id },
+      });
     });
     return;
   }
@@ -346,25 +412,26 @@ async function specTurn(ctx: HandlerContext, job: JobRow, opts: { mode: 'GENERAT
     content: renderSummaryForClient(output.clientSummary), runId, extension: 'md',
   });
 
-  await specsRepo.setSpecStatus(db, specVersion.id, 'IN_REVIEW', {
-    spec: output.spec as unknown as Record<string, unknown>,
-    clientSummaryMd: output.clientSummary.markdown,
-    specArtifactId: specArtifact.id,
-    clientSummaryArtifactId: clientSummaryArtifact.id,
-    createdByRunId: runId,
-  });
-  await specsRepo.insertSpecRequirements(db, specVersion.id, output.spec.requirements);
-  await specsRepo.insertAcceptanceCriteria(db, specVersion.id, output.spec);
-
-  await obsRepo.recordEvent(db, {
-    orgId: project.orgId, projectId, type: 'SPEC_GENERATED', actorType: 'AI_AGENT',
-    payload: {
-      specVersionId: specVersion.id, version: versionNumber, mode: opts.mode,
-      requirements: output.spec.requirements.length,
-      acceptanceCriteria: output.spec.requirements.reduce((n, r) => n + r.acceptanceCriteria.length, 0),
-      traceabilityCoverage: finalTraceability.coverage,
-      specArtifactId: specArtifact.id, summaryArtifactId: clientSummaryArtifact.id,
-    },
+  await db.transaction(async (tx) => {
+    await specsRepo.setSpecStatus(tx, specVersion.id, 'IN_REVIEW', {
+      spec: output.spec as unknown as Record<string, unknown>,
+      clientSummaryMd: output.clientSummary.markdown,
+      specArtifactId: specArtifact.id,
+      clientSummaryArtifactId: clientSummaryArtifact.id,
+      createdByRunId: runId,
+    });
+    await specsRepo.insertSpecRequirements(tx, specVersion.id, output.spec.requirements);
+    await specsRepo.insertAcceptanceCriteria(tx, specVersion.id, output.spec);
+    await obsRepo.recordEvent(tx, {
+      orgId: project.orgId, projectId, type: 'SPEC_GENERATED', actorType: 'AI_AGENT',
+      payload: {
+        specVersionId: specVersion.id, version: versionNumber, mode: opts.mode,
+        requirements: output.spec.requirements.length,
+        acceptanceCriteria: output.spec.requirements.reduce((n, r) => n + r.acceptanceCriteria.length, 0),
+        traceabilityCoverage: finalTraceability.coverage,
+        specArtifactId: specArtifact.id, summaryArtifactId: clientSummaryArtifact.id,
+      },
+    });
   });
 
   // ---------------------------------------------------------------- 7a. §21: a spec-audit revision goes straight back to the auditor
@@ -431,7 +498,7 @@ async function loadLabels(ctx: HandlerContext): Promise<{ approve: string; chang
 
 async function writeArtifactRow(
   ctx: HandlerContext,
-  params: { orgId: string; projectId: string; kind: 'technical-spec' | 'client-summary'; version: number; content: string; runId: string; extension: string },
+  params: { orgId: string; projectId: string; kind: 'technical-spec' | 'technical-spec-draft' | 'client-summary'; version: number; content: string; runId: string; extension: string },
 ): Promise<{ id: string; path: string }> {
   const written = writeArtifact(
     { projectId: params.projectId, kind: params.kind, version: params.version, content: params.content, extension: params.extension },

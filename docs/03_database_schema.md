@@ -81,6 +81,13 @@ CREATE TABLE channel_connections (           -- Instagram page/app credentials p
   last_verified_at timestamptz, created_at timestamptz NOT NULL DEFAULT now()
 );
 
+-- Phase 1 enforced outbound pacing (§31A): one fixed 60-second counter per channel connection.
+CREATE TABLE send_rate_limits (
+  connection_id TEXT PRIMARY KEY REFERENCES channel_connections(id) ON DELETE CASCADE,
+  window_started_at timestamptz NOT NULL, sent_count INT NOT NULL DEFAULT 0,
+  updated_at timestamptz NOT NULL DEFAULT now()
+);
+
 CREATE TABLE conversations (
   id TEXT PRIMARY KEY, org_id TEXT NOT NULL,
   client_id TEXT NOT NULL REFERENCES clients(id),
@@ -439,6 +446,22 @@ CREATE TABLE llm_usage (                      -- cost accounting per project/age
   provider TEXT NOT NULL, model TEXT NOT NULL,
   prompt_tokens INT NOT NULL, completion_tokens INT NOT NULL, cost_usd NUMERIC(10,4),
   created_at timestamptz NOT NULL DEFAULT now()
+);
+
+-- §26 atomic daily spend guard: reserved+actual are serialized per org/UTC day,
+-- and the request ledger lets a crash leave a conservative reservation rather than leak budget.
+CREATE TABLE llm_daily_budgets (
+  org_id TEXT NOT NULL REFERENCES organizations(id) ON DELETE CASCADE,
+  utc_day date NOT NULL, reserved_usd NUMERIC(14,6) NOT NULL DEFAULT 0,
+  actual_usd NUMERIC(14,6) NOT NULL DEFAULT 0, updated_at timestamptz NOT NULL DEFAULT now(),
+  PRIMARY KEY (org_id, utc_day)
+);
+CREATE TABLE llm_budget_reservations (
+  id TEXT PRIMARY KEY, org_id TEXT NOT NULL REFERENCES organizations(id) ON DELETE CASCADE,
+  utc_day date NOT NULL, provider TEXT NOT NULL, model TEXT NOT NULL,
+  reserved_usd NUMERIC(14,6) NOT NULL, actual_usd NUMERIC(14,6),
+  status TEXT NOT NULL CHECK (status IN ('RESERVED','SETTLED','RELEASED')),
+  created_at timestamptz NOT NULL DEFAULT now(), settled_at timestamptz
 );
 
 CREATE TABLE tasks (                          -- §29

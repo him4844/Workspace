@@ -66,6 +66,7 @@ export type LlmErrorCode =
   | 'LLM_TIMEOUT'
   | 'LLM_RATE_LIMITED'
   | 'LLM_PROVIDER_ERROR'
+  | 'LLM_BUDGET_EXCEEDED'
   | 'CONTENT_POLICY';
 
 export class LlmError extends Error {

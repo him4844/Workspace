@@ -148,12 +148,24 @@ async function advance(types = AUDIT_JOBS) {
  * answers a 503, the runtime waits it out and the queue retries with backoff, so the demo must wait
  * on the *pipeline*, not on a stopwatch (measured 2026-10-08: Gemini 503 spikes).
  */
+async function tickOneAndRequeueFuture(types = AUDIT_JOBS): Promise<void> {
+  const { empty } = await tickAll(1);
+  if (!empty) return;
+  const rows = await db.select().from(schema.jobs).where(eq(schema.jobs.status, 'PENDING'));
+  for (const job of rows.filter((row) => types.includes(row.type) && row.runAt.getTime() > Date.now() + 200)) {
+    // Test/demo mode skips real backoff timers; each attempt/result is still persisted and bounded.
+    await db.update(schema.jobs).set({ runAt: new Date(Date.now() - 1000) }).where(eq(schema.jobs.id, job.id));
+  }
+}
+
 async function advanceUntil(done: () => Promise<boolean>, timeoutMs: number, label: string): Promise<void> {
   const deadline = Date.now() + timeoutMs;
   while (Date.now() < deadline) {
-    await advance(AUDIT_JOBS);
+    // One tick per poll: check the durable outcome between attempts so a NEEDS_REVIEW/DEAD_LETTER
+    // does not sit in a 900 s wait looking like a hung demo.
+    await tickOneAndRequeueFuture(AUDIT_JOBS);
     if (await done()) return;
-    await new Promise((resolve) => setTimeout(resolve, 3_000));
+    await new Promise((resolve) => setTimeout(resolve, 1_000));
   }
   throw new Error(`timed out after ${Math.round(timeoutMs / 1000)}s waiting for ${label}`);
 }
@@ -193,13 +205,28 @@ console.log(`turns=${turn}  state=${(await projectsRepo.getProject(db, projectId
 
 // ---------------------------------------------------------------- 2..6 specification + approval
 console.log('\n=== 2. Specification (T06/T07) and the two-step client approval (Phase 3) ===');
-const specReady = async () => {
+const specOutcome = async (): Promise<'READY' | 'HUMAN_REVIEW' | null> => {
   const version = await specsRepo.getCurrentSpecVersion(db, projectId);
-  return Boolean(version && (await specsRepo.listSpecRequirements(db, version.id)).length > 0);
+  if (version?.status === 'IN_REVIEW' || version?.status === 'LOCKED') return 'READY';
+  const project = await projectsRepo.getProject(db, projectId);
+  const openTasks = await obsRepo.listOpenTasks(db, projectId);
+  if (project?.state === 'BLOCKED' || openTasks.some((task) => task.status === 'OPEN' && task.type === 'HUMAN_REVIEW')) {
+    return 'HUMAN_REVIEW';
+  }
+  return null;
 };
-await advanceUntil(specReady, 900_000, 'the live specification (SPEC_GENERATE)');
+await advanceUntil(async () => (await specOutcome()) !== null, 900_000, 'the specification or its human-review outcome');
 const v1 = await specsRepo.getCurrentSpecVersion(db, projectId);
-console.log(`spec v${v1!.version} status=${v1!.status}  SPEC-REQ: ${(await specsRepo.listSpecRequirements(db, v1!.id)).length}`);
+const stageResult = await specOutcome();
+if (stageResult !== 'READY' || !v1 || (v1.status !== 'IN_REVIEW' && v1.status !== 'LOCKED')) {
+  const draftReqs = v1 ? await specsRepo.listSpecRequirements(db, v1.id) : [];
+  const openTasks = await obsRepo.listOpenTasks(db, projectId);
+  const review = openTasks.find((task) => task.status === 'OPEN' && task.type === 'HUMAN_REVIEW');
+  console.error(`SPECIFICATION HELD FOR HUMAN REVIEW: state=${(await projectsRepo.getProject(db, projectId))?.state} status=${v1?.status ?? 'none'} saved SPEC-REQ=${draftReqs.length}`);
+  if (review) console.error(`  reason: ${review.reason}`);
+  throw new Error('The specification did not pass its deterministic traceability/summary gate; no approval or audit was attempted.');
+}
+console.log(`spec v${v1.version} status=${v1.status}  SPEC-REQ: ${(await specsRepo.listSpecRequirements(db, v1.id)).length}`);
 await clientSays('Ha, hammasi tushunarli', 'p4_mid_ack');
 await advance(['CLIENT_INTENT_PARSE']);
 await clientSays('Ha, tasdiqlayman', 'p4_mid_approve');
@@ -210,10 +237,23 @@ console.log(`client approved → v${locked!.version} LOCKED, state=${(await proj
 
 // ---------------------------------------------------------------- 7. the auditor takes over
 console.log('\n=== 7. Approval enqueues SPEC_AUDIT → T11, the Spec Auditor runs (§20) ===');
-await advanceUntil(async () => (await auditsRepo.listAuditsForProject(db, projectId)).length > 0, Number(process.env.DEMO_LIVE_TIMEOUT_MS ?? 900_000), 'the live audit (SPEC_AUDIT)');
-await advance(['SPEC_AUDIT', 'SPEC_REVISE']);
+const auditOutcome = async (): Promise<'AUDITED' | 'HUMAN_REVIEW' | null> => {
+  if ((await auditsRepo.listAuditsForProject(db, projectId)).length > 0) return 'AUDITED';
+  const current = await projectsRepo.getProject(db, projectId);
+  const openTasks = await obsRepo.listOpenTasks(db, projectId);
+  if (current?.state === 'BLOCKED' || openTasks.some((task) => task.status === 'OPEN' && task.type === 'HUMAN_REVIEW')) return 'HUMAN_REVIEW';
+  return null;
+};
+await advanceUntil(async () => (await auditOutcome()) !== null, Number(process.env.DEMO_LIVE_TIMEOUT_MS ?? 900_000), 'the audit result or its human-review outcome');
+const outcome = await auditOutcome();
 const project = await projectsRepo.getProject(db, projectId);
 const audits = (await auditsRepo.listAuditsForProject(db, projectId)).sort((a, b) => a.attempt - b.attempt);
+if (outcome !== 'AUDITED') {
+  const task = (await obsRepo.listOpenTasks(db, projectId)).find((row) => row.status === 'OPEN' && row.type === 'HUMAN_REVIEW');
+  console.error(`SPEC_AUDIT HELD FOR HUMAN REVIEW: state=${project?.state}`);
+  if (task) console.error(`  reason: ${task.reason}`);
+  throw new Error('The auditor produced no persisted verdict; the pipeline correctly stopped for human review.');
+}
 console.log(`audit attempts: ${audits.length}   final state: ${project!.state}`);
 for (const audit of audits) {
   const verdict = audit.verdict as {

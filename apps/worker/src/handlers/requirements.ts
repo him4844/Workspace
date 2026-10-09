@@ -29,6 +29,7 @@ import {
   looksLikeInjection, runAgentTurn, toClientMessage, type AgentEnvelope, type RequirementsTurn, parseReasoningEffort } from '@wpp/agents';
 import { writeArtifact } from '@wpp/infra';
 import { effectiveModel } from '../services/llm.js';
+import { createDailyBudgetGuard } from '../services/llm-budget.js';
 import type { HandlerContext } from '../orchestrator.js';
 import { sendOutboundMessage } from '../services/outbound.js';
 
@@ -194,7 +195,7 @@ export async function requirementsTurn(ctx: HandlerContext, job: JobRow): Promis
   });
 
   if (envelope.status === 'FAILED') {
-    throw new WppError(envelope.errorCode, envelope.message, envelope.retryable ? 'RETRYABLE' : 'HUMAN_REQUIRED');
+    throw new WppError(envelope.errorCode, envelope.message, envelope.retryable ? 'RETRYABLE' : 'HUMAN_REQUIRED', undefined, envelope.retryAfterMs);
   }
   if (envelope.status === 'NEEDS_REVIEW') {
     await obsRepo.createTask(db, {
@@ -506,8 +507,15 @@ async function runTurn(
     inputSummary: params.inputSummary,
   });
 
+  const budgetGuard = createDailyBudgetGuard({ db, orgId: params.orgId, config, provider: client.provider });
   const envelope = await runAgentTurn(
-    { client, systemInstructions: params.agentConfig.version.systemInstructions, logger },
+    {
+      client,
+      systemInstructions: params.agentConfig.version.systemInstructions,
+      logger,
+      beforeRequest: budgetGuard.beforeRequest,
+      afterRequest: budgetGuard.afterRequest,
+    },
     buildRequirementsRunInput({
       task: params.task,
       projectData: params.projectData,

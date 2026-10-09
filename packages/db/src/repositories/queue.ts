@@ -128,22 +128,39 @@ export async function getJob(ex: Executor, id: string): Promise<JobRow | null> {
   return rows[0] ?? null;
 }
 
+/**
+ * A provider wait longer than this is not a retry — it is a schedule nobody should hold a job for
+ * (a daily-quota hint can name ~8 hours; a dead key can name days). Beyond the cap the job
+ * dead-letters and §42 escalates to a human instead of sleeping in the queue (D-052).
+ */
+export const MAX_SCHEDULED_RETRY_MS = 24 * 60 * 60 * 1000;
+
 export async function failJob(
   ex: Executor,
   jobId: string,
-  error: { code: string; message: string; retryable: boolean },
+  error: { code: string; message: string; retryable: boolean; retryAfterMs?: number },
 ): Promise<{ status: JobStatusLike }> {
   const job = await getJob(ex, jobId);
   if (!job) return { status: 'DONE' };
   const policy = JOB_POLICIES[job.type as JobType];
   const exhausted = job.attempts >= job.maxAttempts;
-  if (error.retryable && !exhausted) {
-    const backoff = policy.backoffMs * Math.max(1, job.attempts);
+  // A named wait beyond the cap is not schedulable — it goes to DEAD_LETTER with everything else
+  // that cannot be retried, and the §42 escalation tells a human why.
+  const oversizedWait = error.retryAfterMs !== undefined && error.retryAfterMs > MAX_SCHEDULED_RETRY_MS;
+  if (error.retryable && !exhausted && !oversizedWait) {
+    // D-052: a 429 that names its wait is a SCHEDULE, not a failure — re-queue at the provider's
+    // own deadline (+1 s buffer) instead of backoff, which would re-claim inside the same closed
+    // window and burn attempts. Measured live 2026-10-08: a ~7 h 45 m daily-quota hint failed at
+    // once and the job dead-lettered within minutes; now it sleeps until the window resets.
+    const scheduledWaitMs = error.retryAfterMs !== undefined && error.retryAfterMs <= MAX_SCHEDULED_RETRY_MS
+      ? error.retryAfterMs + 1_000
+      : undefined;
+    const waitMs = scheduledWaitMs ?? policy.backoffMs * Math.max(1, job.attempts);
     await ex
       .update(jobs)
       .set({
         status: 'PENDING',
-        runAt: new Date(Date.now() + backoff),
+        runAt: new Date(Date.now() + waitMs),
         lockedBy: null,
         leaseExpiresAt: null,
         lastError: `${error.code}: ${error.message}`,
@@ -156,6 +173,8 @@ export async function failJob(
     });
     return { status: 'PENDING' };
   }
+  // Also reached when a provider wait exceeds MAX_SCHEDULED_RETRY_MS: sleeping in the queue for
+  // days is not a retry, and the §42 escalation (CRITICAL event + human task) is the honest answer.
   await ex
     .update(jobs)
     .set({

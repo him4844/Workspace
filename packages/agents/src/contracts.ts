@@ -213,6 +213,18 @@ export const SpecificationOutputSchema = z.strictObject({
   if (new Set(codes).size !== codes.length) {
     ctx.addIssue({ code: 'custom', path: ['spec', 'requirements'], message: 'duplicate SPEC-REQ codes' });
   }
+  // The DB has a unique (spec_version_id, code) index on acceptance_criteria, and the Phase-6
+  // acceptanceTestMap keys by acCode alone. Model output that numbers AC-001 anew for every
+  // requirement otherwise passes the frozen JSON shape, then crashes persistence after client
+  // summary validation. Reject it here so the runtime's one repair can renumber before handlers
+  // touch the DB (§49/§57).
+  const acCodes = value.spec.requirements.flatMap((r) => r.acceptanceCriteria.map((ac) => ac.code));
+  if (new Set(acCodes).size !== acCodes.length) {
+    ctx.addIssue({
+      code: 'custom', path: ['spec', 'requirements'],
+      message: 'acceptance-criterion codes must be globally unique within one specification version (AC-001, AC-002, …)',
+    });
+  }
 });
 
 export type SpecificationOutput = z.infer<typeof SpecificationOutputSchema>;

@@ -1,11 +1,12 @@
 # PHASE 1 REPORT — Instagram Gateway & Conversations
 
 **Phase file:** `docs/phases/01_phase1_instagram_and_conversations.md` · **Report per:** `docs/phases/00_COMMON_RULES.md`
-**Date:** 2026-10-07 · **Status:** COMPLETE — **waiting for human approval before Phase 2**
+**Date:** 2026-10-07 · **Status at original phase close:** COMPLETE (before Phase 2).
+**Cross-phase update (2026-10-09):** the previously unenforced outbound minute limit is now durable and enforced per Instagram connection (D-062); integration tests cover queueing, retry scheduling, and simulator bypass. Phase 1 still has no real Meta Graph send/receive proof because no Meta app token/test account is configured.
 
 Visible in this report: every claim below is backed by a command you can re-run (real outputs, not plans).
 Phase 1 was developed and verified **without Meta access** (D-013 simulator channel); the real-Instagram
-checks are blocked only on the Meta app (see §5).
+checks remain blocked on Meta app credentials and review (see §5).
 
 ---
 
@@ -133,8 +134,7 @@ npm run verify      # typecheck + tests + docs integrity
 4. **`ECHO_REPLY` is a placeholder.** It answers with `ECHO_REPLY_TEMPLATE`; the real requirements turn (§9)
    arrives in Phase 2. The scheduler job table and the guard rails (state gating, parking, human tasks) are
    already the production ones, so Phase 2 swaps the handler, not the plumbing.
-5. **Rate limiting is structural, not enforced.** `SEND_RATE_PER_MINUTE` is config; a token-bucket enforcement
-   point exists in the outbound path design but is not wired until a second channel/agent makes it matter.
+5. **Outbound rate limiting — RESOLVED 2026-10-09 (D-062).** `SEND_RATE_PER_MINUTE` is now enforced per real Instagram connection by a durable fixed 60-second counter (`send_rate_limits`). Excess inline sends are persisted as delayed `SEND_OUTBOUND` jobs; an already-queued send job receives `retryAfterMs` and is scheduled at the next window. Simulator sends bypass the external API limiter. Integration tests cover queueing and the simulator bypass.
 6. **Single-VPS assumptions.** PGlite for dev; PostgreSQL + separate worker containers are documented
    (docs/15) but not yet run — no Docker in this sandbox.
 7. **Behavioural gap worth knowing:** a conversation can legitimately collect several inbound messages before the

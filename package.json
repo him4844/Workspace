@@ -21,7 +21,7 @@
     "simulate:requirements": "tsx scripts/simulate-requirements.ts",
     "demo:live": "tsx scripts/live-requirements-demo.ts",
     "inspect": "tsx scripts/inspect.ts",
-    "verify": "npm run typecheck && npm run test && node scripts/check-docs.mjs",
+    "verify": "npm run typecheck && npm run test -- --pool=threads --maxWorkers=1 --fileParallelism=false && node scripts/check-docs.mjs",
     "simulate:phase3": "tsx scripts/simulate-phase3.ts",
     "prompt-sizes": "tsx scripts/prompt-size-report.ts",
     "simulate:phase4": "tsx scripts/simulate-phase4.ts"

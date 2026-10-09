@@ -20,6 +20,10 @@ export * as agentConfigRepo from './repositories/agentConfig.js';
 export * as artifactsRepo from './repositories/artifacts.js';
 export * as specsRepo from './repositories/specs.js';
 export * as auditsRepo from './repositories/audits.js';
+export * as budgetRepo from './repositories/budget.js';
+export { reserveDailyBudget, settleDailyBudgetReservation } from './repositories/budget.js';
+export * as sendRateLimitRepo from './repositories/sendRateLimit.js';
+export { consumeSendRateLimit } from './repositories/sendRateLimit.js';
 
 // ---- flat exports (projects & state machine) ----
 export {

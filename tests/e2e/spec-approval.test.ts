@@ -342,6 +342,17 @@ describe('phase 3 specification + client approval (end to end)', () => {
     expect(outbound.filter((m) => m.direction === 'OUTBOUND').some((m) => /SPEC-REQ|Traceability/.test(m.text ?? ''))).toBe(false);
     const version = await specsRepo.getCurrentSpecVersion(ctx.handle.db, projectId);
     expect(version!.status).toBe('CHANGES_REQUESTED');
+    // §57: do not discard a failed candidate. The human must be able to inspect the exact draft and
+    // gaps, while the client still receives no approval summary.
+    expect(Array.isArray((version!.spec as { requirements?: unknown[] }).requirements)).toBe(true);
+    expect((version!.spec as { requirements: unknown[] }).requirements.length).toBeGreaterThan(0);
+    expect((await specsRepo.listSpecRequirements(ctx.handle.db, version!.id)).length).toBeGreaterThan(0);
+    const draft = (await artifactsRepo.listArtifacts(ctx.handle.db, projectId))
+      .find((artifact) => artifact.kind === 'technical-spec-draft');
+    expect(draft).toBeDefined();
+    expect(readArtifact(draft!.path)).toContain('INTERNAL DRAFT — NOT CLIENT-APPROVED');
+    const reviewTask = tasks.find((task) => task.type === 'HUMAN_REVIEW');
+    expect(reviewTask!.reason).toContain(draft!.path);
     // the run itself succeeded — the failure is the audit's, not the model call's
     const runs = await obsRepo.listAgentRuns(ctx.handle.db, { projectId });
     expect(runs.every((r) => r.status === 'SUCCESS')).toBe(true);
@@ -534,7 +545,7 @@ describe('phase 3 specification + client approval (end to end)', () => {
     await generateSpec();
 
     const project = await projectsRepo.getProject(ctx.handle.db, projectId);
-    expect(project!.state).toBe('SPEC_GENERATING');
+    expect(project!.state).toBe('BLOCKED');
     const tasks = await ctx.handle.db.select().from(schema.tasks).where(eq(schema.tasks.projectId, projectId));
     expect(tasks.map((t) => t.type)).toContain('HUMAN_REVIEW');
     expect(tasks[0]!.reason).toMatch(/schema|JSON|contract/i);

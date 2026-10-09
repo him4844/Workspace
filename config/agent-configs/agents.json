@@ -29,7 +29,7 @@
       "defaultProvider": "none",
       "defaultModel": "gpt-5-mini",
       "temperature": 0.2,
-      "maxOutputTokens": 5000,
+      "maxOutputTokens": 8000,
       "timeoutMs": 240000,
       "maxRetries": 2,
       "enabledTools": [],

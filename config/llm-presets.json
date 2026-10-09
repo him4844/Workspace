@@ -756,11 +756,11 @@
       "label": "OpenRouter :free models",
       "provider": "openrouter",
       "baseUrl": "https://openrouter.ai/api/v1",
-      "model": "nvidia/nemotron-3-ultra-550b-a55b:free",
+      "model": "cohere/north-mini-code:free",
       "keyEnv": "LLM_API_KEY",
       "free": true,
-      "freeLimits": "20 RPM and 50 requests/day per account without a top-up. Measured 2026-10-08: nemotron-3-ultra-550b-a55b:free answered a JSON-mode call in 1.7 s, cohere/north-mini-code:free in 0.7 s; google/gemma-4-26b-a4b-it:free was rate-limited upstream and thinkingmachines/inkling-small:free refused non-agentic clients (403).",
-      "caveats": "The free roster rotates (16 `:free` slugs on 2026-10-08) — re-check `GET /api/v1/models` (pricing.prompt = 0) before relying on a slug; `deepseek/deepseek-chat-v3.1:free` had already become paid-only. Used here as a fallback route, not the default.",
+      "freeLimits": "20 RPM and 50 requests/day per account without a top-up. Probe on 2026-10-08: cohere/north-mini-code:free answered an audit-shaped JSON request; re-probe because OpenRouter free models/limits rotate.",
+      "caveats": "The free roster rotates. Pin a currently probe-verified :free model before live use. nvidia/nemotron-3-ultra-550b-a55b:free returned a KeyError on a real ~2.4k-token JSON request; it is not the fallback default. Re-check GET /api/v1/models (pricing.prompt = 0); do not assume a slug remains free.",
       "source": "openrouter.ai/docs limits (docs/19 §6)"
     },
     {

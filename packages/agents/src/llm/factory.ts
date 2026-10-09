@@ -32,6 +32,7 @@ export function routeDecision(config: Config): RouteDecision {
   return decideRoute({
     provider,
     baseUrl: config.LLM_BASE_URL ?? preset?.baseUrl ?? null,
+    model: config.LLM_MODEL ?? preset?.model ?? null,
     presetId,
     presets,
     freeOnly: config.LLM_FREE_ONLY,

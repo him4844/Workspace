@@ -116,6 +116,22 @@ describe('§18/§19 client-summary consistency', () => {
     expect(issues).toEqual([expect.objectContaining({ kind: 'SUMMARY_MENTIONS_UNKNOWN_PAGE' })]);
   });
 
+  it('allows a short plain-language summary to paraphrase an implementation-level MUST (§18)', () => {
+    const implementationRequirement = {
+      ...req('SPEC-REQ-001', 'authentication.needed'),
+      title: 'Autentifikatsiya talabi',
+      description: 'Mijozlar himoyalangan so‘rovlarini xavfsiz tarzda yuboradi.',
+    };
+    const clientFacing = [
+      '## Maqsad\nRestoran xizmatlarini tanishtirish.',
+      '## Sahifalar\n- Bosh sahifa sahifasi\n- Menyu sahifasi',
+      '## Imkoniyatlar\n- Mijozlar taom tanlaydi va so‘rov yuboradi.',
+      '## Dizayn\nSodda va iliq uslub.',
+    ].join('\n');
+    const issues = auditSummaryConsistency(spec([implementationRequirement], { pages: base.pages }), summary(clientFacing));
+    expect(issues.filter((i) => i.kind !== 'SUMMARY_TOO_TECHNICAL')).toEqual([]);
+  });
+
   it('flags a missing required heading and an empty summary', () => {
     const missing = auditSummaryConsistency(base, summary('## Maqsad\nRestoran sayti.'));
     expect(missing.some((i) => i.kind === 'SUMMARY_MISSING_REQUIRED_HEADING')).toBe(true);
