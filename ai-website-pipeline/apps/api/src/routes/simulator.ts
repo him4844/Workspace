@@ -22,11 +22,8 @@ const InboundSchema = z.object({
 export async function registerSimulatorRoutes(app: FastifyInstance, deps: AppDeps): Promise<void> {
   const { db, config } = deps;
 
-  app.addHook('preHandler', async (request, reply) => {
-    if (request.url.startsWith('/dev/simulator') && !config.CHANNEL_SIMULATOR_ENABLED) {
-      return reply.status(404).send({ ok: false, error: { code: 'NOT_AVAILABLE', message: 'simulator channel is disabled' } });
-    }
-  });
+  // Auth lives in apps/api/src/auth.ts: one root-level guard registers the /api/v1 token check
+  // (constant-time) and the /dev/simulator flag + loopback check for the whole app.
 
   /** Inject a client DM as if it came from Instagram. */
   app.post('/dev/simulator/inbound', async (request, reply) => {

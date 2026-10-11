@@ -42,15 +42,10 @@ const StatusSchema = z.object({
 });
 
 export async function registerSpecRoutes(app: FastifyInstance, deps: AppDeps): Promise<void> {
-  const { db, config } = deps;
+  const { db } = deps;
 
-  app.addHook('preHandler', async (request, reply) => {
-    if (!request.url.startsWith('/api/v1')) return;
-    const token = request.headers['x-internal-token'];
-    if (token !== config.INTERNAL_API_TOKEN) {
-      return reply.status(401).send({ ok: false, error: { code: 'UNAUTHORIZED', message: 'X-Internal-Token required' } });
-    }
-  });
+  // Auth lives in apps/api/src/auth.ts: one root-level guard registers the /api/v1 token check
+  // (constant-time) and the /dev/simulator flag + loopback check for the whole app.
 
   /** Everything a human needs to review a specification: version, traceability, summary, history. */
   app.get('/api/v1/projects/:id/spec', async (request, reply) => {

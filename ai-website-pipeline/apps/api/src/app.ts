@@ -16,6 +16,7 @@ import { registerInspectorRoutes } from './routes/inspector.js';
 import { registerHealthRoutes } from './routes/health.js';
 import { registerSimulatorConsoleRoutes } from './routes/simulator-console.js';
 import { registerSpecRoutes } from './routes/spec.js';
+import { registerRouteGuards } from './auth.js';
 
 export interface AppDeps {
   db: Db;
@@ -51,6 +52,11 @@ export async function buildApp(deps: AppDeps): Promise<FastifyInstance> {
     if (status >= 500) request.log.error({ err: error }, 'request failed');
     void reply.status(status).send({ ok: false, error: { code, message: err.message ?? 'unexpected error' } });
   });
+
+  // One set of route guards for the whole app: /api/v1 needs the internal token (compared in
+  // constant time) and /dev/simulator needs the flag plus a loopback peer. Route modules no longer
+  // register their own hooks, so no request is guarded twice or by two copies that can drift.
+  registerRouteGuards(app, deps);
 
   await registerHealthRoutes(app, deps);
   await registerWebhookRoutes(app, deps);

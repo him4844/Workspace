@@ -15,15 +15,10 @@ import { hoursUntilExpiry } from '@wpp/core';
 import type { AppDeps } from '../app.js';
 
 export async function registerInspectorRoutes(app: FastifyInstance, deps: AppDeps): Promise<void> {
-  const { db, config } = deps;
+  const { db } = deps;
 
-  app.addHook('preHandler', async (request, reply) => {
-    if (!request.url.startsWith('/api/v1')) return;
-    const token = request.headers['x-internal-token'];
-    if (token !== config.INTERNAL_API_TOKEN) {
-      return reply.status(401).send({ ok: false, error: { code: 'UNAUTHORIZED', message: 'X-Internal-Token required' } });
-    }
-  });
+  // Auth lives in apps/api/src/auth.ts: one root-level guard registers the /api/v1 token check
+  // (constant-time) and the /dev/simulator flag + loopback check for the whole app.
 
   app.get('/api/v1/projects', async (_request, reply) => {
     const rows = await listProjects(db, { limit: 100 });
