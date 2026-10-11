@@ -37,7 +37,7 @@ Scale: **L** likelihood, **I** impact (H/M/L). Every risk has a mitigation and a
 | # | Risk | L | I | Mitigation |
 |---|---|---|---|---|
 | C1 | Postgres-as-queue scaling ceiling | L | M | Fine for internal volume; documented BullMQ/Redis upgrade path isolated in `packages/infra/jobs` |
-| C2 | PGlite ≠ Postgres behavioral drift | M | M | CI runs the integration suite against real Postgres too; no exotic features used |
+| C2 | PGlite ≠ Postgres behavioral drift | M | M | **Not mitigated yet** (`AUDIT.md` P1-1/P1-2). The integration suite runs on PGlite only and there is no Postgres driver, so the planned "CI also runs against real Postgres" control does not exist. `npm run schema:drift` covers schema drift only, not query behaviour. Open until P8; no exotic features are used, which limits the exposure |
 | C3 | Build/check jobs starve the box (CPU/RAM) | M | M | Caps (1 CPU, 900 MB, 15 min), max concurrency, dedicated coderunner container |
 | C4 | Single VPS = single point of failure | M | H | Nightly off-box backups, restore drill, documented RTO<2 h; ops runbook |
 | C5 | Version history accidentally overwritten (violates §34) | L | H | Append-only repositories + DB grants; tests assert old versions remain |

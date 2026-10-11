@@ -5,14 +5,19 @@
  * structured envelope. The orchestrator routes on `status` only — prose is never parsed.
  */
 import type { LlmClient, LlmRequest, LlmUsage , ReasoningEffort } from './llm/types.js';
+import type { AGENT_ERROR_CODES } from './contracts.js';
 import { LlmError } from './llm/types.js';
 import { assemblePrompt, CLIENT_CONTENT_OPEN } from './prompt.js';
 import { AGENT_RULES } from './prompt.js';
 import { budgetReport } from './prompt-budget.js';
 
-export type AgentErrorCode =
-  | 'LLM_TIMEOUT' | 'LLM_RATE_LIMITED' | 'LLM_PROVIDER_ERROR' | 'LLM_BUDGET_EXCEEDED' | 'INVALID_JSON'
-  | 'SCHEMA_VALIDATION_FAILED' | 'CONTENT_POLICY' | 'INPUT_MISSING' | 'INTERNAL_ERROR';
+/**
+ * Derived from `AGENT_ERROR_CODES` rather than written out again: the wire enum in contracts.ts
+ * (and its mirror in docs/contracts/common-envelope.json) is the only list that exists. A
+ * hand-written union here previously carried `LLM_BUDGET_EXCEEDED` while the enum did not, so a
+ * budget-exceeded envelope could be produced but never validated.
+ */
+export type AgentErrorCode = (typeof AGENT_ERROR_CODES)[number];
 
 export type AgentEnvelope<T> =
   | {

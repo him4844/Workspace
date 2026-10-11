@@ -1,6 +1,22 @@
 # Deliverable 13 — Environment Variables
 
-**Status:** Phase 0 design. `.env.example` in the repo mirrors this list. Secrets are provided at runtime only (§37); this document never contains real values.
+**Status:** Phase 0 design, partially superseded by what was actually built. `.env.example` — not this
+document — is the enforceable contract: every uncommented key there is read by `ConfigSchema` in
+`packages/infra/src/config.ts`, every key that schema reads is documented there, and
+`tests/unit/config-env-parity.test.ts` fails the build if either side drifts (docs/12 §9 rule 1).
+
+Sections 6 (builds & code checking) and 8 (deploy & ops), plus `PANEL_PORT`, `DB_POOL_MAX`,
+`DB_STATEMENT_TIMEOUT_MS`, `TOTP_ISSUER`, `AUTH_LOGIN_MAX_ATTEMPTS`, `IG_OAUTH_REDIRECT_URI`, the
+`LOOP_*` and `INACTIVITY_*` limits and `BACKUP_*`/`SMTP_URL`/`ALERT_WEBHOOK_URL`/`SENTRY_DSN`, describe
+**P5–P8 work that is not implemented**: no code reads those variables. They are kept commented under a
+`PLANNED — NOT READ BY ANY CODE YET` banner at the bottom of `.env.example` so nobody sets them and
+assumes they took effect. Two names in the original template never existed in code at all —
+`LLM_DAILY_SPEND_CAP_USD` (the real one is `LLM_DAILY_BUDGET_USD`) and `LLM_FAKE_MODE` (the real
+switches are `LLM_PROVIDER=scripted` and `LLM_FREE_ONLY`) — and vendor-specific keys such as
+`OPENAI_API_KEY` are not read either: the route comes from `LLM_PROVIDER` + `LLM_PRESET` +
+`LLM_API_KEY`.
+
+Secrets are provided at runtime only (§37); this document never contains real values.
 
 Legend: **R** required, **O** optional, **D** dev-only.
 

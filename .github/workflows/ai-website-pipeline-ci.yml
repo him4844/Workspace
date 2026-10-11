@@ -1,0 +1,69 @@
+# Runs the ai-website-pipeline verification suite for THIS repository.
+#
+# GitHub Actions only reads workflows from `.github/workflows/` at the repository root, so the
+# project's own `ai-website-pipeline/.github/workflows/ci.yml` is inert while the project lives in a
+# subdirectory here. This file is the root-level twin that actually executes; it differs only in the
+# working directory and the lockfile path. When the project moves to its own repository, delete this
+# file and keep the one inside `ai-website-pipeline/`.
+
+name: ai-website-pipeline-ci
+
+on:
+  push:
+    branches: ["**"]
+  pull_request:
+    paths:
+      - "ai-website-pipeline/**"
+      - ".github/workflows/ai-website-pipeline-ci.yml"
+
+concurrency:
+  group: wpp-ci-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  verify:
+    name: verify (node ${{ matrix.node-version }})
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    defaults:
+      run:
+        working-directory: ai-website-pipeline
+    strategy:
+      fail-fast: false
+      matrix:
+        # package.json engines: ">=20.11 <25"
+        node-version: [20, 22]
+    env:
+      NODE_ENV: test
+      DB_DRIVER: pglite
+      LOG_LEVEL: silent
+      LLM_PROVIDER: none
+      LLM_FREE_ONLY: "true"
+      LLM_API_KEY: ""
+      AUDITOR_LLM_API_KEY: ""
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ matrix.node-version }}
+          cache: npm
+          cache-dependency-path: ai-website-pipeline/package-lock.json
+
+      - name: Install
+        run: npm ci --no-audit --no-fund
+
+      - name: Docs integrity (required files present, contracts are valid JSON)
+        run: node scripts/check-docs.mjs
+
+      - name: Schema drift (Drizzle schema vs db/migrations/*.sql)
+        run: npm run schema:drift
+
+      - name: Typecheck (strict + noUncheckedIndexedAccess)
+        run: npm run typecheck
+
+      - name: Tests (unit + integration + e2e)
+        run: npm run test -- --pool=threads --maxWorkers=1 --fileParallelism=false

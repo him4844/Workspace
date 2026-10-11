@@ -4,7 +4,7 @@
  */
 import { describe, expect, it } from 'vitest';
 import {
-  assertSpecWritable, auditSummaryConsistency, auditTraceability, classifyIntentHint, decideApproval,
+  assertSpecWritable, auditSummaryConsistency, auditTraceability, classifyIntentHint, containsNegation, decideApproval,
   deriveApprovalStep, isChangeRequestStatus, looksLikeInjection, nextSpecVersion, renderSpecMarkdown,
   type RequirementFieldInput, type SpecDocument,
 } from '@wpp/core';
@@ -192,6 +192,42 @@ describe('client intent (§18, §19, §38)', () => {
     expect(classifyIntentHint('rahmat')).toBeNull();
     expect(classifyIntentHint('')).toBeNull();
     expect(classifyIntentHint('x'.repeat(400))).toBeNull();
+  });
+
+  it('never reads a negated reply as an approval — Uzbek negation contains the affirmative stem', () => {
+    // `tasdiqlayman` is a literal substring of `tasdiqla-may-man`, so an unanchored stem match
+    // used to return APPROVE 0.95 — above the 0.85 threshold — on a client *rejection*.
+    expect(classifyIntentHint('Tasdiqlamayman')).toBeNull();
+    expect(classifyIntentHint('Tasdiqlamaymiz')).toBeNull();
+    expect(classifyIntentHint('Hech narsani tasdiqlamayman')).toBeNull();
+    expect(classifyIntentHint("Ma'qul emas")).toBeNull();
+    expect(classifyIntentHint('Ma’qul emas')).toBeNull();
+    expect(classifyIntentHint('Roziman emas')).toBeNull();
+    expect(classifyIntentHint('Rozimasman')).toBeNull();
+    expect(classifyIntentHint("Yo'q")).toBeNull();
+    expect(classifyIntentHint('Rad etaman')).toBeNull();
+    expect(classifyIntentHint('Qabul qilmayman')).toBeNull();
+    expect(containsNegation('Tasdiqlamayman')).toBe(true);
+    expect(containsNegation('Ha, tasdiqlayman')).toBe(false);
+  });
+
+  it('never lets an agent APPROVE override a negation in the client text', () => {
+    const threshold = 0.85;
+    expect(decideApproval({ text: 'Tasdiqlamayman', agentIntent: { intent: 'APPROVE', confidence: 0.99 }, threshold }))
+      .toMatchObject({ intent: 'UNCLEAR', source: 'AGENT' });
+    expect(decideApproval({ text: "Ma'qul emas", agentIntent: { intent: 'APPROVE', confidence: 0.99 }, threshold }))
+      .toMatchObject({ intent: 'UNCLEAR', source: 'AGENT' });
+    // a negated change request still resolves deterministically, without a model call
+    expect(decideApproval({ text: "Ma'qul emas, o‘zgartirish kerak", agentIntent: null, threshold }))
+      .toMatchObject({ intent: 'REQUEST_CHANGES', source: 'KEYWORD' });
+  });
+
+  it('still approves genuine affirmations, including emoji quick replies', () => {
+    expect(classifyIntentHint('Ha, tasdiqlayman')).toMatchObject({ intent: 'APPROVE', confidence: 0.95 });
+    expect(classifyIntentHint("Ma'qul, tasdiqlayman")).toMatchObject({ intent: 'APPROVE' });
+    // 👍 is a symbol, so `\b` after it can never match: bare emoji used to fall through to null
+    expect(classifyIntentHint('👍')).toMatchObject({ intent: 'APPROVE', confidence: 0.95 });
+    expect(classifyIntentHint('✅')).toMatchObject({ intent: 'APPROVE' });
   });
 
   it('never turns a low-confidence agent answer into an approval', () => {

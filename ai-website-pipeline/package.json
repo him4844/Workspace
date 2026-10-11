@@ -21,10 +21,11 @@
     "simulate:requirements": "tsx scripts/simulate-requirements.ts",
     "demo:live": "tsx scripts/live-requirements-demo.ts",
     "inspect": "tsx scripts/inspect.ts",
-    "verify": "npm run typecheck && npm run test -- --pool=threads --maxWorkers=1 --fileParallelism=false && node scripts/check-docs.mjs",
+    "verify": "node scripts/check-docs.mjs && npm run schema:drift && npm run typecheck && npm run test -- --pool=threads --maxWorkers=1 --fileParallelism=false",
     "simulate:phase3": "tsx scripts/simulate-phase3.ts",
     "prompt-sizes": "tsx scripts/prompt-size-report.ts",
-    "simulate:phase4": "tsx scripts/simulate-phase4.ts"
+    "simulate:phase4": "tsx scripts/simulate-phase4.ts",
+    "schema:drift": "tsx scripts/check-schema-drift.ts"
   },
   "dependencies": {
     "@electric-sql/pglite": "^0.5.8",

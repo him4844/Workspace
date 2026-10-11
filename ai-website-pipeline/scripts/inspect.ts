@@ -8,7 +8,7 @@ import { loadConfig } from '@wpp/infra';
 import { hoursUntilExpiry } from '@wpp/core';
 
 const config = loadConfig();
-const handle = await createDb({ dataDir: config.DB_DRIVER === 'pglite' ? config.PGLITE_DIR : undefined });
+const handle = await createDb({ driver: config.DB_DRIVER, dataDir: config.DB_DRIVER === 'pglite' ? config.PGLITE_DIR : undefined });
 const db = handle.db;
 
 const projects = await listProjects(db, { limit: 50 });

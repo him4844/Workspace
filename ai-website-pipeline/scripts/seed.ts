@@ -9,7 +9,7 @@ import { loadConfig, uuidv7 } from '@wpp/infra';
 import { eq } from 'drizzle-orm';
 
 const config = loadConfig();
-const handle = await createDb({ dataDir: config.DB_DRIVER === 'pglite' ? config.PGLITE_DIR : undefined });
+const handle = await createDb({ driver: config.DB_DRIVER, dataDir: config.DB_DRIVER === 'pglite' ? config.PGLITE_DIR : undefined });
 await applyMigrations(handle);
 const db = handle.db;
 

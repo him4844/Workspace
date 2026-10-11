@@ -1,7 +1,14 @@
-# CI skeleton. Phase 0: docs integrity check only.
-# From Phase 1 this workflow grows into the full `npm run verify` pipeline
-# (typecheck → lint+boundaries → unit → integration PGlite → integration Postgres
-#  → contract → e2e simulated slice → schema drift → openapi diff). See docs/14.
+# CI: the real verification pipeline — docs integrity, schema drift, typecheck, then every test.
+#
+# This replaces the Phase 0 stub that ran only `node scripts/check-docs.mjs` while docs/14 §3/§7 and
+# docs/16 C2 described a much larger pipeline (finding P1-2 in AUDIT.md).
+#
+# There is deliberately NO Postgres service job, even though docs/14 and docs/16 promise one: only
+# the PGlite driver exists, and packages/db/src/client.ts:assertDbDriverSupported now refuses
+# DB_DRIVER=postgres instead of silently opening an embedded database. A Postgres job would test a
+# code path that does not exist. Add it in the same commit that adds the driver.
+#
+# There is also no lint/boundary step: no ESLint or Prettier config is installed (finding P2-7).
 
 name: ci
 
@@ -10,13 +17,54 @@ on:
     branches: ["**"]
   pull_request:
 
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
 jobs:
-  phase0-docs:
+  verify:
+    name: verify (node ${{ matrix.node-version }})
     runs-on: ubuntu-latest
+    timeout-minutes: 30
+    strategy:
+      fail-fast: false
+      matrix:
+        # package.json engines: ">=20.11 <25"
+        node-version: [20, 22]
+    env:
+      # Hermetic by default: a runner must never reach a real provider or a developer's .env.
+      NODE_ENV: test
+      DB_DRIVER: pglite
+      LOG_LEVEL: silent
+      LLM_PROVIDER: none
+      LLM_FREE_ONLY: "true"
+      LLM_API_KEY: ""
+      AUDITOR_LLM_API_KEY: ""
     steps:
       - uses: actions/checkout@v4
+
       - uses: actions/setup-node@v4
         with:
-          node-version: 20
-      - name: Docs integrity (required files + contracts are valid JSON)
+          node-version: ${{ matrix.node-version }}
+          cache: npm
+
+      - name: Install
+        run: npm ci --no-audit --no-fund
+
+      # Cheap gates first: everything below the test suite fails in seconds, not minutes.
+      - name: Docs integrity (required files present, contracts are valid JSON)
         run: node scripts/check-docs.mjs
+
+      - name: Schema drift (Drizzle schema vs db/migrations/*.sql)
+        run: npm run schema:drift
+
+      - name: Typecheck (strict + noUncheckedIndexedAccess)
+        run: npm run typecheck
+
+      # Serial on purpose: each test file boots its own PGlite instance and they are memory-heavy.
+      # ~270 s for the whole suite.
+      - name: Tests (unit + integration + e2e)
+        run: npm run test -- --pool=threads --maxWorkers=1 --fileParallelism=false

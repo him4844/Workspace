@@ -27,9 +27,16 @@ Rule: **the domain layer is tested exhaustively at the unit level** because ever
 
 Coverage target for `packages/core`: **≥ 90% lines, 100% of transition guards**.
 
-## 3. Integration tests (PGlite + real Postgres job in CI)
+## 3. Integration tests (PGlite; the real-Postgres job is a P8 item and does not exist yet)
 
-1. Migrations apply cleanly from zero on PGlite **and** Postgres 16 (CI service container) — schema drift check.
+> **Status (2026-10-11, `AUDIT.md` P1-1 / P1-2).** Every integration test below runs on PGlite only.
+> There is no Postgres driver in the codebase — `packages/db/src/client.ts` now refuses
+> `DB_DRIVER=postgres` with `DB_DRIVER_UNSUPPORTED` instead of quietly opening an embedded database —
+> so the "Postgres 16 CI service container" cannot be wired up. The schema-drift half of item 1 *is*
+> automated: `npm run schema:drift` compares the Drizzle schema against `db/migrations/*.sql` and is a
+> required CI step. The "migrations apply on real Postgres" half is deferred to P8.
+
+1. Migrations apply cleanly from zero on PGlite (real Postgres 16: deferred to P8, no driver yet) — schema drift check.
 2. Repositories: insert/read/version chains (requirements v1→v2, spec v1→v2, build v1→v2) with "old versions still present" assertions (§34).
 3. Idempotency: insert the same `webhook_events` twice → 1 row; enqueue the same `idempotency_key` twice → 1 job; duplicate `messages(channel_message_id)` → 1 row.
 4. Jobs queue: claim under `SKIP LOCKED` with two simulated workers → no double processing; expired lease → requeued; attempts/backoff; dead-letter after max attempts.
@@ -93,11 +100,30 @@ These fixtures are the P6 acceptance tests (§Phase 6) and prove the checker is 
 
 ## 7. CI (`npm run verify` locally = same script)
 
+The Phase 0 target pipeline:
+
 ```
 typecheck (tsc -b) → lint (eslint + boundaries) → unit → integration (PGlite)
 → integration-postgres (service container) → contract → e2e (simulated slice)
 → schema-drift check → openapi breaking-change check
 ```
+
+What `.github/workflows/ci.yml` actually runs today — `npm run verify`, on Node 20 and Node 22, with
+the cheap gates first so a failure costs seconds instead of minutes:
+
+```
+docs integrity → schema-drift → typecheck → unit + integration + e2e (PGlite, serial)
+```
+
+Stages that are **not** present, and why (`AUDIT.md` P1-2):
+
+| Missing stage | Reason |
+|---|---|
+| `lint (eslint + boundaries)` | no ESLint or Prettier config is installed, despite six `eslint-disable` comments in the source (P2-7) |
+| `integration-postgres` | no Postgres driver exists (§3 above, P1-1) |
+| `openapi breaking-change check` | no OpenAPI document is generated from the Fastify routes |
+| `contract` as its own stage | it exists, just not separately: `tests/unit/contract-parity.test.ts` runs inside the suite |
+
 Any phase is only "done" when `verify` is green **and** the phase's acceptance script has been run and its real output quoted in the report (COMMON_RULES #7, §57).
 
 ## 8. What we will NOT claim (honesty rules, §52)

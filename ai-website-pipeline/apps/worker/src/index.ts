@@ -7,7 +7,7 @@ import { runLoop } from './orchestrator.js';
 async function main(): Promise<void> {
   const config = loadConfig();
   const logger = createLogger(config.LOG_LEVEL);
-  const handle = await createDb({ dataDir: config.DB_DRIVER === 'pglite' ? config.PGLITE_DIR : undefined });
+  const handle = await createDb({ driver: config.DB_DRIVER, dataDir: config.DB_DRIVER === 'pglite' ? config.PGLITE_DIR : undefined });
   const applied = await applyMigrations(handle);
   if (applied.length > 0) logger.info({ applied }, 'migrations applied');
 

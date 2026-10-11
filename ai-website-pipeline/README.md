@@ -18,20 +18,49 @@ It is an **internal tool**, not a SaaS (§2 of SPEC). One team, one primary Inst
 
 ## Status
 
-**Phase 0 — Architecture & Stack: COMPLETE, awaiting human approval.**
-No feature code has been written, per `00_phase0_architecture_and_stack.md` and §55A.3.
+**Phases 0–4 are built and verified. Phases 5–8 are not started.**
 
-- ✅ 18/18 required deliverables (SPEC §56) → `docs/`
-- ✅ Stack proposal with alternatives, costs, risks → `docs/18_stack_proposal.md`
-- ✅ Meta/Instagram platform rules verified against current official docs → `docs/19_meta_platform_findings.md`
-- ✅ Open questions requiring human decisions → `docs/17_open_questions.md`
-- ✅ Agent I/O contracts as machine-readable JSON Schema → `docs/contracts/`
-- ⏳ **Blocked on:** approval of the architecture + stack, and answers to Q1–Q6
+| Phase | Scope | State |
+|---|---|---|
+| P0 | Architecture & stack, 18 deliverables, agent I/O contracts | ✅ `PHASE_REPORTS/phase0.md` |
+| P1 | Instagram gateway, conversations, state machine, job queue, simulator channel | ✅ `PHASE_REPORTS/phase1.md` |
+| P2 | Requirements Agent — questionnaire-as-data, structured requirements, completeness engine | ✅ `PHASE_REPORTS/phase2.md` |
+| P3 | Specification Agent, client summary, two-step approval | ✅ `PHASE_REPORTS/phase3.md` |
+| P4 | Spec Auditor, §21 audit loop, vendor-separated free route | ✅ `PHASE_REPORTS/phase4.md` |
+| P5 | Coding Agent (`BUILD_RUN`) | ❌ handler is `notImplemented` |
+| P6 | Code Checker (`CODE_CHECK`) | ❌ handler is `notImplemented` |
+| P7 | Team Panel (`apps/panel`), sessions, RBAC | ❌ README only |
+| P8 | Deploy & ops (`apps/coderunner`, Postgres, backups, `TOKEN_REFRESH`) | ❌ README only |
 
-## Next steps after approval
+Verify a clean checkout exactly as CI does:
 
-1. Phase 1 — Instagram gateway + conversations + state machine core (`docs/phases/01_*`), using the **simulator channel** until Meta access is live.
-2. Parallel tracks (start immediately, independent of coding): Meta app + Business Verification + App Review (risk A1); test Instagram account; LLM keys; hosting decision.
+```bash
+npm ci
+npm run verify   # docs integrity → schema drift → typecheck → every test
+```
+
+**`AUDIT.md` is an independent deep analysis and audit of P0–P4** — every tracked file read, every
+reported claim re-executed, findings with `file:line` evidence and a prioritised remediation plan.
+The P0/P1 findings it raised are fixed on this branch:
+
+- **P0-1** Uzbek negation was read as approval (`Tasdiqlamayman` → APPROVE 0.95). Negation markers now
+  veto the local fast path *and* an agent APPROVE. See `packages/core/src/spec/intent.ts`.
+- **P1-1** `DB_DRIVER=postgres` silently opened an embedded PGlite database. It now fails fast with
+  `DB_DRIVER_UNSUPPORTED` — there is still no Postgres driver.
+- **P1-2** CI ran only the docs check. It now runs the whole `verify` pipeline on Node 20 and 22.
+- **P1-3** `.env.example` had drifted (11 read vars undocumented, 42 documented vars read by nothing,
+  one wrong name). It is now exact, and `tests/unit/config-env-parity.test.ts` keeps it that way.
+- **P1-4** The agent error-code enum drifted between runtime, Zod and the JSON contract.
+  `AgentErrorCode` is now derived from one list, and `tests/unit/contract-parity.test.ts` guards it.
+
+## Next steps
+
+1. Close the remaining AUDIT.md P2 items (unauthenticated `/dev/simulator/*`, the duplicate `/api/v1`
+   auth hooks, the missing `WATCHDOG` handler, `CHARS_PER_TOKEN` for Cyrillic, fixed-window rate limit).
+2. Decide the generated-site stack — AUDIT.md §8D recommends static HTML/CSS/vanilla JS, so the P6
+   checker needs no build step and the free-tier token budget survives.
+3. Then P5 — Coding Agent (`docs/phases/05_*`), with a real Postgres driver if it is to run outside
+   one process.
 
 ## How the finished system will run (target, from `docs/15_deployment_strategy.md`)
 
@@ -41,8 +70,11 @@ npm run dev            # api + worker
 npm run seed           # admin user, questionnaires, agent configs
 npm run simulate       # drive a full restaurant conversation end-to-end
 
-# prod (single VPS)
-docker compose -f infra/docker-compose.yml up -d   # postgres, api, worker, coderunner, panel, caddy
+# prod (single VPS) — NOT WORKING YET (P8)
+# infra/docker-compose.yml references four Dockerfiles that do not exist (api, worker, coderunner,
+# panel) and sets DB_DRIVER=postgres, which no driver implements: the API now refuses to boot with
+# DB_DRIVER_UNSUPPORTED rather than silently using PGlite. Until P8 lands, only the dev path above runs.
+docker compose -f infra/docker-compose.yml up -d
 ```
 
 ## Repository layout

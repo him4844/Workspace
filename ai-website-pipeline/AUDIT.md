@@ -26,7 +26,45 @@
 
 ---
 
-## 1. Loyiha nima (tahlil)
+## 0A. Tuzatish holati — 2026-10-11
+
+Quyidagi topilmalardan **P0 va P1 darajasidagilari shu branch'da yopildi** — har biri test bilan,
+so'ngra butun `npm run verify` qayta ishga tushirildi. P2/P3 bandlari ochiq va §8 dagi ustuvorlik
+tartibida turadi.
+
+| Topilma | Holat | Nima qilindi | Dalil |
+|---|---|---|---|
+| **P0-1** so'z inkori tanilmaydi | ✅ **yopildi** | `NEGATION_PATTERNS` qo'shildi va approve fast-path'dan **oldin** tekshiriladi; yangi `containsNegation()` agent qaytargan APPROVE'ni ham vetolaydi (defence in depth); 👍/✅ emoji uchun alohida pattern — `\b` simboldan keyin hech qachon ishlamas edi | `tests/unit/spec-core.test.ts` +3 test |
+| **P1-1** Postgres drayveri yo'q | ✅ **yopildi** (fail-fast) | `createDb({driver})` va `assertDbDriverSupported()`: `DB_DRIVER=postgres` endi `DB_DRIVER_UNSUPPORTED` (VALIDATION, non-retryable) bilan **ma'lumot bazasi ochilishidan oldin** tushadi; 5 ta chaqiruv joyi `driver`'ni uzatadi. Drayverning o'zi hali yo'q — bu P8 ishi | `tests/unit/db-driver.test.ts` (4 test) |
+| **P1-2** CI faqat docs-check | ✅ **yopildi** | `.github/workflows/ci.yml` endi to'liq `verify`'ni Node 20 va 22 da bajaradi. Loyiha ushbu repoda papka ostida turgani uchun ildizda `.github/workflows/ai-website-pipeline-ci.yml` ham qo'shildi (GitHub faqat ildizdagi workflow'larni o'qiydi). Postgres job'i **qasddan yo'q** — drayver yo'q, aks holda mavjud bo'lmagan yo'lni "tekshirgan" bo'lardik | CI'ning o'zi |
+| **P1-3** `.env.example` drift | ✅ **yopildi** | Shablon `ConfigSchema` haqiqatan o'qiydigan 45 o'zgaruvchiga aniq moslandi (to'g'ri default'lar bilan); o'qilmaydigan 42 nom `PLANNED — NOT READ BY ANY CODE YET` banneri ostida izohga olindi; `docs/12` yangilandi | `tests/unit/config-env-parity.test.ts` (5 test) — drift endi build'ni buzadi |
+| **P1-4** kontrakt enum drifti | ✅ **yopildi** | `AgentErrorCode` endi `AGENT_ERROR_CODES` dan **keltirib chiqariladi** (`(typeof AGENT_ERROR_CODES)[number]`), ya'ni runtime va wire-enum yana ajralib ketishi mumkin emas; `LLM_BUDGET_EXCEEDED` JSON kontraktga qo'shildi | `tests/unit/contract-parity.test.ts` (5 test) |
+| **P3-1** README eskirgan | ✅ **yopildi** | Status jadvali: P0–P4 ✅ / P5–P8 ❌ (aniq sababi bilan); `docker compose` bloki "ishlamaydi (P8)" deb belgilandi; keyingi qadamlar P5 ga qaratildi | — |
+| §6 hujjat-vs-reallik drifti | ✅ **qisman** | `docs/14 §3` va `§7`, `docs/16 C2`, `docs/12` haqiqatga moslandi; qaysi CI bosqichi yo'qligi va **nega** yo'qligi jadval bilan yozildi | — |
+| **P2-1…P2-7** · **P3-2…P3-5** | ⏳ **ochiq** | §8 dagi tartibda kutilmoqda | — |
+
+**Yangi vosita — `scripts/check-schema-drift.ts`** (`npm run schema:drift`, CI'da majburiy bosqich):
+Drizzle sxema bilan `db/migrations/*.sql` ni **jadval va enum qiymatlari** bo'yicha solishtiradi.
+Auditda bu tekshiruv qo'lda va faqat jadvallar bo'yicha qilingan edi (§2). Skript enum'larni ham
+qamrab oldi va `ALTER TYPE … ADD VALUE` ni hisobga oladi: `event_type` ning *tartibi* SQL'da
+Drizzle'dan farq qiladi, chunki migratsiya faqat oxiriga qo'sha oladi. Hech qayerda enum bo'yicha
+tartiblash/range-solishtirish yo'q, shuning uchun bu **ogohlantirish**, xato emas.
+
+**Yakuniy tekshiruv (shu branch'da, toza `npm ci`, Node v22.22.3):**
+
+```
+node scripts/check-docs.mjs   -> OK: 23 docs present, contracts valid JSON
+npm run schema:drift          -> 39 Drizzle vs 39 migrated tables, 18 vs 18 enums, 1 WARN (event_type order) -> exit 0
+npm run typecheck             -> 0 errors
+npm run test                  -> 27 files / 231 tests PASS, 224.9 s
+```
+
+Ya'ni §0 jadvalidagi "24 fayl / 214 test" endi **27 fayl / 231 test** — 3 ta yangi test fayli va
+17 ta yangi test qo'shildi, mavjud 214 tasidan **hech biri buzilmadi**.
+
+---
+
+
 
 ### 1.1 Biznes maqsad
 

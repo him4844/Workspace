@@ -7,8 +7,13 @@ import { z } from 'zod';
 import { REQUIREMENT_STATUSES } from '@wpp/core';
 
 export const AGENT_STATUSES = ['SUCCESS', 'FAILED', 'NEEDS_REVIEW'] as const;
+/**
+ * The single source of truth for agent failure codes. `AgentErrorCode` (runtime.ts) is *derived*
+ * from this array, so the runtime type and the wire enum cannot drift apart again; a contract test
+ * asserts parity with `docs/contracts/common-envelope.json`.
+ */
 export const AGENT_ERROR_CODES = [
-  'LLM_TIMEOUT', 'LLM_RATE_LIMITED', 'LLM_PROVIDER_ERROR', 'INVALID_JSON',
+  'LLM_TIMEOUT', 'LLM_RATE_LIMITED', 'LLM_PROVIDER_ERROR', 'LLM_BUDGET_EXCEEDED', 'INVALID_JSON',
   'SCHEMA_VALIDATION_FAILED', 'CONTENT_POLICY', 'INPUT_MISSING', 'INTERNAL_ERROR',
 ] as const;
 
