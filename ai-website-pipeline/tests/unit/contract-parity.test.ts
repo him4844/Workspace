@@ -79,7 +79,7 @@ describe('P1-4 agent envelope contract parity (SPEC §49, docs/06 §8)', () => {
     const parsed = AgentEnvelopeSchema.safeParse({
       status: 'FAILED',
       runId: '018f2a10-0000-7000-8000-000000000000',
-      errorCode: 'LLM_QUOTA_EXHAUSTED',
+      errorCode: 'NOT_A_REAL_ERROR_CODE',
       message: 'invented code',
       retryable: true,
     });

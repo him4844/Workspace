@@ -114,6 +114,40 @@ export async function requirementsTurn(ctx: HandlerContext, job: JobRow): Promis
     limits: { maxQuestions, maxClarificationsPerField: maxClarifications },
   });
 
+  // The prompt must name the field the model is asked to WORD, and the field this turn actually
+  // SENDS is the one the engine picks AFTER the client's answer is applied (`engineStop`, §8).
+  // The client's last message answers `version.pendingFieldPath`, so projecting that single field
+  // as answered reproduces the post-turn plan without a second LLM call (unaffordable on the free
+  // tier — see PHASE_REPORTS/evidence/phase4-prompt-sizes.txt). Until this, the prompt named the
+  // PRE-turn plan while the handler sent the POST-turn one, so the two could never agree: the
+  // field guard below fired on every turn of every run (24-30 times in the recorded evidence) and
+  // the model's own wording was always thrown away in favour of the questionnaire text — §10's
+  // "the model writes the wording, the planner owns which field" was effectively dead code.
+  // If the projection is wrong (the client did not answer the pending field, or volunteered extra
+  // updates that change the order) the guard still fires and the deterministic wording goes out,
+  // which is the correct degradation — but now it is a signal instead of a constant.
+  const pendingFieldPath = version.pendingFieldPath;
+  const projectedPlan: QuestionPlan = pendingFieldPath
+    ? planNextQuestion({
+        questionnaire,
+        fields: fieldStates.map((f) => (f.fieldPath === pendingFieldPath && (f.status === 'EMPTY' || f.status === 'UNCLEAR')
+          ? { ...f, status: 'CLIENT_CONFIRMED', note: null }
+          : f)),
+        contradictions: openContradictions,
+        counters: { questionsAsked, clarificationsByField },
+        limits: { maxQuestions, maxClarificationsPerField: maxClarifications },
+      })
+    : plan;
+  // Only an ASK projection may reach the prompt. A projected STOP would tell the model this is the
+  // FINAL turn, and the final-turn contract carries `fieldUpdates: []` — so the client's answer to
+  // the still-pending field would never be recorded, completeness would keep blocking on it, and
+  // the interview would livelock until MAX_QUESTIONS (reproduced 2026-10-11: `deadline.expected`
+  // blocked, 15 identical PREMARKED_COMPLETE_IGNORED events, 104 jobs, exit 1). Guessing "done"
+  // is never safe; guessing "which question comes next" is, because the field guard catches a
+  // wrong guess. Real completion is decided only by `engineSaysComplete` (§8), which then asks for
+  // the internal summary in its own bounded call.
+  const promptPlan: QuestionPlan = projectedPlan.kind === 'ASK' ? projectedPlan : plan;
+
   // ---------------------------------------------------------------- 3. agent configuration (§51)
   const agentConfig = await agentConfigRepo.getActiveAgentConfig(db, project.orgId, 'REQUIREMENTS');
   if (!agentConfig || !ctx.llm) {
@@ -134,7 +168,7 @@ export async function requirementsTurn(ctx: HandlerContext, job: JobRow): Promis
   const injectionSuspected = lastInbound?.text ? looksLikeInjection(lastInbound.text) : false;
 
   // ---------------------------------------------------------------- 4. the turn itself
-  const task = buildTaskBlock(plan, {
+  const task = buildTaskBlock(promptPlan, {
     projectType: project.projectType ?? 'UNKNOWN',
     language: config.DEFAULT_LOCALE,
     counters: { questionsAsked, maxQuestions },
@@ -428,7 +462,13 @@ export async function requirementsTurn(ctx: HandlerContext, job: JobRow): Promis
   const modelAsksPlannedField = engineStop.kind !== 'ASK' || turn.question?.fieldPath === questionPlan.fieldPath;
   if (modelText && !modelAsksPlannedField) {
     logger.warn(
-      { projectId, runId, plannedField: questionPlan.fieldPath, modelField: turn.question?.fieldPath ?? null },
+      {
+        projectId, runId,
+        plannedField: questionPlan.fieldPath,
+        modelField: turn.question?.fieldPath ?? null,
+        promptedField: promptPlan.kind === 'ASK' ? promptPlan.fieldPath : null,
+        projectedPendingField: pendingFieldPath ?? null,
+      },
       'requirements model asked about a different field than the planner — sending the questionnaire wording',
     );
   }

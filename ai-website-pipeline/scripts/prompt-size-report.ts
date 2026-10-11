@@ -10,7 +10,9 @@
  * Usage:  npm run prompt-sizes            (budget defaults to 8000, override with FREE_TPM_BUDGET)
  *         FREE_TPM_BUDGET=16000 npm run prompt-sizes
  *
- * Token estimates use chars/4 (the same heuristic the provider docs use); treat them as ±20 %.
+ * Token estimates are script-aware (Latin ≈4 chars/token, Cyrillic/Greek/Arabic/Hebrew/
+ * Devanagari/Thai/astral emoji ≈2, CJK/kana/Hangul ≈1.5 — `estimateTokens`, D-066) and are
+ * never lower than the old flat chars/4; treat them as ±20 %.
  */
 import { mkdtempSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
@@ -149,7 +151,8 @@ for (const [task, list] of [...byTask.entries()].sort((a, b) => b[1].length - a[
         : 'exceeds reference TPM; use this route only if its published tier allows it';
   console.log(`${task.padEnd(58)} ${String(list.length).padStart(5)}  ${String(maxPrompt).padStart(10)}  ${String(maxOut).padStart(8)}  ${String(reserved).padStart(8)}  ${verdict}`);
 }
-console.log('\nPrompt token estimates use chars/4 (±20%). `reserved = prompt + max_tokens`; TPM verdicts are only');
+console.log('\nPrompt token estimates are script-aware (±20%, never below the old chars/4 floor); `reserved = prompt + max_tokens`;');
+console.log('TPM verdicts are only');
 console.log('applied to writer/reference routes. OpenRouter :free has published RPM/RPD limits, not TPM; its');
 console.log('auditor prompt is measured here for observability, and the real route must still be probed.');
 

@@ -107,3 +107,24 @@ npm run simulate:phase4
 ```
 
 `.env` yoki credentials faylini hech qachon ko‘rsatmay/commit qilmaymiz. PGlite bir jarayonli; server yoqilgan paytda ikkinchi DB process ishga tushirmang.
+
+## 2026-10-11 — live end-to-end verification (not just tests)
+
+Every part was actually executed on a fresh database, not only asserted:
+`npm ci` → `cp .env.example .env` → `npm run migrate` (7 migrations) → `npm run seed` →
+`npm run inspect` → all four simulators → `npm run prompt-sizes` → `npm run verify`.
+
+Found and fixed by running it:
+
+| # | Defect (only visible by executing) | Fix |
+|---|---|---|
+| P3-3 | The prompt named the **pre-turn** plan while the sent question used the **post-turn** plan, so the field guard fired on 100 % of turns (29× in the recorded live evidence) and the model's own wording never reached a client — §10 was dead code | project the pending field as answered before building the prompt; 29 → **4** warnings, all 4 legitimate conditional follow-ups (D-075) |
+| — | A projected `STOP` told the model "FINAL turn" (`fieldUpdates: []`), the answer was never recorded and the interview **livelocked** to `MAX_QUESTIONS` (104 jobs, 25 open tasks, exit 1) | only an `ASK` projection may reach the prompt (D-075) |
+| P3-7 | `npm run simulate:requirements` sent the SPECIFICATION task to the generic **fake** provider → zod rejection → T30 → **BLOCKED**, while printing "DONE" and exiting **0** | `createPipelineLlm()` + an honest verdict that exits 1 on BLOCKED/FAILED/DEAD_LETTER/missing artifact/missing hand-off/open tasks (D-076). Now `CLIENT_REVIEW`, T07 reached, 29/29 runs success, 0 repairs |
+| P3-6 | *(new, open)* a `REQUIREMENTS_TURN` claimed after the interview reaches `CLIENT_REVIEW` parks **permanently** — the unpark-on-state-change path can never release it | reported by the script as a note; fixing it needs a `CANCELLED` job status (migration) — tracked, not hidden |
+| — | `scripts/prompt-size-report.ts` still claimed "chars/4" after D-066 made the estimator script-aware | wording corrected; re-run proved the recorded numbers are unchanged (D-077) |
+
+Post-fix state: `npm run verify` → docs OK, schema drift 39/39 tables + 18/18 enums, typecheck 0 errors,
+**31 files / 270 tests PASS** (278.8 s). Simulators: `simulate` exit 0 · `simulate:requirements` exit 0
+(`CLIENT_REVIEW`) · `simulate:phase3` exit 0 (`MESSAGE_OUTBOUND×38`, `open human tasks: 0`) ·
+`simulate:phase4` exit 0 (`READY_FOR_BUILD`).

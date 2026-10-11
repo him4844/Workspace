@@ -74,7 +74,7 @@ Every **P0, P1 and P2** finding it raised is fixed on this branch, each behind a
    checker needs no build step and the free-tier token budget survives.
 3. Then P5 — Coding Agent (`docs/phases/05_*`), with a real Postgres driver if it is to run outside
    one process.
-4. Still open from the audit: the envelope-shape gap recorded in D-067, and P3-2/P3-3/P3-5 (a
+4. Still open from the audit: the envelope-shape gap recorded in D-067, and P3-2/P3-5/P3-6 (see `AUDIT.md` §0A for why each is deliberate or needs a migration). P3-3 and P3-7 were closed on 2026-10-11 after a live end-to-end run — D-075…D-077.
    self-contradicting evidence file, scripted-persona warnings and demo artifacts) — all three are
    left alone deliberately, for the reasons given in `AUDIT.md` §0A.
 

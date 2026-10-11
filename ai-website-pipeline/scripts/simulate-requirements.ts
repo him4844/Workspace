@@ -22,7 +22,7 @@ import {
 } from '@wpp/db';
 import { createLogger, loadConfig, readArtifact } from '@wpp/infra';
 import { buildSimulatorPayload, ingestInboundEvent, parseInstagramWebhook } from '@wpp/channels';
-import { createPersonaLlm, RESTAURANT_PERSONA } from '@wpp/testing';
+import { createPipelineLlm, RESTAURANT_PERSONA } from '@wpp/testing';
 import { tick } from '../apps/worker/src/orchestrator.js';
 import { getConnectionForChannel } from '../apps/api/src/services/context.js';
 
@@ -36,7 +36,15 @@ const artifactsRoot = mkdtempSync(join(tmpdir(), 'wpp-demo-'));
 const orgId = await orgRepo.getOrCreateDefaultOrg(db);
 const seeded = await seedConfigFromFiles(db, orgId, { configDir: 'config', env: {} });
 const connection = await getConnectionForChannel(db, 'SIMULATOR');
-const llm = createPersonaLlm();
+// The router, not the bare requirements persona: this script drives the interview past
+// REQUIREMENTS_COMPLETE, so SPEC_GENERATE runs in the same process. With `createPersonaLlm()` the
+// specification task fell through to the generic fake provider, which answered a SPECIFICATION
+// prompt with a requirements-shaped payload — zod rejected it (`spec`/`clientSummary` undefined,
+// `turnType`/`fieldUpdates`/... unrecognized), the single repair attempt failed the same way, and
+// T30 took the project to BLOCKED (observed live 2026-10-11). `createPipelineLlm()` routes by task
+// and defaults to `createPersonaLlm(RESTAURANT_PERSONA, { useClientAnswer: true })`, which is what
+// the `${fieldPath}: ${answer}` client messages below are written for.
+const llm = createPipelineLlm();
 
 console.log('=== 0. Config seeded from config/ (the reviewable source of truth) ===');
 console.log(`questionnaires: ${seeded.questionnaires.join(' | ')}`);
@@ -161,8 +169,39 @@ const jobs = await queueRepo.jobStats(db);
 console.log(`jobs: ${JSON.stringify(jobs)}`);
 
 rmSync(artifactsRoot, { recursive: true, force: true });
-const handoff = (await db.select().from(schema.jobs).where(eq(schema.jobs.projectId, projectId)))
-  .find((job) => job.type === 'SPEC_GENERATE');
+const projectJobs = await db.select().from(schema.jobs).where(eq(schema.jobs.projectId, projectId));
+const handoff = projectJobs.find((job) => job.type === 'SPEC_GENERATE');
 console.log(`\nPhase-3 hand-off queued: ${handoff ? `${handoff.type} (${handoff.status}) — next phase picks it up` : 'none'}`);
-console.log('\nDONE — the requirements set is complete, persisted and inspectable (npm run inspect for a persisted DB).');
+
+// A demo that prints DONE while the project sits in BLOCKED is worse than no demo at all: the exit
+// code is what a human or CI actually reads. Every condition below was observed live on 2026-10-11
+// (state BLOCKED via T30, one PARKED REQUIREMENTS_TURN, one open human task) while this script
+// still reported success and exited 0.
+const finalState = (await projectsRepo.getProject(db, projectId))!.state;
+// PARKED is not an error: §4.6 parks a job whose prerequisites are not met, and the orchestrator
+// releases parked jobs when the state changes (orchestrator.ts:61). FAILED and DEAD_LETTER are
+// errors. One park here is expected and is reported rather than swallowed: the worker claims a
+// REQUIREMENTS_TURN after the interview has already reached CLIENT_REVIEW, `JOBS_ALLOWED_IN_STATE`
+// (types.ts:100) refuses it, and because the project never returns to REQUIREMENTS_IN_PROGRESS the
+// unpark path can never release it — AUDIT.md P3-6.
+const failedJobs = projectJobs.filter((j) => j.status === 'FAILED' || j.status === 'DEAD_LETTER');
+const parkedJobs = projectJobs.filter((j) => j.status === 'PARKED');
+const openTasksLeft = (await obsRepo.listOpenTasks(db, projectId)).length;
+const problems: string[] = [];
+if (finalState === 'BLOCKED') problems.push('project state is BLOCKED');
+if (!snapshot.version!.summaryArtifactId) problems.push('no internal summary artifact was persisted');
+if (!handoff) problems.push('no SPEC_GENERATE hand-off was queued for Phase 3');
+else if (handoff.status !== 'DONE' && handoff.status !== 'PENDING') problems.push(`SPEC_GENERATE ended ${handoff.status}`);
+for (const job of failedJobs) problems.push(`${job.type} is ${job.status}`);
+if (openTasksLeft > 0) problems.push(`${openTasksLeft} human task(s) left open`);
+if (parkedJobs.length > 0) {
+  console.log(`\nnote: ${parkedJobs.map((j) => j.type).join(', ')} parked by the §4.6 state gate after the interview moved on — AUDIT.md P3-6 (never releasable)`);
+}
+
 await handle.close();
+if (problems.length > 0) {
+  console.error(`\nFAILED — the run did not complete cleanly:\n  - ${problems.join('\n  - ')}`);
+  process.exitCode = 1;
+} else {
+  console.log('\nDONE — the requirements set is complete, persisted and inspectable (npm run inspect for a persisted DB).');
+}
