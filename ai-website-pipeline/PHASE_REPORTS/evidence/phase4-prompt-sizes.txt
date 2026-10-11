@@ -1,0 +1,16 @@
+
+> wpp@0.1.0 prompt-sizes
+> tsx scripts/prompt-size-report.ts
+
+project state after run: READY_FOR_BUILD   LLM calls measured: 32   TPM reference for writer: 8000
+
+route + task                                             calls  prompt est   max_out  reserved  verdict
+writer: openai-compatible/gemini-3.1-flash-lite (reference TPM=8000) | Produce the next single turn of the requiremen    27        4022      3000      7022  one call/min (wait between calls at reference budget)
+writer: openai-compatible/gemini-3.1-flash-lite (reference TPM=8000) | Classify the client's LAST message during the      2        2805       400      3205  OK (two calls/min at reference budget)
+writer: openai-compatible/gemini-3.1-flash-lite (reference TPM=8000) | The questionnaire has no mandatory field left      1        3816      3000      6816  one call/min (wait between calls at reference budget)
+writer: openai-compatible/gemini-3.1-flash-lite (reference TPM=8000) | Produce specification vN for this project.     1        4915      8000     12915  exceeds reference TPM; use this route only if its published tier allows it
+auditor: openrouter cohere/north-mini-code:free (RPM/RPD; no published TPM) | Audit specification vN of a RESTAURANT website     1        7920      2500     10420  measured; route limit is RPM/RPD (TPM unpublished)
+
+Prompt token estimates use chars/4 (±20%). `reserved = prompt + max_tokens`; TPM verdicts are only
+applied to writer/reference routes. OpenRouter :free has published RPM/RPD limits, not TPM; its
+auditor prompt is measured here for observability, and the real route must still be probed.

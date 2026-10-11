@@ -1,0 +1,65 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "wpp://contracts/spec-audit-output.json",
+  "title": "Spec Auditor output (SPEC §20)",
+  "schemaVersion": "1.0.0",
+  "type": "object",
+  "required": ["status", "score", "criticalIssues", "warnings", "missingRequirements", "contradictions", "ambiguities", "recommendations"],
+  "additionalProperties": false,
+  "properties": {
+    "status": { "enum": ["PASS", "FAIL"] },
+    "score": { "type": "number", "minimum": 0, "maximum": 100 },
+    "criticalIssues": { "type": "array", "items": { "$ref": "#/$defs/issue" } },
+    "warnings": { "type": "array", "items": { "$ref": "#/$defs/issue" } },
+    "missingRequirements": { "type": "array", "items": { "$ref": "#/$defs/issue" } },
+    "contradictions": { "type": "array", "items": { "$ref": "#/$defs/issue" } },
+    "ambiguities": { "type": "array", "items": { "$ref": "#/$defs/issue" } },
+    "recommendations": { "type": "array", "items": { "type": "string" } },
+    "checks": {
+      "type": "object",
+      "description": "Explicit per-dimension results — the auditor is NOT a grammar checker (§20).",
+      "properties": {
+        "completeness": { "enum": ["PASS", "FAIL"] },
+        "consistency": { "enum": ["PASS", "FAIL"] },
+        "ambiguity": { "enum": ["PASS", "FAIL"] },
+        "codingReadiness": { "enum": ["PASS", "FAIL"] },
+        "clientAlignment": { "enum": ["PASS", "FAIL"] }
+      },
+      "required": ["completeness", "consistency", "ambiguity", "codingReadiness", "clientAlignment"],
+      "additionalProperties": false
+    }
+  },
+  "$defs": {
+    "issue": {
+      "type": "object",
+      "required": ["code", "description", "severity"],
+      "additionalProperties": false,
+      "properties": {
+        "code": { "type": "string" },
+        "severity": { "enum": ["CRITICAL", "MAJOR", "MINOR"] },
+        "description": { "type": "string" },
+        "specSection": { "type": ["string", "null"] },
+        "specRequirementCode": { "type": ["string", "null"] },
+        "suggestedFix": { "type": ["string", "null"] }
+      }
+    }
+  },
+  "exampleValid": {
+    "status": "FAIL",
+    "score": 62,
+    "criticalIssues": [
+      { "code": "MISSING_PAYMENT_PROVIDER", "severity": "CRITICAL", "description": "Payment step required but no provider selected or fallback defined.", "specSection": "23. Payment Requirements", "specRequirementCode": "SPEC-REQ-014", "suggestedFix": "Specify provider (e.g. Payme/Click/Stripe) or explicitly scope payments out." }
+    ],
+    "warnings": [ { "code": "VAGUE_WORD", "severity": "MINOR", "description": "'beautiful' used for hero section without measurable criteria.", "specSection": "25. UI/UX Requirements", "suggestedFix": "Replace with concrete direction (colors, references, mood)." } ],
+    "missingRequirements": [],
+    "contradictions": [],
+    "ambiguities": [ { "code": "AMBIGUOUS_SCOPE", "severity": "MAJOR", "description": "Admin panel mentioned once but no features listed.", "specSection": "18. Admin Panel", "suggestedFix": "List admin capabilities or mark as out of scope." } ],
+    "recommendations": ["Add acceptance criteria for the booking flow."],
+    "checks": { "completeness": "FAIL", "consistency": "PASS", "ambiguity": "FAIL", "codingReadiness": "FAIL", "clientAlignment": "PASS" }
+  },
+  "exampleInvalid": {
+    "status": "MAYBE",
+    "score": 140,
+    "criticalIssues": "none"
+  }
+}

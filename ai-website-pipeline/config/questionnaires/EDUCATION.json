@@ -1,0 +1,150 @@
+{
+  "schemaVersion": "1.0.0",
+  "code": "EDUCATION",
+  "version": 1,
+  "type": "PACKAGE",
+  "appliesToProjectType": "EDUCATION",
+  "title": "Ta'lim savol paketi (SPEC §7)",
+  "description": "Kurslar, darslar, video, hisob yozuvlari va progress uchun savollar.",
+  "fields": [
+    {
+      "path": "courses.count",
+      "category": "products_services",
+      "question": "Nechta kurs yoki yo'nalish bo'ladi?",
+      "quickReplies": [
+        "1-3",
+        "4-10",
+        "10+"
+      ],
+      "mandatory": true,
+      "priority": "MUST",
+      "valueType": "text",
+      "order": 82
+    },
+    {
+      "path": "courses.structure",
+      "category": "products_services",
+      "question": "Kurs ichida tuzilma qanday? (modul, dars, mavzu)",
+      "quickReplies": [
+        "Modul-dars",
+        "Faqat darslar",
+        "Jonli mashg'ulot"
+      ],
+      "mandatory": true,
+      "priority": "MUST",
+      "valueType": "text",
+      "order": 83
+    },
+    {
+      "path": "lessons.video",
+      "category": "content",
+      "question": "Darslar video ko'rinishdami? Video qayerga yuklanadi (YouTube, Vimeo, ichki)?",
+      "quickReplies": [
+        "YouTube",
+        "Vimeo",
+        "Ichki pleyer"
+      ],
+      "mandatory": true,
+      "priority": "MUST",
+      "valueType": "choice",
+      "options": [
+        "youtube",
+        "vimeo",
+        "internal"
+      ],
+      "order": 113,
+      "clarifyPrompt": "Video qayerda joylashadi: YouTube, Vimeo yoki platformaning o'zidami? Darslar yopiq bo'ladimi va yuklab olishga ruxsat bormi?"
+    },
+    {
+      "path": "accounts.students",
+      "category": "authentication",
+      "question": "O'quvchilar uchun shaxsiy kabinet kerakmi?",
+      "quickReplies": [
+        "Ha",
+        "Yo'q"
+      ],
+      "mandatory": true,
+      "priority": "MUST",
+      "valueType": "choice",
+      "options": [
+        "yes",
+        "no"
+      ],
+      "order": 63
+    },
+    {
+      "path": "progress.tracking",
+      "category": "features",
+      "question": "Darslar bo'yicha progress kuzatilsinmi? (necha foiz tugatilgan)",
+      "quickReplies": [
+        "Ha",
+        "Yo'q",
+        "Bilmayman"
+      ],
+      "mandatory": true,
+      "priority": "MUST",
+      "valueType": "choice",
+      "options": [
+        "yes",
+        "no"
+      ],
+      "order": 58,
+      "defaultSuggestion": "oddiy progress (tugatilgan darslar belgisi)",
+      "clarifyPrompt": "Progressni aniqlashtiraylik: o'quvchi o'zi belgilaydimi yoki tizim avtomatik hisoblaydimi?"
+    },
+    {
+      "path": "certificates.enabled",
+      "category": "features",
+      "question": "Kurs tugagach sertifikat beriladimi?",
+      "quickReplies": [
+        "Ha",
+        "Yo'q"
+      ],
+      "mandatory": true,
+      "priority": "MUST",
+      "valueType": "choice",
+      "options": [
+        "yes",
+        "no"
+      ],
+      "order": 59
+    },
+    {
+      "path": "payments.course",
+      "category": "payments",
+      "question": "Kurslarga to'lov qanday qabul qilinadi? (onlayn, bo'lib to'lash)",
+      "quickReplies": [
+        "Onlayn to'lov",
+        "Bo'lib to'lash",
+        "Naqd/o'tkazma"
+      ],
+      "mandatory": true,
+      "priority": "MUST",
+      "valueType": "choice",
+      "options": [
+        "online",
+        "installments",
+        "offline"
+      ],
+      "order": 73,
+      "clarifyPrompt": "To'lov turini aniqlashtiraylik: onlayn bir martalik to'lovmi, bo'lib to'lashmi yoki oflayn to'lovmi? Oylik obuna ham kerakmi?"
+    },
+    {
+      "path": "instructor.panel",
+      "category": "admin_panel",
+      "question": "O'qituvchi uchun panel kerakmi? (kurs yaratish, o'quvchilarni ko'rish)",
+      "quickReplies": [
+        "Ha",
+        "Faqat admin"
+      ],
+      "mandatory": true,
+      "priority": "MUST",
+      "valueType": "choice",
+      "options": [
+        "yes",
+        "admin_only"
+      ],
+      "order": 94
+    }
+  ]
+}

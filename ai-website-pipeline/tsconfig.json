@@ -1,0 +1,55 @@
+{
+  "compilerOptions": {
+    "target": "ES2023",
+    "lib": [
+      "ES2023"
+    ],
+    "module": "NodeNext",
+    "moduleResolution": "NodeNext",
+    "strict": true,
+    "noUncheckedIndexedAccess": true,
+    "exactOptionalPropertyTypes": false,
+    "noImplicitOverride": true,
+    "noFallthroughCasesInSwitch": true,
+    "forceConsistentCasingInFileNames": true,
+    "isolatedModules": true,
+    "skipLibCheck": true,
+    "noEmit": true,
+    "resolveJsonModule": true,
+    "types": [
+      "node"
+    ],
+    "paths": {
+      "@wpp/core": [
+        "./packages/core/src/index.ts"
+      ],
+      "@wpp/infra": [
+        "./packages/infra/src/index.ts"
+      ],
+      "@wpp/db": [
+        "./packages/db/src/index.ts"
+      ],
+      "@wpp/channels": [
+        "./packages/channels/src/index.ts"
+      ],
+      "@wpp/agents": [
+        "./packages/agents/src/index.ts"
+      ],
+      "@wpp/testing": [
+        "./packages/testing/src/index.ts"
+      ]
+    },
+    "baseUrl": "."
+  },
+  "include": [
+    "apps/**/*.ts",
+    "packages/**/*.ts",
+    "scripts/**/*.ts",
+    "tests/**/*.ts"
+  ],
+  "exclude": [
+    "node_modules",
+    "data",
+    "dist"
+  ]
+}

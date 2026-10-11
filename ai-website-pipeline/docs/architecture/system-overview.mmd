@@ -1,0 +1,20 @@
+%% WPP system overview (source of docs/01_system_architecture.md §3)
+flowchart LR
+  C[Client via Instagram DM] -->|webhook| CH[channels: conversation engine]
+  CH --> OR[orchestrator / jobs]
+  OR --> RA[Requirements Agent]
+  RA -->|requirements vN| SA[Specification Agent]
+  SA --> CS[Client Summary]
+  CS -->|client approval| SAU[Spec Auditor]
+  SAU -->|PASS| CA[Main Coding Agent]
+  CA --> BR[build runner]
+  BR --> CC[Code Checker runtime]
+  CC -->|PASS| TP[Team Panel]
+  TP --> H[Human team: price/deadline]
+  H --> D[Development/Delivery]
+  subgraph Storage
+    PG[(PostgreSQL: state, versions, jobs, events)]
+    AR[(Artifacts: data/projects)]
+  end
+  OR --- PG
+  BR --- AR

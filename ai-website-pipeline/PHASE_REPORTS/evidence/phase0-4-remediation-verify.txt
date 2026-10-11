@@ -1,0 +1,111 @@
+
+> wpp@0.1.0 verify
+> npm run typecheck && npm run test -- --pool=threads --maxWorkers=1 --fileParallelism=false && node scripts/check-docs.mjs
+
+
+> wpp@0.1.0 typecheck
+> tsc --noEmit
+
+
+> wpp@0.1.0 test
+> vitest run --pool=threads --maxWorkers=1 --fileParallelism=false
+
+
+[1m[30m[46m RUN [49m[39m[22m [36mv4.1.11 [39m[90m/home/user/ai-website-pipeline[39m
+
+ [32m✓[39m tests/e2e/spec-approval.test.ts [2m([22m[2m9 tests[22m[2m)[22m[33m 55797[2mms[22m[39m
+     [33m[2m✓[22m[39m requirements completion generates a traceable specification, sends the summary, and locks the approved version after the two-step approval [33m 7739[2mms[22m[39m
+     [33m[2m✓[22m[39m a change request produces a new version and never edits the locked one (§19, §34, §35) [33m 6033[2mms[22m[39m
+     [33m[2m✓[22m[39m a broken specification becomes a human task instead of a wrong approval (§16, §19, §42) [33m 6516[2mms[22m[39m
+     [33m[2m✓[22m[39m an unclear reply gets exactly one clarification per round and never becomes an approval (§18, §21) [33m 6319[2mms[22m[39m
+     [33m[2m✓[22m[39m the specification is generated only once per requirements version (§14) [33m 5952[2mms[22m[39m
+     [33m[2m✓[22m[39m a client message during review never restarts the requirements interview (§18) [33m 5521[2mms[22m[39m
+     [33m[2m✓[22m[39m the API refuses in-place edits of a locked specification and offers the change-request path (§19, §35) [33m 6443[2mms[22m[39m
+     [33m[2m✓[22m[39m waiting too long for the client decision produces one reminder, then a human task (§21) [33m 5666[2mms[22m[39m
+     [33m[2m✓[22m[39m a failed model run opens a human task and leaves the project in a state a human can act on (docs/06 §5) [33m 5605[2mms[22m[39m
+ [32m✓[39m tests/e2e/requirements-interview.test.ts [2m([22m[2m12 tests[22m[2m)[22m[33m 43912[2mms[22m[39m
+     [33m[2m✓[22m[39m a restaurant conversation reaches REQUIREMENTS_COMPLETE with an inspectable, persisted requirements set [33m 7094[2mms[22m[39m
+     [33m[2m✓[22m[39m the website type is detected from the conversation, not from the first message alone (§7) [33m 6072[2mms[22m[39m
+     [33m[2m✓[22m[39m an unrecoverable model failure reaches a human instead of looping (docs/06 §5, §42) [33m 2376[2mms[22m[39m
+     [33m[2m✓[22m[39m a contradiction between two client answers is clarified before completion (§8B) [33m 6180[2mms[22m[39m
+     [33m[2m✓[22m[39m a vague answer becomes UNCLEAR and is clarified, never silently accepted (§8A) [33m 6118[2mms[22m[39m
+     [33m[2m✓[22m[39m a model that asks about a different field cannot misdirect the interview (§7/§10) [33m 2292[2mms[22m[39m
+     [33m[2m✓[22m[39m the agent cannot declare the interview complete on its own word (§10) [33m 2387[2mms[22m[39m
+     [33m[2m✓[22m[39m CLIENT_CONFIRMED without a real client message is rejected and recorded (§10A) [33m 2245[2mms[22m[39m
+     [33m[2m✓[22m[39m a malformed answer is repaired exactly once, then succeeds (docs/06 §5) [33m 2193[2mms[22m[39m
+     [33m[2m✓[22m[39m prompt injection stays data: flagged for the team, treated as ordinary content (§38) [33m 2296[2mms[22m[39m
+     [33m[2m✓[22m[39m the interview stops at the configured question cap and hands the case to a human (§21) [33m 2539[2mms[22m[39m
+     [33m[2m✓[22m[39m an unanswered question is reminded twice and then escalated to the team (§10 inactivity) [33m 2117[2mms[22m[39m
+ [32m✓[39m tests/e2e/spec-audit.test.ts [2m([22m[2m5 tests[22m[2m)[22m[33m 32191[2mms[22m[39m
+     [33m[2m✓[22m[39m a good specification gets PASS and reaches READY_FOR_BUILD (§20, T11/T12) [33m 7508[2mms[22m[39m
+     [33m[2m✓[22m[39m a FAIL with budget left revises the specification and re-audits it without waking the client (§21) [33m 6165[2mms[22m[39m
+     [33m[2m✓[22m[39m three failures stop the loop, block the project and create a human task with the exact issues (§21, §42) [33m 6198[2mms[22m[39m
+     [33m[2m✓[22m[39m a revision that changes the approved meaning fails on client alignment (§20) [33m 6469[2mms[22m[39m
+     [33m[2m✓[22m[39m the deterministic audit overrules the model: gaps are a FAIL with specific issues even when the model says PASS [33m 5849[2mms[22m[39m
+ [32m✓[39m tests/integration/ingest.test.ts [2m([22m[2m10 tests[22m[2m)[22m[33m 24436[2mms[22m[39m
+     [33m[2m✓[22m[39m creates client, conversation, project and job on first contact [33m 3142[2mms[22m[39m
+     [33m[2m✓[22m[39m reports the conversation with an accurate message count [33m 2222[2mms[22m[39m
+     [33m[2m✓[22m[39m is idempotent for a replayed message (same mid) [33m 2373[2mms[22m[39m
+     [33m[2m✓[22m[39m keeps two clients completely separate (SPEC §32) [33m 2764[2mms[22m[39m
+     [33m[2m✓[22m[39m reuses the open project for follow-up messages in the same conversation [33m 2198[2mms[22m[39m
+     [33m[2m✓[22m[39m records the window expiry from the client message timestamp (SPEC §31A) [33m 2529[2mms[22m[39m
+     [33m[2m✓[22m[39m applies the explicit state machine: T01 create + T02 → INTAKE [33m 2375[2mms[22m[39m
+     [33m[2m✓[22m[39m dedupes raw webhook events at the event level (SPEC §41) [33m 2168[2mms[22m[39m
+     [33m[2m✓[22m[39m stores raw inbound attachments without exploding on unknown kinds [33m 2240[2mms[22m[39m
+     [33m[2m✓[22m[39m persists every message with timestamps and actor information [33m 2421[2mms[22m[39m
+ [32m✓[39m tests/integration/webhook-http.test.ts [2m([22m[2m7 tests[22m[2m)[22m[33m 17169[2mms[22m[39m
+     [33m[2m✓[22m[39m GET verification handshake echoes the challenge [33m 3265[2mms[22m[39m
+     [33m[2m✓[22m[39m accepts a signed event, persists it, and enqueues work [33m 2261[2mms[22m[39m
+     [33m[2m✓[22m[39m rejects an unsigned request and writes nothing [33m 2291[2mms[22m[39m
+     [33m[2m✓[22m[39m rejects a payload signed with the wrong secret [33m 2418[2mms[22m[39m
+     [33m[2m✓[22m[39m a duplicate delivery creates no new message, project or job [33m 2457[2mms[22m[39m
+     [33m[2m✓[22m[39m records a security alert for a forged signature [33m 2201[2mms[22m[39m
+     [33m[2m✓[22m[39m handles a batch with several entries independently [33m 2274[2mms[22m[39m
+ [32m✓[39m tests/integration/llm-budget.test.ts [2m([22m[2m5 tests[22m[2m)[22m[33m 11760[2mms[22m[39m
+     [33m[2m✓[22m[39m allows a documented free route even with a zero-dollar paid-use cap [33m 3060[2mms[22m[39m
+     [33m[2m✓[22m[39m blocks a paid request before the call when recorded spend + worst-case output exceeds the cap [33m 2216[2mms[22m[39m
+     [33m[2m✓[22m[39m refuses unknown paid pricing rather than treating an unpriced route as zero-cost [33m 2154[2mms[22m[39m
+     [33m[2m✓[22m[39m does not block a known-priced paid call that remains under the cap [33m 2211[2mms[22m[39m
+     [33m[2m✓[22m[39m atomically reserves the remaining balance so concurrent calls cannot both spend it [33m 2118[2mms[22m[39m
+ [32m✓[39m tests/e2e/simulated-conversation.test.ts [2m([22m[2m5 tests[22m[2m)[22m[33m 12630[2mms[22m[39m
+     [33m[2m✓[22m[39m answers a client through the worker loop and records the whole story [33m 3345[2mms[22m[39m
+     [33m[2m✓[22m[39m a busy conversation (two rapid messages) still gets exactly one reply per turn [33m 2275[2mms[22m[39m
+     [33m[2m✓[22m[39m retrying the same job does not produce a second reply [33m 2285[2mms[22m[39m
+     [33m[2m✓[22m[39m blocks an out-of-window send and raises a human task (SPEC §31A) [33m 2304[2mms[22m[39m
+     [33m[2m✓[22m[39m parks a job whose project state does not allow it, then releases it after the state changes [33m 2420[2mms[22m[39m
+ [32m✓[39m tests/unit/queue-scheduling.test.ts [2m([22m[2m4 tests[22m[2m)[22m[33m 9618[2mms[22m[39m
+     [33m[2m✓[22m[39m re-queues at the provider deadline instead of backoff when retryAfterMs is known [33m 3089[2mms[22m[39m
+     [33m[2m✓[22m[39m falls back to backoff when the provider names no wait [33m 2186[2mms[22m[39m
+     [33m[2m✓[22m[39m a wait beyond 24 h dead-letters instead of sleeping in the queue (escalation owns it) [33m 2294[2mms[22m[39m
+     [33m[2m✓[22m[39m still dead-letters when attempts are exhausted, wait or no wait [33m 2044[2mms[22m[39m
+ [32m✓[39m tests/integration/requirements-api.test.ts [2m([22m[2m2 tests[22m[2m)[22m[33m 5943[2mms[22m[39m
+     [33m[2m✓[22m[39m returns the version, every field with its §10A status, and the pending state [33m 3353[2mms[22m[39m
+     [33m[2m✓[22m[39m requires the internal token and a real project [33m 2588[2mms[22m[39m
+ [32m✓[39m tests/integration/dead-letter-escalation.test.ts [2m([22m[2m2 tests[22m[2m)[22m[33m 5708[2mms[22m[39m
+     [33m[2m✓[22m[39m marks the job DEAD_LETTER, records a CRITICAL event/task, and moves the project to BLOCKED (T30) [33m 3361[2mms[22m[39m
+     [33m[2m✓[22m[39m does not re-block a terminal or already blocked project when a later job dead-letters [33m 2345[2mms[22m[39m
+ [32m✓[39m tests/integration/spec-audit-api.test.ts [2m([22m[2m2 tests[22m[2m)[22m[33m 5822[2mms[22m[39m
+     [33m[2m✓[22m[39m requires the internal token and serves the latest verdict, attempts, and human tasks [33m 3511[2mms[22m[39m
+     [33m[2m✓[22m[39m returns 404 for a missing project [33m 2310[2mms[22m[39m
+ [32m✓[39m tests/integration/outbound-rate-limit.test.ts [2m([22m[2m2 tests[22m[2m)[22m[33m 6469[2mms[22m[39m
+     [33m[2m✓[22m[39m queues an inline outbound message for a later SEND_OUTBOUND job when the connection limit is hit [33m 3854[2mms[22m[39m
+     [33m[2m✓[22m[39m simulator sends bypass the Instagram API bucket [33m 2613[2mms[22m[39m
+ [32m✓[39m tests/unit/config-validation.test.ts [2m([22m[2m9 tests[22m[2m)[22m[33m 3774[2mms[22m[39m
+ [32m✓[39m tests/unit/rate-limit.test.ts [2m([22m[2m10 tests[22m[2m)[22m[32m 34[2mms[22m[39m
+ [32m✓[39m tests/unit/state-machine.test.ts [2m([22m[2m17 tests[22m[2m)[22m[32m 38[2mms[22m[39m
+ [32m✓[39m tests/unit/audit-core.test.ts [2m([22m[2m14 tests[22m[2m)[22m[32m 27[2mms[22m[39m
+ [32m✓[39m tests/unit/questionnaire-clarify.test.ts [2m([22m[2m11 tests[22m[2m)[22m[32m 18[2mms[22m[39m
+ [32m✓[39m tests/unit/llm-free-only.test.ts [2m([22m[2m15 tests[22m[2m)[22m[32m 22[2mms[22m[39m
+ [32m✓[39m tests/unit/spec-core.test.ts [2m([22m[2m23 tests[22m[2m)[22m[32m 36[2mms[22m[39m
+ [32m✓[39m tests/unit/requirements-core.test.ts [2m([22m[2m28 tests[22m[2m)[22m[32m 17[2mms[22m[39m
+ [32m✓[39m tests/unit/security-and-window.test.ts [2m([22m[2m11 tests[22m[2m)[22m[32m 13[2mms[22m[39m
+ [32m✓[39m tests/unit/auditor-vendor-separation.test.ts [2m([22m[2m4 tests[22m[2m)[22m[32m 12[2mms[22m[39m
+ [32m✓[39m tests/unit/spec-agent.test.ts [2m([22m[2m2 tests[22m[2m)[22m[32m 12[2mms[22m[39m
+ [32m✓[39m tests/unit/prompt-budget.test.ts [2m([22m[2m5 tests[22m[2m)[22m[32m 9[2mms[22m[39m
+
+[2m Test Files [22m [1m[32m24 passed[39m[22m[90m (24)[39m
+[2m      Tests [22m [1m[32m214 passed[39m[22m[90m (214)[39m
+[2m   Start at [22m 16:37:36
+[2m   Duration [22m 244.84s[2m (transform 958ms, setup 0ms, import 5.56s, tests 235.47s, environment 3ms)[22m
+
+OK: 23 docs present, contracts valid JSON

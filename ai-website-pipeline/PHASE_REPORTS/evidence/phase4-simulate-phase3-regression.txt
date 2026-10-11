@@ -1,0 +1,11 @@
+
+> wpp@0.1.0 simulate:phase3
+> tsx scripts/simulate-phase3.ts
+
+=== 0. Config seeded from config/ (the reviewable source of truth) ===
+questionnaires: CORPORATE v1, fields=8 | ECOMMERCE v1, fields=11 | EDUCATION v1, fields=8 | GENERAL v1, fields=29 | LANDING v1, fields=6 | RESTAURANT v1, fields=10
+agent configs:  REQUIREMENTS v1 (none/gpt-5-mini) | SPECIFICATION v1 (none/gpt-5-mini) | SPEC_AUDITOR v1 (none/gpt-5-mini)
+config values:  20 keys
+
+=== 1. Phase 2 interview (one question per turn) ===
+project 01a11c25-4118-74a8-b3b7-ce67fe101444 state=REQUIREMENTS_IN_PROGRESS

@@ -1,0 +1,129 @@
+{
+  "schemaVersion": "1.0.0",
+  "code": "CORPORATE",
+  "version": 1,
+  "type": "PACKAGE",
+  "appliesToProjectType": "CORPORATE",
+  "title": "Korporativ sayt savol paketi (SPEC §7)",
+  "description": "Kompaniya haqida ko'p sahifali sayt uchun savollar.",
+  "fields": [
+    {
+      "path": "company.information",
+      "category": "products_services",
+      "question": "Kompaniya haqida qanday ma'lumotlar ko'rsatiladi? (tarix, missiya, natijalar)",
+      "mandatory": true,
+      "priority": "MUST",
+      "valueType": "list",
+      "order": 82
+    },
+    {
+      "path": "services.list",
+      "category": "products_services",
+      "question": "Xizmatlar ro'yxati qanday? Har biriga alohida sahifa kerakmi?",
+      "quickReplies": [
+        "Har biriga sahifa",
+        "Bitta sahifada"
+      ],
+      "mandatory": true,
+      "priority": "MUST",
+      "valueType": "list",
+      "order": 83,
+      "clarifyPrompt": "Xizmatlarni aniqlashtiraylik: eng katta 2-3 xizmat qaysi va ular qanday jarayonda?"
+    },
+    {
+      "path": "team.enabled",
+      "category": "content",
+      "question": "Jamoa bo'limi kerakmi? (xodimlar rasmi, lavozimi)",
+      "quickReplies": [
+        "Ha",
+        "Yo'q"
+      ],
+      "mandatory": true,
+      "priority": "MUST",
+      "valueType": "choice",
+      "options": [
+        "yes",
+        "no"
+      ],
+      "order": 114
+    },
+    {
+      "path": "portfolio.enabled",
+      "category": "content",
+      "question": "Bajarilgan ishlar (portfolio) bo'limi bo'ladimi?",
+      "quickReplies": [
+        "Ha",
+        "Yo'q",
+        "Keyinroq"
+      ],
+      "mandatory": true,
+      "priority": "MUST",
+      "valueType": "choice",
+      "options": [
+        "yes",
+        "no"
+      ],
+      "order": 115
+    },
+    {
+      "path": "contacts.channels",
+      "category": "content",
+      "question": "Qanday aloqa kanallari ko'rsatiladi? (telefon, email, Telegram, ofis manzili)",
+      "mandatory": true,
+      "priority": "MUST",
+      "valueType": "list",
+      "order": 116
+    },
+    {
+      "path": "locations.list",
+      "category": "content",
+      "question": "Ofis yoki filial manzillari bormi? Xaritada ko'rsatamizmi?",
+      "quickReplies": [
+        "Ha, xarita bilan",
+        "Faqat manzil matni",
+        "Yo'q"
+      ],
+      "mandatory": true,
+      "priority": "MUST",
+      "valueType": "list",
+      "order": 117
+    },
+    {
+      "path": "multilingual.enabled",
+      "category": "content",
+      "question": "Ko'p tilli sayt kerakmi va tillar almashinishi qanday bo'lsin?",
+      "quickReplies": [
+        "UZ/RU",
+        "UZ/RU/EN",
+        "Faqat bitta til"
+      ],
+      "mandatory": true,
+      "priority": "MUST",
+      "valueType": "choice",
+      "options": [
+        "two",
+        "three",
+        "one"
+      ],
+      "order": 118,
+      "clarifyPrompt": "Tillar sonini aniqlashtiraylik: bir til yetarlimi, ikki tilmi yoki uchta til kerakmi? Qaysi tillar bo'ladi?"
+    },
+    {
+      "path": "careers.enabled",
+      "category": "features",
+      "question": "Vakansiyalar (ish o'rinlari) bo'limi kerakmi?",
+      "quickReplies": [
+        "Ha",
+        "Yo'q"
+      ],
+      "mandatory": false,
+      "priority": "NICE_TO_HAVE",
+      "valueType": "choice",
+      "options": [
+        "yes",
+        "no"
+      ],
+      "order": 61
+    }
+  ]
+}

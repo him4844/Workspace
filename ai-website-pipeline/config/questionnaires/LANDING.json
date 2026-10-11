@@ -1,0 +1,91 @@
+{
+  "schemaVersion": "1.0.0",
+  "code": "LANDING",
+  "version": 1,
+  "type": "PACKAGE",
+  "appliesToProjectType": "LANDING",
+  "title": "Landing page savol paketi (SPEC §7)",
+  "description": "Bitta sahifali kampaniya/tanishtiruv sayti uchun savollar.",
+  "fields": [
+    {
+      "path": "objective.primary",
+      "category": "business_purpose",
+      "question": "Landingning asosiy maqsadi nima — bitta CTA ga (ariza, qo'ng'iroq, sotib olish) olib borishmi? Qaysi CTA?",
+      "quickReplies": [
+        "Ariza formasi",
+        "Qo'ng'iroq so'rash",
+        "Messenger/Telegram"
+      ],
+      "mandatory": true,
+      "priority": "MUST",
+      "valueType": "text",
+      "order": 12,
+      "clarifyPrompt": "Maqsadni aniqlashtiraylik: tashrifchi qaysi tugmani bosishi kerak va undan keyin nima bo'ladi?"
+    },
+    {
+      "path": "lead_form.enabled",
+      "category": "features",
+      "question": "Ariza formasi qanday bo'ladi va ma'lumot qayerga tushadi? (Telegram, CRM, email)",
+      "quickReplies": [
+        "Telegram bot",
+        "CRM",
+        "Email"
+      ],
+      "mandatory": true,
+      "priority": "MUST",
+      "valueType": "list",
+      "order": 60,
+      "clarifyPrompt": "Arizalarni aniqlashtiraylik: kim javob beradi va necha daqiqada?"
+    },
+    {
+      "path": "sections.list",
+      "category": "pages",
+      "question": "Sahifada qanday bo'limlar bo'lsin? (masalan: afzalliklar, narxlar, mijozlar fikri, FAQ)",
+      "mandatory": true,
+      "priority": "MUST",
+      "valueType": "list",
+      "order": 41,
+      "clarifyPrompt": "Bo'limlarni sanab chiqaylik: sahifa pastga qarab qanday hikoya bo'lib ketadi?"
+    },
+    {
+      "path": "analytics.enabled",
+      "category": "integrations",
+      "question": "Konversiyani o'lchash uchun analitika kerakmi? (pixel, GA4, Metrica)",
+      "quickReplies": [
+        "Meta Pixel",
+        "GA4",
+        "Metrica",
+        "Kerak emas"
+      ],
+      "mandatory": true,
+      "priority": "MUST",
+      "valueType": "list",
+      "order": 133,
+      "defaultSuggestion": "Meta Pixel + GA4 (reklama samarasini o'lchash uchun)"
+    },
+    {
+      "path": "conversion.requirements",
+      "category": "seo",
+      "question": "Konversiya bo'yicha raqamli maqsad bormi? (masalan oyiga 100 ariza)",
+      "mandatory": false,
+      "priority": "NICE_TO_HAVE",
+      "valueType": "text",
+      "order": 122
+    },
+    {
+      "path": "traffic.sources",
+      "category": "integrations",
+      "question": "Trafik qayerdan keladi? (Instagram reklama, Google, Telegram)",
+      "quickReplies": [
+        "Instagram",
+        "Google",
+        "Telegram",
+        "Offline"
+      ],
+      "mandatory": false,
+      "priority": "NICE_TO_HAVE",
+      "valueType": "list",
+      "order": 134
+    }
+  ]
+}

@@ -1,0 +1,38 @@
+
+> wpp@0.1.0 demo:live
+> tsx scripts/live-requirements-demo.ts
+
+=== Live requirements interview over HTTP (simulator channel) ===
+client → project 01a11c37-134d-7f5d-ad76-5d83ebeb2880  state=INTAKE
+interview over (state=INTAKE) after 0 turns
+
+=== Result (from GET /api/v1/projects/:id/requirements) ===
+state: INTAKE  type: RESTAURANT  turns: 0
+completeness: 0%  fields: 39
+mandatory confirmed: 0/24
+open contradictions: 0
+
+outbound messages: 0
+
+=== Phase 3: specification and the two-step client approval ===
+node:internal/deps/undici/undici:14976
+      Error.captureStackTrace(err);
+            ^
+
+TypeError: fetch failed
+    at node:internal/deps/undici/undici:14976:13
+    at process.processTicksAndRejections (node:internal/process/task_queues:95:5)
+    at async api (/home/user/ai-website-pipeline/scripts/live-requirements-demo.ts:35:20)
+    at async waitForSpec (/home/user/ai-website-pipeline/scripts/live-requirements-demo.ts:179:14)
+    at async <anonymous> (/home/user/ai-website-pipeline/scripts/live-requirements-demo.ts:197:20) {
+  [cause]: Error: connect ECONNREFUSED 127.0.0.1:3000
+      at TCPConnectWrap.afterConnect [as oncomplete] (node:net:1611:16) {
+    errno: -111,
+    code: 'ECONNREFUSED',
+    syscall: 'connect',
+    address: '127.0.0.1',
+    port: 3000
+  }
+}
+
+Node.js v20.20.2

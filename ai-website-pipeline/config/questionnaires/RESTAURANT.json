@@ -1,0 +1,190 @@
+{
+  "schemaVersion": "1.0.0",
+  "code": "RESTAURANT",
+  "version": 1,
+  "type": "PACKAGE",
+  "appliesToProjectType": "RESTAURANT",
+  "title": "Restoran savol paketi (SPEC §7)",
+  "description": "Restoran/klub/oziq-ovqat biznesi uchun qo'shimcha majburiy savollar; paketni koddagi o'zgarishsiz qo'shish mumkin.",
+  "fields": [
+    {
+      "path": "menu.kind",
+      "category": "products_services",
+      "question": "Menyu qanday ko'rinishda bo'ladi — matn, rasm bilan, PDF?",
+      "quickReplies": [
+        "Rasm bilan",
+        "Faqat matn",
+        "PDF bor"
+      ],
+      "mandatory": true,
+      "priority": "MUST",
+      "valueType": "choice",
+      "options": [
+        "photos",
+        "text",
+        "pdf"
+      ],
+      "order": 82,
+      "clarifyPrompt": "Menyu formatini tanlaylik: taomlar rasmi bilan, faqat matn ko'rinishidami yoki PDF bo'ladimi? Menyu va narxlarni kim yangilaydi?"
+    },
+    {
+      "path": "menu.categories_count",
+      "category": "products_services",
+      "question": "Menyuda taxminan nechta bo'lim bor? (masalan: salatlar, asosiy, ichimliklar)",
+      "quickReplies": [
+        "1-5",
+        "6-10",
+        "10+"
+      ],
+      "mandatory": false,
+      "priority": "NICE_TO_HAVE",
+      "valueType": "text",
+      "order": 83
+    },
+    {
+      "path": "reservations.enabled",
+      "category": "features",
+      "question": "Stol bron qilish kerakmi?",
+      "quickReplies": [
+        "Ha",
+        "Yo'q",
+        "Bilmayman"
+      ],
+      "mandatory": true,
+      "priority": "MUST",
+      "valueType": "choice",
+      "options": [
+        "yes",
+        "no"
+      ],
+      "order": 52,
+      "defaultSuggestion": "telefon orqali bron qilish (sayt aloqani ko'rsatadi)",
+      "clarifyPrompt": "Bron tizimini aniqlashtiraylik: mijoz sanani tanlaydimi, tasdiqlash kim tomonidan bo'ladi?"
+    },
+    {
+      "path": "reservations.confirmation",
+      "category": "features",
+      "question": "Bron so'rovi qanday tasdiqlanadi?",
+      "quickReplies": [
+        "Telefon orqali",
+        "Telegram orqali",
+        "Avtomatik"
+      ],
+      "mandatory": false,
+      "priority": "NICE_TO_HAVE",
+      "valueType": "choice",
+      "options": [
+        "phone",
+        "telegram",
+        "auto"
+      ],
+      "order": 53,
+      "dependsOn": {
+        "reservations.enabled": [
+          "yes"
+        ]
+      }
+    },
+    {
+      "path": "delivery.enabled",
+      "category": "products_services",
+      "question": "Yetkazib berish xizmati bormi (o'zingiz yoki agregator orqali)?",
+      "quickReplies": [
+        "Bor, o'zimiz",
+        "Agregator orqali",
+        "Yo'q"
+      ],
+      "mandatory": true,
+      "priority": "MUST",
+      "valueType": "choice",
+      "options": [
+        "own",
+        "aggregator",
+        "no"
+      ],
+      "order": 84,
+      "defaultSuggestion": "buyurtma telefon/Telegram orqali, yetkazib berishni oshxona boshqaradi",
+      "clarifyPrompt": "Yetkazib berish variantini aniqlashtiraylik: restoranning o'z kuryerimi, agregatormi yoki umuman yetkazib berish bo'lmaydimi? Qaysi hududga?"
+    },
+    {
+      "path": "delivery.zone",
+      "category": "products_services",
+      "question": "Qaysi hududlarga yetkazasiz?",
+      "mandatory": false,
+      "priority": "NICE_TO_HAVE",
+      "valueType": "text",
+      "order": 85,
+      "dependsOn": {
+        "delivery.enabled": [
+          "own",
+          "aggregator"
+        ]
+      }
+    },
+    {
+      "path": "branches.count",
+      "category": "products_services",
+      "question": "Nechta filial yoki manzil bor?",
+      "quickReplies": [
+        "1 ta",
+        "2-3 ta",
+        "4+"
+      ],
+      "mandatory": true,
+      "priority": "MUST",
+      "valueType": "text",
+      "order": 86,
+      "clarifyPrompt": "Filiallar bo'yicha aniqlashtiraylik: har biri uchun alohida sahifa va ish vaqti kerakmi?"
+    },
+    {
+      "path": "branches.hours",
+      "category": "content",
+      "question": "Ish vaqti qanday? (har bir filial uchun)",
+      "mandatory": true,
+      "priority": "MUST",
+      "valueType": "text",
+      "order": 112,
+      "clarifyPrompt": "Ish vaqtini aniqlashtiraylik: bayram kunlari va dam olish kunlari qanday ishlaydi?"
+    },
+    {
+      "path": "online_ordering.enabled",
+      "category": "features",
+      "question": "Saytda onlayn buyurtma (savat bilan) kerakmi yoki telefon orqali buyurtma yetarlimi?",
+      "quickReplies": [
+        "Savat bilan",
+        "Telefon orqali",
+        "Bilmayman"
+      ],
+      "mandatory": true,
+      "priority": "MUST",
+      "valueType": "choice",
+      "options": [
+        "cart",
+        "phone",
+        "undecided"
+      ],
+      "order": 54,
+      "defaultSuggestion": "telefon/Telegram orqali buyurtma (savat keyingi bosqichda)",
+      "clarifyPrompt": "Buyurtma oqimini tanlaylik: saytda savat bilan buyurtmami, telefon orqali buyurtmami yoki hozircha qaror qilinmaganmi?"
+    },
+    {
+      "path": "location.map",
+      "category": "integrations",
+      "question": "Xarita va manzilni saytda ko'rsatamizmi?",
+      "quickReplies": [
+        "Ha, Google Maps",
+        "Yandex xarita",
+        "Shart emas"
+      ],
+      "mandatory": false,
+      "priority": "NICE_TO_HAVE",
+      "valueType": "choice",
+      "options": [
+        "google",
+        "yandex",
+        "none"
+      ],
+      "order": 132
+    }
+  ]
+}

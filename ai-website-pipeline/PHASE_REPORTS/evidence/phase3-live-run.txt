@@ -1,0 +1,166 @@
+
+> wpp@0.1.0 demo:live
+> tsx scripts/live-requirements-demo.ts
+
+=== Live requirements interview over HTTP (simulator channel) ===
+client → project 01a11be4-1ee3-7ea0-aeee-249a75066653  state=INTAKE
+
+  Q1 [business_purpose.purpose] Sayt ochishdan asosiy maqsadingiz nima — mijozlar nima qilishini xohlaysiz?
+  A1 Mijozlar restoranimizni topib, menyuni ko‘rib, stol bron qilishi uchun
+
+  Q2 [business_purpose.company_name] Yozib oldim.
+  A2 Osh Baraka
+
+  Q3 [target_audience.primary] Yozib oldim.
+  A3 Toshkentdagi 25-45 yoshli oilalar va ofis xodimlari
+
+  Q4 [target_audience.languages] Yozib oldim.
+  A4 O‘zbek, Rus
+
+  Q5 [website_type.type] Yozib oldim.
+  A5 RESTAURANT
+
+  Q6 [pages.list] Yozib oldim.
+  A6 Bosh sahifa, Menyu, Biz haqimizda, Filiallar, Aloqa
+
+  Q7 [features.core] Yozib oldim.
+  A7 stol bron qilish, menyu ko‘rish, xarita va manzil
+
+  Q8 [reservations.enabled] Yozib oldim.
+  A8 yes
+
+  Q9 [reservations.confirmation] Yozib oldim.
+  A9 Telefon orqali tasdiqlanadi
+
+  Q10 [online_ordering.enabled] Yozib oldim.
+  A10 phone
+
+  Q11 [authentication.needed] Yozib oldim.
+  A11 no
+
+  Q12 [payments.needed] Yozib oldim.
+  A12 no
+
+  Q13 [products_services.description] Yozib oldim.
+  A13 O‘zbek va turk oshxonasi: palov, kabob, shashlik, somsa, ichimliklar
+
+  Q14 [menu.kind] Yozib oldim.
+  A14 Rasm bilan, narxlar bilan
+
+  Q15 [delivery.enabled] Yozib oldim.
+  A15 own
+
+  Q16 [delivery.zone] Yozib oldim.
+  A16 Toshkent shahri, Yakkasaroy va Yunusobod
+
+  Q17 [branches.count] Yozib oldim.
+  A17 2 ta filial
+
+  Q18 [admin_panel.needed] Yozib oldim.
+  A18 yes
+
+  Q19 [admin_panel.roles] Yozib oldim.
+  A19 admin, kontent muharriri
+
+  Q20 [design.style] Yozib oldim.
+  A20 Yorug‘ va minimal: oq fon, to‘q sariq urg‘u, menyu rasmlari katta
+
+  Q21 [content.languages] Yozib oldim.
+  A21 O‘zbek, Rus
+
+  Q22 [branches.hours] Yozib oldim.
+  A22 Har kuni 10:00–23:00
+
+  Q23 [seo.needed] Yozib oldim.
+  A23 yes
+
+  Q24 [seo.keywords] Yozib oldim.
+  A24 palov yetkazib berish, Toshkent restoran, milliy taomlar
+
+  Q25 [integrations.list] Yozib oldim.
+  A25 Instagram, Google Maps, Telegram
+
+  Q26 [security.requirements] Yozib oldim.
+  A26 Standart: HTTPS, mijoz ma’lumotlari shifrlangan holda saqlanadi
+
+  Q27 [hosting.preference] Yozib oldim.
+  A27 team
+
+  Q28 [domain.name] Yozib oldim.
+  A28 oshbaraka.uz (bizda bor)
+
+  Q29 [budget.range] Yozib oldim.
+  A29 mid
+
+  Q30 [deadline.expected] Yozib oldim.
+  A30 1 oy ichida, sentabr kampaniyasiga ulgurish kerak
+
+  Q31 [deadline.expected] ## Maqsad
+  A31 1 oy ichida, sentabr kampaniyasiga ulgurish kerak
+
+=== Result (from GET /api/v1/projects/:id/requirements) ===
+state: CLIENT_REVIEW  type: RESTAURANT  turns: 31
+completeness: 100%  fields: 39
+mandatory confirmed: 24/24
+open contradictions: 0
+summary artifact: data/projects/01a11be4-1ee3-7ea0-aeee-249a75066653/requirements/v1.md  sha256=7edfd91894e37eaa…
+--- summary (first lines) ---
+# Ichki xulosa — Osh Baraka
+
+## Biznes
+- O‘zbek/turk oshxonasi restorani, 2 filial, Toshkent.
+- Maqsad: menyu, filiallar va stol bron qilish.
+
+## Sahifalar va funksiyalar
+- 5 sahifa: bosh, menyu, biz haqimizda, filiallar, aloqa.
+- Stol bron qilish (telefon orqali tasdiqlanadi), xarita, Instagram/Telegram.
+
+
+outbound messages: 32
+
+=== Phase 3: specification and the two-step client approval ===
+spec v1 IN_REVIEW  ·  approval step: AWAIT_SUMMARY_ACK
+traceability (§16): 30/30 requirements tied to a client field, 30 acceptance criteria
+--- step 1: the Client Summary the client received ---
+## Maqsad
+Mijozlar restoranimizni topib, menyuni ko‘rib, stol bron qilishi uchun
+
+## Sahifalar
+- Bosh sahifa
+- Menyu sahifasi
+- Biz haqimizda sahifasi
+- Filiallar sahifasi
+- Aloqa sahifasi
+
+## Funksiyalar
+- Asosiy funksiyalar
+  (no approval question yet — that is step 2)
+
+--- step 2: the approval question (step now: AWAIT_DECISION) ---
+Tayyor! Yuqoridagi qisqacha tavsif bilan tanishib chiqdingizmi?
+
+Agar hammasi joyida bo‘lsa — *Ha, tasdiqlayman* deb yozing.
+Biror narsani o‘zgartirish kerak bo‘lsa — *O‘zgartirish kerak* deb yozing yoki shunchaki nima qo‘shish/olib tashlashni ayting.
+
+Ha, tasdiqlayman · O‘zgartirish kerak
+
+--- the client asks for a change ---
+versions: v1:SUPERSEDED, v2:IN_REVIEW
+v2 change text: "Menyu sahifasida narxlar ham ko‘rinsin, o‘zgartirish kerak
+-"
+
+=== Result (from GET /api/v1/projects/:id/spec) ===
+project state: CLIENT_APPROVED
+versions: v1:SUPERSEDED, v2:LOCKED
+current: v2 LOCKED
+traceability: 31/31 requirements tied to a client field, AC: 31
+approval: REQUEST_CHANGES via KEYWORD (90%) — client message 01a11be7
+approval: APPROVE via KEYWORD (95%) — client message 01a11be7
+
+--- a locked specification cannot be edited (§19/§35) ---
+PATCH /api/v1/projects/:id/spec → 409 SPEC_IS_LOCKED — approved specifications are immutable — create a change request (SPEC §35)
+POST /api/v1/projects/:id/change-requests → 201
+change requests: REQUESTED — Aloqa sahifasiga xarita qo‘shilsin
+
+Dev console: http://127.0.0.1:3000/  (Specification panel: version, approval step, traceability, history)
+DONE — specification generated, approved by the client, locked; changes now need a Change Request.
