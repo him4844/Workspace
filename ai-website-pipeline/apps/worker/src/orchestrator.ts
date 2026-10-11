@@ -10,7 +10,7 @@ import { claimNextJob, completeJob, failJob, getProject, listParkedJobs, obsRepo
 import { isJobAllowedInState, JOB_POLICIES, toWppError, type JobType } from '@wpp/core';
 import type { Config, Logger } from '@wpp/infra';
 import type { LlmClient } from '@wpp/agents';
-import { HANDLERS } from './handlers/index.js';
+import { HANDLERS, type JobHandler } from './handlers/index.js';
 
 export interface HandlerContext {
   db: Db;
@@ -75,7 +75,9 @@ export async function tick(deps: OrchestratorDeps, opts: { maxJobs?: number } = 
         continue;
       }
 
-      const handler = HANDLERS[job.type as JobType];
+      // HANDLERS is total over JobType, but job.type is a string read back from the database: a row
+      // written by another build can name a type this binary does not know. Keep the runtime guard.
+      const handler: JobHandler | undefined = HANDLERS[job.type as JobType];
       if (!handler) {
         await failAndEscalateDeadLetter(deps, job, {
           code: 'NO_HANDLER', message: `no handler for ${job.type}`, retryable: false,
@@ -146,8 +148,14 @@ export async function failAndEscalateDeadLetter(
       reason: `${error.code}: ${error.message}`,
       suggestedAction: error.code === 'LLM_BUDGET_EXCEEDED'
         ? `The configured daily LLM budget ($${deps.config.LLM_DAILY_BUDGET_USD.toFixed(2)}, UTC day) would be exceeded. Wait for the next UTC day or, if the owner approves, raise the cap and verify the model's pricing before resuming.`
-        : error.code === 'LLM_QUOTA_EXHAUSTED' || error.code === 'LLM_RATE_LIMITED'
-          ? `The free provider refused the call${error.retryAfterMs !== undefined ? ` and asked us to wait ${Math.ceil(error.retryAfterMs / 60_000)} minute(s)` : ''}. The queue scheduled waits up to 24 hours; this failure exceeded that window or exhausted attempts. Wait for the provider window (or select another free model/preset in config/llm-presets.json), then resume the blocked project.`
+        // `LLM_QUOTA_EXHAUSTED` used to be tested here and is not a code anything can produce: it
+        // appears in neither `LlmErrorCode` nor `AGENT_ERROR_CODES`, so this arm was dead and the
+        // distinction it promised never reached an operator. Adding it would mean editing the frozen
+        // §49 envelope contract, and the observable signal already exists without that: a provider
+        // out of DAILY quota either names a wait of hours or names none at all, while a
+        // tokens-per-minute refusal names a short one. The message now says which is which.
+        : error.code === 'LLM_RATE_LIMITED'
+          ? `The free provider refused the call${error.retryAfterMs !== undefined ? ` and asked us to wait ${Math.ceil(error.retryAfterMs / 60_000)} minute(s)` : ''}. The queue reschedules waits of up to 24 hours (D-052); this failure exceeded that window or exhausted its attempts. A wait measured in minutes is the tokens-per-minute window — retrying is enough. A wait measured in hours, or no wait at all, usually means the provider's DAILY quota is gone: pick another free preset in config/llm-presets.json (a different vendor has a separate bucket) instead of waiting, then resume the blocked project.`
           : 'Read the job attempt history (GET /api/v1/jobs), fix the cause, then resume the blocked project.',
       aiReport: {
         jobId: job.id, jobType: job.type, code: error.code, retryable: error.retryable,
@@ -196,7 +204,8 @@ export async function runLoop(deps: OrchestratorDeps, opts: { signal?: AbortSign
   const interval = deps.config.JOB_POLL_INTERVAL_MS;
   deps.logger.info({ workerId: deps.workerId, interval }, 'orchestrator loop started');
 
-  // eslint-disable-next-line no-constant-condition
+  // Deliberately constant: the loop leaves through the abort signal below or when the process is
+  // terminated, never because a condition went false.
   while (true) {
     if (opts.signal?.aborted) return;
     const result = await tick(deps);

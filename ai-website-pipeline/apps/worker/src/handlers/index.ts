@@ -86,7 +86,19 @@ const notImplemented = (phase: string): JobHandler => async (_ctx, job) => {
   throw new WppError('NOT_IMPLEMENTED_IN_PHASE', `${job.type} arrives in ${phase}`, 'HUMAN_REQUIRED');
 };
 
-export const HANDLERS: Partial<Record<JobType, JobHandler>> = {
+/**
+ * TOTAL over `JobType` on purpose.
+ *
+ * This used to be `Partial<Record<JobType, JobHandler>>`, which let `WATCHDOG` — declared in
+ * `JobType` and given a `JOB_POLICIES` row — have no entry at all. A job of an unmapped type does
+ * not sit quietly: the orchestrator answers `NO_HANDLER`, `failJob` escalates it to DEAD_LETTER, and
+ * `failAndEscalateDeadLetter` then files a CRITICAL task and moves the project to BLOCKED via T30.
+ * So one missing map entry turned a not-yet-built timer into a blocked project.
+ *
+ * A complete `Record` makes that a compile error instead: adding a `JobType` now forces a handler
+ * (real, or an explicit `notImplemented('Phase N')`) in the same commit.
+ */
+export const HANDLERS: Record<JobType, JobHandler> = {
   ECHO_REPLY: echoReply,
   SEND_OUTBOUND: sendOutbound,
   REQUIREMENTS_TURN: requirementsTurn,
@@ -99,6 +111,8 @@ export const HANDLERS: Partial<Record<JobType, JobHandler>> = {
   CODE_CHECK: notImplemented('Phase 6'),
   INACTIVITY_CHECK: inactivityCheck,
   TOKEN_REFRESH: notImplemented('Phase 5'),
+  // docs/16 A3 pairs the webhook watchdog with the Team Panel banner, so it lands with Phase 7.
+  WATCHDOG: notImplemented('Phase 7'),
 };
 
 export { echoReply, sendOutbound };

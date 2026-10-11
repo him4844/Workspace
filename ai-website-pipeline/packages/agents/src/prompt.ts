@@ -26,7 +26,8 @@ export const AGENT_RULES = [
 
 /** Strip control characters that could confuse the model or the logs. */
 function stripControlChars(text: string): string {
-  // eslint-disable-next-line no-control-regex
+  // A control-character class on purpose — this IS the sanitiser for untrusted client text (§38),
+  // not a regex that accidentally swallowed a control code.
   return text.replace(/[\u0000-\u0008\u000B\u000C\u000E-\u001F\u007F]/g, ' ');
 }
 

@@ -32,7 +32,7 @@ Non-goals for MVP: tenant isolation (single org now, `org_id` prepared), DDoS-gr
 | Replay/duplicate | `webhook_events` unique index; idempotency keys on jobs (§41) |
 | Token at rest | AES-256-GCM with `TOKEN_ENCRYPTION_KEY`; scopes/expiry tracked; daily refresh job with alert; `NEEDS_REAUTH` banner |
 | Token in transit | TLS only; token never in URLs logged by proxies (use POST bodies for token exchange) |
-| Rate-limit safety | per-connection token bucket + platform-side 30 msg/min cap; 429 backoff; never retry window-violation errors |
+| Rate-limit safety | per-connection fixed 60-second send window, durable in `send_rate_limits` and shared by concurrent workers + platform-side 30 msg/min cap; 429 backoff; never retry window-violation errors |
 | Least privilege | app asks only `instagram_business_basic` + `instagram_business_manage_messages` (+ Human Agent feature only if needed) |
 | Auditability | every outbound message row (incl. drafts, sent-by, human_agent flag) is immutable and visible in the panel |
 

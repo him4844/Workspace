@@ -71,7 +71,8 @@ async function main(): Promise<void> {
 }
 
 main().catch((err) => {
-  // eslint-disable-next-line no-console
+  // stderr on purpose: this is the dev runner's own fatal path, and it may have failed while
+  // starting the child processes whose output it forwards.
   console.error('dev runner failed:', err);
   process.exit(1);
 });

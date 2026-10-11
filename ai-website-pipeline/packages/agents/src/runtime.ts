@@ -149,7 +149,8 @@ export async function runAgentTurn<T>(deps: RunAgentDeps, input: RunAgentInput<T
     const sleep = deps.sleepMs ?? ((ms: number) => new Promise<void>((resolve) => setTimeout(resolve, ms)));
     let completion;
     let rateLimitWaits = 0;
-    // eslint-disable-next-line no-constant-condition
+    // Deliberately constant: every exit is a return or a throw inside the body, bounded by the
+    // one-repair rule (SPEC §4) and by the rate-limit wait counter above.
     while (true) {
       let budgetReservation: unknown;
       if (deps.beforeRequest) {

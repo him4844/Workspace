@@ -16,16 +16,77 @@
  */
 import type { LlmMessage } from './llm/types.js';
 
-/** Provider docs use chars/4; treat the result as ±20 %, which is enough for a budget guard. */
+/**
+ * Chars-per-token, by script.
+ *
+ * Provider documentation publishes ~4 chars/token and treats it as ±20 %, which is true for English
+ * and other Latin-script prose. It is not true for the rest of what this pipeline can be handed:
+ * BPE vocabularies are trained mostly on English, so the same number of Cyrillic characters costs
+ * roughly twice the tokens, and CJK costs more again. `DEFAULT_LOCALE` is `uz` (Latin, with ʻ and ʼ)
+ * but `ru` is a supported client language, and client text goes into the prompt verbatim.
+ *
+ * Under-counting is the dangerous direction: the whole point of the guard (§58, D-040) is for US to
+ * refuse an oversized request instead of the provider 429-ing it mid-phase. These divisors are
+ * therefore deliberately conservative — biased to over-estimate for non-Latin text.
+ */
 export const CHARS_PER_TOKEN = 4;
+/** Cyrillic, Greek and the other dense-but-not-CJK scripts. */
+export const CHARS_PER_TOKEN_NON_LATIN = 2;
+/** CJK, kana and Hangul: the densest in practice. */
+export const CHARS_PER_TOKEN_CJK = 1.5;
+
+type ScriptClass = 'latin' | 'nonLatin' | 'cjk';
+
+/**
+ * Classify one code point. Ranges are explicit rather than "everything above ASCII", because Uzbek
+ * Latin punctuation (ʻ U+02BB, ʼ U+02BC, ’ U+2019, — U+2014) must stay in the Latin bucket — moving
+ * it would silently reprice every existing prompt measurement.
+ */
+export function scriptClass(codePoint: number): ScriptClass {
+  if (codePoint < 0x0300) return 'latin'; // ASCII, Latin-1, Latin Extended-A/B, spacing modifiers
+  if (codePoint >= 0x0370 && codePoint < 0x0530) return 'nonLatin'; // Greek, Cyrillic + supplement
+  if (codePoint >= 0x0530 && codePoint < 0x0600) return 'nonLatin'; // Armenian, Hebrew
+  if (codePoint >= 0x0600 && codePoint < 0x0700) return 'nonLatin'; // Arabic
+  if (codePoint >= 0x0900 && codePoint < 0x0e80) return 'nonLatin'; // Devanagari, Bengali, Tamil…
+  if (codePoint >= 0x0e80 && codePoint < 0x1000) return 'nonLatin'; // Thai, Lao
+  if (codePoint >= 0x1e00 && codePoint < 0x1f00) return 'latin'; // Latin Extended Additional
+  if (codePoint >= 0x2000 && codePoint < 0x2100) return 'latin'; // general punctuation: — ’ “ ”
+  if (codePoint >= 0x3000 && codePoint < 0xa000) return 'cjk'; // CJK symbols, kana, CJK unified
+  if (codePoint >= 0xac00 && codePoint < 0xd800) return 'cjk'; // Hangul syllables
+  if (codePoint >= 0xf900 && codePoint < 0xfb00) return 'cjk'; // CJK compatibility ideographs
+  return 'nonLatin'; // everything else, including emoji and astral-plane characters
+}
+
+const DIVISOR: Record<ScriptClass, number> = {
+  latin: CHARS_PER_TOKEN,
+  nonLatin: CHARS_PER_TOKEN_NON_LATIN,
+  cjk: CHARS_PER_TOKEN_CJK,
+};
 
 /** Keys that only document the schema — the model does not need them to produce valid JSON. */
 const COSMETIC_SCHEMA_KEYS = new Set([
   '$schema', '$id', 'title', 'description', 'examples', 'exampleInvalid',
 ]);
 
+/**
+ * Estimated prompt/completion tokens for a budget guard — not a tokenizer.
+ *
+ * Iterates code points rather than UTF-16 units, so a surrogate pair is classified by its real code
+ * point (U+1F44D, not two unpaired halves) and is not counted twice.
+ *
+ * The result is never lower than the old `length / 4`: Latin text is unchanged, and every denser
+ * script only ever raises the estimate. The guard therefore became more conservative, never more
+ * permissive, and the prompt measurements recorded in `PHASE_REPORTS/evidence/` — all Uzbek Latin —
+ * are still accurate.
+ */
 export function estimateTokens(text: string): number {
-  return Math.ceil(text.length / CHARS_PER_TOKEN);
+  const counts: Record<ScriptClass, number> = { latin: 0, nonLatin: 0, cjk: 0 };
+  for (const character of text) {
+    counts[scriptClass(character.codePointAt(0)!)] += 1;
+  }
+  const total =
+    counts.latin / DIVISOR.latin + counts.nonLatin / DIVISOR.nonLatin + counts.cjk / DIVISOR.cjk;
+  return Math.ceil(total);
 }
 
 /** Compact JSON for prompt use: same data, no pretty-printing, `undefined` keys dropped. */

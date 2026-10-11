@@ -2,7 +2,7 @@
 
 > Har sessiyada holat, bajarilgan ish, haqiqiy test natijalari va ochiq xavflar yangilanadi.
 > Batafsil faza hisobotlari: `PHASE_REPORTS/phaseN.md`; xom dalillar: `PHASE_REPORTS/evidence/`.
-> **Oxirgi yangilanish:** 2026-10-11 (Tashkent) — tashqi mustaqil audit (`AUDIT.md`) yakunlandi va uning **P0-1 hamda P1-1…P1-4** topilmalari test bilan yopildi; CI endi to‘liq `verify` pipeline‘ni ishga tushiradi. Serial to‘liq tekshiruv **27 fayl / 231 test PASS** (224.9 s), schema drift **39/39 jadval + 18/18 enum**, typecheck 0 xato. P5 boshlanmagan; aniq tasdiq va generated-site stack tanlovini kutmoqda (`AUDIT.md` §8D tavsiyasi: statik HTML/CSS/vanilla JS).
+> **Oxirgi yangilanish:** 2026-10-11 (Tashkent) — tashqi mustaqil audit (`AUDIT.md`) yakunlandi va uning **P0-1 hamda P1-1…P1-4** topilmalari test bilan yopildi; CI endi to‘liq `verify` pipeline‘ni ishga tushiradi. Serial to‘liq tekshiruv **31 fayl / 270 test PASS** (275.8 s), schema drift **39/39 jadval + 18/18 enum**, typecheck 0 xato. P5 boshlanmagan; aniq tasdiq va generated-site stack tanlovini kutmoqda (`AUDIT.md` §8D tavsiyasi: statik HTML/CSS/vanilla JS).
 >
 > _2026-10-09 — P0–P4 bo‘yicha aniqlangan kamchiliklarni tuzatish yakunlandi; serial to‘liq tekshiruv 24 fayl / 214 test PASS, docs/contracts PASS._
 
@@ -62,7 +62,7 @@ npm run verify
 ```
 
 - TypeScript: **PASS**.
-- Vitest: **27 test fayli, 231 test PASS** (224.93 s). Auditdan keyin qo‘shilganlar: `tests/unit/db-driver.test.ts` (4), `tests/unit/config-env-parity.test.ts` (5), `tests/unit/contract-parity.test.ts` (5) va `spec-core.test.ts` dagi 3 ta inkor/emoji testi. Mavjud 214 testdan hech biri o‘zgarmadi.
+- Vitest: **31 test fayli, 270 test PASS** (275.76 s). Auditdan keyin qo‘shilganlar: `db-driver` (4), `config-env-parity` (5), `contract-parity` (5), `api-auth` (16), `token-estimate` (10), `job-handler-coverage` (5), `send-rate-window` (8) va `spec-core` dagi 3 ta inkor/emoji testi — jami 56 ta yangi test. Mavjud 214 testdan hech biri o‘zgarmadi.
 - Schema drift: `npm run schema:drift` — 39 Drizzle jadval vs 39 migratsiya jadvali, 18 vs 18 enum turi; `event_type` tartibi bo‘yicha 1 ta **ogohlantirish** (SQL `ALTER TYPE … ADD VALUE` faqat oxiriga qo‘shadi) — xato emas.
 - Docs/contracts: **23 docs present; contracts valid JSON**.
 - Buyruq yakuni: **exit 0**; xom log: `PHASE_REPORTS/evidence/phase0-4-remediation-verify.txt`.

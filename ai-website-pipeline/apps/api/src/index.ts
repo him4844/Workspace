@@ -49,7 +49,8 @@ async function main(): Promise<void> {
 }
 
 main().catch((err) => {
-  // eslint-disable-next-line no-console
+  // stderr is the only channel left here: boot failed before pino was wired up and the process is
+  // about to exit non-zero, so the injected logger cannot report its own absence.
   console.error('api failed to start:', err);
   process.exit(1);
 });

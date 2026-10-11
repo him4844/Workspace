@@ -41,7 +41,18 @@ tartibida turadi.
 | **P1-4** kontrakt enum drifti | ✅ **yopildi** | `AgentErrorCode` endi `AGENT_ERROR_CODES` dan **keltirib chiqariladi** (`(typeof AGENT_ERROR_CODES)[number]`), ya'ni runtime va wire-enum yana ajralib ketishi mumkin emas; `LLM_BUDGET_EXCEEDED` JSON kontraktga qo'shildi | `tests/unit/contract-parity.test.ts` (5 test) |
 | **P3-1** README eskirgan | ✅ **yopildi** | Status jadvali: P0–P4 ✅ / P5–P8 ❌ (aniq sababi bilan); `docker compose` bloki "ishlamaydi (P8)" deb belgilandi; keyingi qadamlar P5 ga qaratildi | — |
 | §6 hujjat-vs-reallik drifti | ✅ **qisman** | `docs/14 §3` va `§7`, `docs/16 C2`, `docs/12` haqiqatga moslandi; qaysi CI bosqichi yo'qligi va **nega** yo'qligi jadval bilan yozildi | — |
-| **P2-1…P2-7** · **P3-2…P3-5** | ⏳ **ochiq** | §8 dagi tartibda kutilmoqda | — |
+| **P2-1** `/dev/simulator/*` autentifikatsiyasiz | ✅ **yopildi** | Markaziy guard endi **loopback** talab qiladi: flag `true` bo'lsa ham tarmoqdan kirish 404. `trustProxy` yoqilmagan, shuning uchun `request.ip` — soket manzili, header bilan soxtalashtirib bo'lmaydi | `tests/integration/api-auth.test.ts` |
+| **P2-2** takroriy, tartibga bog'liq auth hook'lar | ✅ **yopildi** | Uchta modul o'z root-level `preHandler`'ini ro'yxatdan o'tkazar edi (har bir so'rovda 3 marta). Endi bitta `apps/api/src/auth.ts` bor; `token !== config.INTERNAL_API_TOKEN` o'rniga **constant-time** `safeEqual()` (SHA-256 + `timingSafeEqual`) | `tests/integration/api-auth.test.ts` (16 test) |
+| **P2-3** `WATCHDOG` handler'siz | ✅ **yopildi** | `HANDLERS` endi **total** `Record<JobType, JobHandler>` — keyingi tushib qolgan job turi `tsc` xatosi bo'ladi; `WATCHDOG: notImplemented('Phase 7')` qo'shildi. Orchestrator'dagi runtime `NO_HANDLER` gardi saqlandi (DB'dan kelgan `type` — string) | `tests/unit/job-handler-coverage.test.ts` (5 test) |
+| **P2-4** `CHARS_PER_TOKEN=4` kirill uchun kam | ✅ **yopildi** | `estimateTokens()` endi skript-aware: lotin 4, kirill/yunon/arab va b. 2, CJK 1.5; kod nuqtalari bo'yicha sanaydi. **Natija hech qachon eskisidan past emas** — guard faqat qat'iyroq bo'ldi, lotin matn o'zgarmadi (shuning uchun `PHASE_REPORTS/evidence/` o'lchovlari hali ham to'g'ri) | `tests/unit/token-estimate.test.ts` (10 test) |
+| **P2-5** fixed window, hujjatda "token bucket" | ✅ **yopildi** (hujjat + kafolat) | `docs/08`, `docs/10`, `docs/16 A5` haqiqatga moslandi; chegaradagi burst xatti-harakati **test bilan qoqib qo'yildi**; `consumeSendRateLimit` parametri `Executor`→`Db` ga toraytirildi — nested transaction endi kompilyatsiya xatosi | `tests/integration/send-rate-window.test.ts` (8 test) |
+| **P2-6** o'lik `LLM_QUOTA_EXHAUSTED` shoxi | ✅ **yopildi** | Shox olib tashlandi (bu kod hech qaysi `LlmErrorCode`/`AGENT_ERROR_CODES` da yo'q); yangi kod qo'shish **frozen §49 kontraktini** buzardi. O'rniga operator xabari haqiqiy signalni ajratadi: daqiqalik kutish = TPM oynasi, soatlik/yoki kutish yo'q = kunlik kvota tugagan → boshqa free preset | — |
+| **P2-7** ESLint yo'q, lekin 6 ta `eslint-disable` | ✅ **yopildi** | Barcha 6 ta izoh o'chirildi va o'rnini **haqiqiy sabab** egalladi (bootstrap stderr, `while(true)` ning chiqish yo'li, §38 sanitiserining ataylab control-char klassi). ESLint o'rnatish P5 oldidan tavsiya sifatida qoldi | `grep eslint-disable` → 0 |
+| **P3-1** README eskirgan | ✅ **yopildi** | Status jadvali P0–P4 ✅ / P5–P8 ❌; `docker compose` "ishlamaydi (P8)" deb belgilandi | — |
+| **P3-4** `PHASE0_REVIEW.html` ildizda | ✅ **yopildi** | `PHASE_REPORTS/PHASE0_REVIEW.html` ga ko'chirildi (`git mv`, tarix saqlangan); hech qaysi fayl unga havola qilmagan | — |
+| **P3-2** `phase4-live-all-fixes.txt` o'ziga zid | ⏳ **ochiq, ataylab** | Bu **tarixiy dalil fayli** — `PHASE_REPORTS/evidence/` xom yozuv. Uni tahrirlash dalilni soxtalashtirish bo'lardi; ziddiyat `AUDIT.md` §4 da qayd etilgan holda qoladi | — |
+| **P3-3** planner/model maydon nomlari mos kelmasligi (30/30 turn warning) | ⏳ **ochiq** | Scripted-persona demo artefakti; P5 da haqiqiy planner paydo bo'lganda yopiladi | — |
+| **P3-5** `data/projects/*` — scripted-persona natijasi | ⏳ **ochiq, ataylab** | Fayllar o'zining haqiqiy LLM natijasi emasligini ochiq aytadi; ular demo uchun kerak. Repo'ga kirmagan (`.gitignore`) | — |
 
 **Yangi vosita — `scripts/check-schema-drift.ts`** (`npm run schema:drift`, CI'da majburiy bosqich):
 Drizzle sxema bilan `db/migrations/*.sql` ni **jadval va enum qiymatlari** bo'yicha solishtiradi.
@@ -56,11 +67,11 @@ tartiblash/range-solishtirish yo'q, shuning uchun bu **ogohlantirish**, xato ema
 node scripts/check-docs.mjs   -> OK: 23 docs present, contracts valid JSON
 npm run schema:drift          -> 39 Drizzle vs 39 migrated tables, 18 vs 18 enums, 1 WARN (event_type order) -> exit 0
 npm run typecheck             -> 0 errors
-npm run test                  -> 27 files / 231 tests PASS, 224.9 s
+npm run test                  -> 31 files / 270 tests PASS, 275.8 s
 ```
 
-Ya'ni §0 jadvalidagi "24 fayl / 214 test" endi **27 fayl / 231 test** — 3 ta yangi test fayli va
-17 ta yangi test qo'shildi, mavjud 214 tasidan **hech biri buzilmadi**.
+Ya'ni §0 jadvalidagi "24 fayl / 214 test" endi **31 fayl / 270 test** — 7 ta yangi test fayli va
+56 ta yangi test qo'shildi, mavjud 214 tasidan **hech biri buzilmadi**.
 
 ---
 
