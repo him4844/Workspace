@@ -1,0 +1,10 @@
+Phase-4 full `npm run verify` — 2026-10-08 (post all Phase-4 fixes, pre-commit)
+Command: npm run verify   (typecheck && vitest run && node scripts/check-docs.mjs)
+
+Test Files  16 passed (16)
+     Tests  179 passed (179)
+  Duration  213.28s
+
+OK: 23 docs present, contracts valid JSON
+
+(exit 0; Fastify deprecation warnings are pre-existing noise)

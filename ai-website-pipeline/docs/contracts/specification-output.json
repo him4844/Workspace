@@ -1,0 +1,149 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "wpp://contracts/specification-output.json",
+  "title": "Specification Agent output (SPEC §14–§19)",
+  "schemaVersion": "1.0.0",
+  "description": "Two related outputs from one source: the Technical Specification (authoritative) and the Client Summary generated FROM it. Traceability REQ → SPEC-REQ → AC is mandatory (§16).",
+  "type": "object",
+  "required": ["spec", "clientSummary"],
+  "additionalProperties": false,
+  "properties": {
+    "spec": {
+      "type": "object",
+      "required": ["meta", "requirements", "openQuestions"],
+      "properties": {
+        "meta": {
+          "type": "object",
+          "required": ["projectType", "generatedFromRequirementsVersion"],
+          "properties": {
+            "projectType": { "type": "string" },
+            "generatedFromRequirementsVersion": { "type": "integer", "minimum": 1 },
+            "sectionsIncluded": { "type": "array", "items": { "type": "string" } },
+            "sectionsOmitted": { "type": "array", "items": { "type": "string" }, "description": "§15 allows context-sensitive omission, but it must be explicit." }
+          }
+        },
+        "overview": { "type": ["string", "null"] },
+        "businessGoals": { "type": "array", "items": { "type": "string" } },
+        "targetUsers": { "type": "array", "items": { "type": "string" } },
+        "sitemap": { "type": "array", "items": { "type": "string" } },
+        "pages": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "required": ["name", "purpose"],
+            "properties": {
+              "name": { "type": "string" },
+              "purpose": { "type": "string" },
+              "sections": { "type": "array", "items": { "type": "string" } }
+            }
+          }
+        },
+        "requirements": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "required": ["code", "section", "title", "description", "acceptanceCriteria", "priority"],
+            "additionalProperties": false,
+            "properties": {
+              "code": { "type": "string", "pattern": "^SPEC-REQ-\\d{3,}$" },
+              "originReqField": { "type": ["string", "null"], "description": "requirement_fields.field_path this came from (traceability §16)." },
+              "originMessageIds": { "type": "array", "items": { "type": "string" } },
+              "section": { "type": "string" },
+              "title": { "type": "string" },
+              "description": { "type": "string" },
+              "priority": { "enum": ["MUST", "NICE_TO_HAVE", "LATER"] },
+              "acceptanceCriteria": {
+                "type": "array",
+                "minItems": 1,
+                "items": {
+                  "type": "object",
+                  "required": ["code", "text", "testable"],
+                  "additionalProperties": false,
+                  "properties": {
+                    "code": { "type": "string", "pattern": "^AC-\\d{3,}$" },
+                    "text": { "type": "string" },
+                    "testable": { "type": "boolean" },
+                    "verificationHint": { "enum": ["E2E", "API", "VISUAL", "MANUAL", "STATIC"] }
+                  }
+                }
+              },
+              "verificationExpectation": { "type": ["string", "null"] }
+            }
+          }
+        },
+        "nonFunctional": { "type": ["object", "null"] },
+        "integrations": { "type": "array", "items": { "type": "string" } },
+        "databaseNotes": { "type": ["string", "null"] },
+        "deploymentRequirements": { "type": ["string", "null"] },
+        "definitionOfDone": { "type": "array", "items": { "type": "string" } },
+        "knownAssumptions": { "type": "array", "items": { "type": "string" } },
+        "openQuestions": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "required": ["question", "blocking"],
+            "properties": {
+              "question": { "type": "string" },
+              "blocking": { "type": "boolean" },
+              "relatedField": { "type": ["string", "null"] }
+            }
+          }
+        },
+        "futureScope": { "type": "array", "items": { "type": "string" } }
+      }
+    },
+    "clientSummary": {
+      "type": "object",
+      "required": ["markdown", "assumptionsShown"],
+      "properties": {
+        "markdown": { "type": "string", "description": "Simple language, no jargon (§18). Must not contradict the spec." },
+        "assumptionsShown": { "type": "array", "items": { "type": "string" } },
+        "approveLabel": { "type": "string" },
+        "requestChangesLabel": { "type": "string" }
+      }
+    }
+  },
+  "exampleValid": {
+    "spec": {
+      "meta": { "projectType": "RESTAURANT", "generatedFromRequirementsVersion": 2, "sectionsIncluded": ["overview", "pages", "requirements"], "sectionsOmitted": ["payments"] },
+      "overview": "A 4-page restaurant website with menu, location and reservation request form.",
+      "businessGoals": ["Show the menu online", "Enable reservation requests"],
+      "targetUsers": ["Local diners"],
+      "sitemap": ["Home", "Menu", "About", "Contacts"],
+      "pages": [{ "name": "Home", "purpose": "First impression + key info", "sections": ["hero", "highlights", "hours", "map"] }],
+      "requirements": [
+        {
+          "code": "SPEC-REQ-001",
+          "originReqField": "pages",
+          "originMessageIds": ["018f2a20-..."],
+          "section": "9. Page Specifications",
+          "title": "Home page",
+          "description": "Hero with restaurant name, short intro, hours, map embed, CTA to menu.",
+          "priority": "MUST",
+          "acceptanceCriteria": [
+            { "code": "AC-001", "text": "Home page loads with hero, hours and map; menu CTA navigates to Menu page.", "testable": true, "verificationHint": "E2E" }
+          ],
+          "verificationExpectation": "E2E: open home, click CTA, assert Menu page heading."
+        }
+      ],
+      "nonFunctional": { "performance": "LCP < 3s on 4G" },
+      "integrations": ["Google Maps embed"],
+      "databaseNotes": null,
+      "deploymentRequirements": "Static hosting acceptable.",
+      "definitionOfDone": ["All MUST requirements pass runtime checks"],
+      "knownAssumptions": ["Menu items are static at launch"],
+      "openQuestions": [],
+      "futureScope": ["Online ordering"]
+    },
+    "clientSummary": {
+      "markdown": "Your restaurant website will have 4 pages...",
+      "assumptionsShown": ["The menu will be static at launch."],
+      "approveLabel": "✅ Approve",
+      "requestChangesLabel": "✏️ Request changes"
+    }
+  },
+  "exampleInvalid": {
+    "spec": { "meta": { "projectType": "RESTAURANT" }, "requirements": [{ "code": "REQ-1", "title": "Home", "acceptanceCriteria": [] }] },
+    "clientSummary": { "markdown": "" }
+  }
+}

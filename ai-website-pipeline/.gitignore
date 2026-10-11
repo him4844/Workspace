@@ -1,0 +1,32 @@
+# dependencies
+node_modules/
+.pnpm-store/
+
+# env & secrets
+.env
+.env.*
+!.env.example
+
+# runtime data (artifacts, workspaces, pglite)
+data/projects/*
+!data/projects/.gitkeep
+data/workspaces/*
+!data/workspaces/.gitkeep
+.pglite/
+.cache/
+
+# build output
+dist/
+build/
+coverage/
+*.tsbuildinfo
+
+# logs
+*.log
+logs/
+
+# OS/editor
+.DS_Store
+.idea/
+.vscode/*
+!.vscode/extensions.json

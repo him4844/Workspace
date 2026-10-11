@@ -1,0 +1,36 @@
+
+> wpp@0.1.0 simulate:phase4
+> tsx scripts/simulate-phase4.ts
+
+=== 0. Config seeded from config/ (the reviewable source of truth) ===
+agent configs: REQUIREMENTS v1 (none/gpt-5-mini) | SPECIFICATION v1 (none/gpt-5-mini) | SPEC_AUDITOR v1 (none/gpt-5-mini)
+scripted auditor mode: pass
+
+=== 1. Phase 2 interview (real pipeline, scripted provider) ===
+turns=30  state=CLIENT_REVIEW  completeness=100%
+
+=== 2. Specification (T06/T07) and the two-step client approval (Phase 3) ===
+spec v1 status=IN_REVIEW  SPEC-REQ: 30
+client approved → v1 LOCKED, state=READY_FOR_BUILD
+
+=== 7. Approval enqueues SPEC_AUDIT → T11, the Spec Auditor runs (§20) ===
+audit attempts: 1   final state: READY_FOR_BUILD
+  attempt 1/3  spec v?  PASS  score=88  structuralForcedFail=false  modelSaid=PASS  checks=ambiguity:PASS consistency:PASS completeness:PASS clientAlignment:PASS codingReadiness:PASS
+  spec v1  status=LOCKED     change=""
+transitions: T01 → T02 → T03 → T05 → T06 → T07 → T10 → T11 → T12
+
+=== 8. PASS → T12 READY_FOR_BUILD: the build may start from a locked, audited specification ===
+current spec: v1 status=LOCKED (locked = immutable, §34)
+open human tasks: 0
+
+=== 11. Audit trail ===
+events: SPEC_GENERATED×1, SPEC_LOCKED×1, SPEC_AUDIT_RESULT×1, APPROVAL_RECORDED×1, TASK_CREATED×0
+spec-audit artifact: /tmp/wpp-phase4-a8Evaa/projects/01a11c1c-d4fa-73fa-974a-462ffbc463ff/spec-audit/v1-a1.md
+  **Verdict: PASS** — score 88/100 (auditor scripted/scripted-router) | checks: completeness=PASS consistency=PASS ambiguity=PASS codingReadiness=PASS clientAlignment=PASS
+agent runs: 1 audit run(s) of 36 total
+jobs: [{"status":"DONE","n":66},{"status":"PENDING","n":1}]
+LLM calls: 36 total, 1 audit, 3 specification
+client messages during the audit loop: 0 (0 = the loop never wakes the client)
+
+DONE — spec audit (pass) → READY_FOR_BUILD
+EXIT=0

@@ -1,0 +1,22 @@
+# CI skeleton. Phase 0: docs integrity check only.
+# From Phase 1 this workflow grows into the full `npm run verify` pipeline
+# (typecheck → lint+boundaries → unit → integration PGlite → integration Postgres
+#  → contract → e2e simulated slice → schema drift → openapi diff). See docs/14.
+
+name: ci
+
+on:
+  push:
+    branches: ["**"]
+  pull_request:
+
+jobs:
+  phase0-docs:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+      - name: Docs integrity (required files + contracts are valid JSON)
+        run: node scripts/check-docs.mjs

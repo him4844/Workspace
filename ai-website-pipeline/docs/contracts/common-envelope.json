@@ -1,0 +1,113 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "wpp://contracts/common-envelope.json",
+  "title": "Agent result envelope (SPEC §49)",
+  "schemaVersion": "1.0.0",
+  "description": "Every agent returns exactly one of these three shapes. The orchestrator routes on status only; prose is never parsed.",
+  "oneOf": [
+    {
+      "$ref": "#/$defs/success"
+    },
+    {
+      "$ref": "#/$defs/failed"
+    },
+    {
+      "$ref": "#/$defs/needsReview"
+    }
+  ],
+  "$defs": {
+    "usage": {
+      "type": "object",
+      "properties": {
+        "provider": { "type": "string" },
+        "model": { "type": "string" },
+        "promptTokens": { "type": "integer", "minimum": 0 },
+        "completionTokens": { "type": "integer", "minimum": 0 },
+        "costUsd": { "type": "number", "minimum": 0 },
+        "durationMs": { "type": "integer", "minimum": 0 }
+      },
+      "required": ["provider", "model", "promptTokens", "completionTokens"],
+      "additionalProperties": false
+    },
+    "artifactRef": {
+      "type": "object",
+      "properties": {
+        "kind": { "type": "string" },
+        "path": { "type": "string" },
+        "sha256": { "type": "string", "pattern": "^[a-f0-9]{64}$" }
+      },
+      "required": ["kind", "path", "sha256"],
+      "additionalProperties": false
+    },
+    "success": {
+      "type": "object",
+      "properties": {
+        "status": { "const": "SUCCESS" },
+        "projectId": { "type": ["string", "null"] },
+        "runId": { "type": "string" },
+        "confidence": { "type": "number", "minimum": 0, "maximum": 1 },
+        "nextAction": { "type": ["string", "null"] },
+        "output": { "type": "object" },
+        "usage": { "$ref": "#/$defs/usage" },
+        "repairCount": { "type": "integer", "minimum": 0, "maximum": 1 },
+        "artifacts": { "type": "array", "items": { "$ref": "#/$defs/artifactRef" } }
+      },
+      "required": ["status", "runId", "output", "usage", "repairCount"],
+      "additionalProperties": false
+    },
+    "failed": {
+      "type": "object",
+      "properties": {
+        "status": { "const": "FAILED" },
+        "runId": { "type": "string" },
+        "errorCode": {
+          "type": "string",
+          "enum": [
+            "LLM_TIMEOUT",
+            "LLM_RATE_LIMITED",
+            "LLM_PROVIDER_ERROR",
+            "INVALID_JSON",
+            "SCHEMA_VALIDATION_FAILED",
+            "CONTENT_POLICY",
+            "INPUT_MISSING",
+            "INTERNAL_ERROR"
+          ]
+        },
+        "message": { "type": "string" },
+        "retryable": { "type": "boolean" },
+        "usage": { "$ref": "#/$defs/usage" }
+      },
+      "required": ["status", "runId", "errorCode", "message", "retryable"],
+      "additionalProperties": false
+    },
+    "needsReview": {
+      "type": "object",
+      "properties": {
+        "status": { "const": "NEEDS_REVIEW" },
+        "runId": { "type": "string" },
+        "reason": { "type": "string" },
+        "partialOutput": { "type": ["object", "null"] },
+        "usage": { "$ref": "#/$defs/usage" }
+      },
+      "required": ["status", "runId", "reason"],
+      "additionalProperties": false
+    }
+  },
+  "exampleValid": {
+    "status": "SUCCESS",
+    "projectId": "018f2a0e-....",
+    "runId": "018f2a10-....",
+    "confidence": 0.91,
+    "nextAction": "ASK_QUESTION",
+    "output": { "question": "How many pages should the site have?" },
+    "usage": { "provider": "openai", "model": "gpt-5-mini", "promptTokens": 1200, "completionTokens": 80, "costUsd": 0.0009 },
+    "repairCount": 0,
+    "artifacts": []
+  },
+  "exampleInvalid": {
+    "status": "SUCCESS",
+    "output": { "question": 42 },
+    "usage": { "provider": "openai" },
+    "repairCount": "zero"
+  }
+}

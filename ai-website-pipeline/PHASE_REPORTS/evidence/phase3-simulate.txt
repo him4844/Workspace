@@ -1,0 +1,70 @@
+
+> wpp@0.1.0 simulate:phase3
+> tsx scripts/simulate-phase3.ts
+
+=== 0. Config seeded from config/ (the reviewable source of truth) ===
+questionnaires: CORPORATE v1, fields=8 | ECOMMERCE v1, fields=11 | EDUCATION v1, fields=8 | GENERAL v1, fields=29 | LANDING v1, fields=6 | RESTAURANT v1, fields=10
+agent configs:  REQUIREMENTS v1 (none/gpt-5-mini) | SPECIFICATION v1 (none/gpt-5-mini)
+config values:  20 keys
+
+=== 1. Phase 2 interview (one question per turn) ===
+project 01a11be8-7d5e-78ce-9f9b-d191c20530c8 state=REQUIREMENTS_IN_PROGRESS
+turns=30  state=CLIENT_REVIEW  completeness=100%
+
+=== 2. Hand-off (T06) and specification generation (§14–§17) ===
+spec v1 status=IN_REVIEW  SPEC-REQ: 30  AC: 30 (testable: 30)
+traceability (§16): 30/30 client-confirmed fields implemented by a SPEC-REQ
+artifact: /tmp/wpp-phase3-VWu8b5/projects/01a11be8-7d5e-78ce-9f9b-d191c20530c8/technical-spec/v1.md sha256=e97e28b7d6e5f232… (21155B)
+transitions: T01 → T02 → T03 → T05 → T06 → T07
+
+=== 3. Step 1 of the two-step approval: the Client Summary (§18) ===
+## Maqsad
+Mijozlar restoranimizni topib, menyuni ko‘rib, stol bron qilishi uchun
+
+## Sahifalar
+- Bosh sahifa
+- Menyu sahifasi
+- Biz haqimizda sahifasi
+- Filiallar sahifasi
+- Aloqa sahifasi
+
+## Funksiyalar
+- Asosiy funksiyalar
+- Onlayn buyurtma
+- Bron tasdiqlash
+
+  … (882 chars, no approval question yet — that is step 2)
+
+=== 4. The client replies → step 2 sends the explicit approval question ===
+Tayyor! Yuqoridagi qisqacha tavsif bilan tanishib chiqdingizmi?
+
+Agar hammasi joyida bo‘lsa — *Ha, tasdiqlayman* deb yozing.
+Biror narsani o‘zgartirish kerak bo‘lsa — *O‘zgartirish kerak* deb yozing yoki shunchaki nima qo‘shish/olib tashlashni ayting.
+
+Ha, tasdiqlayman · O‘zgartirish kerak
+
+=== 5. The client asks for a change → v2, v1 preserved (§34) ===
+  v1  status=SUPERSEDED SPEC-REQ=30  change=""
+  v2  status=IN_REVIEW  SPEC-REQ=31  change="Menyu sahifasida narxlar ham ko‘rinsin, o‘zgarti"
+  the client's words are in the spec, not only in the chat: "Menyu ko‘rinishi: mijoz tomonidan tasdiqlangan qiymat — Rasm bilan, narxlar bilan. Shu aso…"
+  v2 sent to the client for a new approval round: yes
+
+=== 6. The client approves v2 → LOCKED (§19) ===
+locked version: v2  lockedAt=2026-10-08T14:26:28.414Z
+  approval: REQUEST_CHANGES  source=client message 01a11be8-8ef9-7ddc-9325-50e455b534a3  confidence=0.9  via=KEYWORD
+  approval: APPROVE  source=client message 01a11be8-8fa5-7d54-a943-44c83598cbe2  confidence=0.95  via=KEYWORD
+project state: CLIENT_APPROVED
+
+=== 7. §19/§35: the approved version can no longer be edited ===
+PATCH /api/v1/projects/:id/spec  →  409 SPEC_IS_LOCKED — "approved specifications are immutable — create a change request (SPEC §35)"
+POST /api/v1/projects/:id/change-requests → 201 01a11be8-8fd3-7a71-87d6-5707da3067dc (status REQUESTED)
+  an approved Change Request queues SPEC_REVISE — a new version, never an edit of v2
+
+=== 8. Audit trail ===
+events: SPEC_GENERATED×2, SPEC_LOCKED×1, APPROVAL_RECORDED×2, CHANGE_REQUEST×1, SPEC_TRACEABILITY_FAILED×0, MESSAGE_OUTBOUND×38
+agent runs: 38 (38 success, 6 of them SPECIFICATION)
+jobs: [{"status":"DONE","n":69},{"status":"PENDING","n":1}]
+open human tasks: 0
+LLM calls: 38 total, 6 specification/intent
+
+DONE — specification generated, audited, approved by the client, locked and versioned.

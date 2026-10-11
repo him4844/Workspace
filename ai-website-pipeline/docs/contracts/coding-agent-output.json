@@ -1,0 +1,97 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "wpp://contracts/coding-agent-output.json",
+  "title": "Main Coding Agent output (SPEC §22, §23)",
+  "schemaVersion": "1.0.0",
+  "description": "The coding agent may ONLY implement what the audited spec says. Anything undefined must be reported in specIssues[] instead of guessed. Output is a file tree that the build runner materialises into a workspace.",
+  "type": "object",
+  "required": ["files", "runInstructions", "specIssues", "assumptions"],
+  "additionalProperties": false,
+  "properties": {
+    "files": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "type": "object",
+        "required": ["path", "content"],
+        "additionalProperties": false,
+        "properties": {
+          "path": { "type": "string", "pattern": "^(?!.*\\.\\.)(?!.*^/)[A-Za-z0-9._/-]+$", "description": "Relative path inside the workspace; no traversal." },
+          "content": { "type": "string" },
+          "encoding": { "enum": ["utf8", "base64"], "default": "utf8" },
+          "purpose": { "type": "string", "description": "e.g. 'ui component', 'api route' — used by the separation check." }
+        }
+      }
+    },
+    "layerMap": {
+      "type": "object",
+      "description": "Explicit UI vs business-logic separation evidence (§23).",
+      "properties": {
+        "ui": { "type": "array", "items": { "type": "string" } },
+        "domain": { "type": "array", "items": { "type": "string" } },
+        "adapters": { "type": "array", "items": { "type": "string" } }
+      }
+    },
+    "runInstructions": {
+      "type": "object",
+      "required": ["install", "build", "start"],
+      "properties": {
+        "install": { "type": "string" },
+        "build": { "type": "string" },
+        "start": { "type": "string" },
+        "test": { "type": ["string", "null"] },
+        "nodeVersion": { "type": ["string", "null"] },
+        "envVarsNeeded": { "type": "array", "items": { "type": "string" } }
+      },
+      "additionalProperties": false
+    },
+    "testsWritten": { "type": "array", "items": { "type": "string" } },
+    "acceptanceTestMap": {
+      "type": "array",
+      "description": "Which acceptance criteria the generated tests cover (§17 → §25A).",
+      "items": {
+        "type": "object",
+        "required": ["acCode", "testFile"],
+        "properties": { "acCode": { "type": "string" }, "testFile": { "type": "string" }, "testName": { "type": "string" } }
+      }
+    },
+    "specIssues": {
+      "type": "array",
+      "description": "Critical things the spec left undefined. Never guess: report.",
+      "items": {
+        "type": "object",
+        "required": ["description", "severity"],
+        "properties": {
+          "description": { "type": "string" },
+          "severity": { "enum": ["BLOCKING", "MAJOR", "MINOR"] },
+          "specSection": { "type": ["string", "null"] },
+          "assumptionMade": { "type": ["string", "null"] }
+        }
+      }
+    },
+    "assumptions": { "type": "array", "items": { "type": "string" } },
+    "designNotes": { "type": ["string", "null"] },
+    "previewEntrypoint": { "type": ["string", "null"], "description": "e.g. 'dist/index.html' or 'server.js' — used to start the preview." }
+  },
+  "exampleValid": {
+    "files": [
+      { "path": "package.json", "content": "{...}", "purpose": "project manifest" },
+      { "path": "src/ui/hero.ts", "content": "export function renderHero(...) {...}", "purpose": "ui component" },
+      { "path": "src/domain/menu.ts", "content": "export function groupByCategory(...) {...}", "purpose": "domain logic" }
+    ],
+    "layerMap": { "ui": ["src/ui/hero.ts"], "domain": ["src/domain/menu.ts"], "adapters": ["src/adapters/maps.ts"] },
+    "runInstructions": { "install": "npm ci", "build": "npm run build", "start": "npm run start", "test": "npm test", "nodeVersion": ">=20", "envVarsNeeded": [] },
+    "testsWritten": ["tests/e2e/home.spec.ts"],
+    "acceptanceTestMap": [{ "acCode": "AC-001", "testFile": "tests/e2e/home.spec.ts", "testName": "home loads and CTA navigates" }],
+    "specIssues": [],
+    "assumptions": ["Menu data is a static JSON file."],
+    "designNotes": "Warm palette, serif headings.",
+    "previewEntrypoint": "dist/index.html"
+  },
+  "exampleInvalid": {
+    "files": [{ "path": "../../etc/passwd", "content": "..." }],
+    "runInstructions": { "build": "rm -rf /" },
+    "specIssues": [],
+    "assumptions": []
+  }
+}

@@ -1,0 +1,67 @@
+
+> wpp@0.1.0 simulate:phase4
+> tsx scripts/simulate-phase4.ts
+
+=== 0. Config seeded from config/ (the reviewable source of truth) ===
+agent configs: REQUIREMENTS v1 (openai-compatible/gemini-3.1-flash-lite) | SPECIFICATION v1 (openai-compatible/gemini-3.1-flash-lite) | SPEC_AUDITOR v1 (openrouter/cohere/north-mini-code:free)
+scripted auditor mode: pass
+LIVE route: writer=openai-compatible/gemini-3.1-flash-lite · auditor=openrouter/cohere/north-mini-code:free
+live calls: SPEC_AUDIT (the rest stays scripted)
+
+=== 1. Phase 2 interview (real pipeline, scripted provider) ===
+{"level":40,"time":"2026-10-08T20:55:16.029Z","projectId":"01a11d4c-81d7-7364-af44-443c81831cf2","runId":"01a11d4c-832b-7972-8892-66840b390235","plannedField":"business_purpose.company_name","modelField":"business_purpose.purpose","msg":"requirements model asked about a different field than the planner — sending the questionnaire wording"}
+{"level":40,"time":"2026-10-08T20:55:16.171Z","projectId":"01a11d4c-81d7-7364-af44-443c81831cf2","runId":"01a11d4c-83bf-7d53-84ad-43b9a169528b","plannedField":"target_audience.primary","modelField":"business_purpose.company_name","msg":"requirements model asked about a different field than the planner — sending the questionnaire wording"}
+{"level":40,"time":"2026-10-08T20:55:16.316Z","projectId":"01a11d4c-81d7-7364-af44-443c81831cf2","runId":"01a11d4c-844e-7a15-90c9-083f38981601","plannedField":"target_audience.languages","modelField":"target_audience.primary","msg":"requirements model asked about a different field than the planner — sending the questionnaire wording"}
+{"level":40,"time":"2026-10-08T20:55:16.484Z","projectId":"01a11d4c-81d7-7364-af44-443c81831cf2","runId":"01a11d4c-84ef-7cb4-9738-e11c21064105","plannedField":"website_type.type","modelField":"target_audience.languages","msg":"requirements model asked about a different field than the planner — sending the questionnaire wording"}
+{"level":40,"time":"2026-10-08T20:55:16.612Z","projectId":"01a11d4c-81d7-7364-af44-443c81831cf2","runId":"01a11d4c-8579-77ce-a86a-d80b48622c68","plannedField":"pages.list","modelField":"website_type.type","msg":"requirements model asked about a different field than the planner — sending the questionnaire wording"}
+{"level":40,"time":"2026-10-08T20:55:16.738Z","projectId":"01a11d4c-81d7-7364-af44-443c81831cf2","runId":"01a11d4c-85f7-7c27-835b-ea5751dc325c","plannedField":"features.core","modelField":"pages.list","msg":"requirements model asked about a different field than the planner — sending the questionnaire wording"}
+{"level":40,"time":"2026-10-08T20:55:16.865Z","projectId":"01a11d4c-81d7-7364-af44-443c81831cf2","runId":"01a11d4c-8676-753d-9604-9454c20e7b3d","plannedField":"reservations.enabled","modelField":"features.core","msg":"requirements model asked about a different field than the planner — sending the questionnaire wording"}
+{"level":40,"time":"2026-10-08T20:55:16.992Z","projectId":"01a11d4c-81d7-7364-af44-443c81831cf2","runId":"01a11d4c-86f5-755e-a15b-cbe5405240c7","plannedField":"reservations.confirmation","modelField":"reservations.enabled","msg":"requirements model asked about a different field than the planner — sending the questionnaire wording"}
+{"level":40,"time":"2026-10-08T20:55:17.129Z","projectId":"01a11d4c-81d7-7364-af44-443c81831cf2","runId":"01a11d4c-877e-77fb-8794-b63267bec165","plannedField":"online_ordering.enabled","modelField":"reservations.confirmation","msg":"requirements model asked about a different field than the planner — sending the questionnaire wording"}
+{"level":40,"time":"2026-10-08T20:55:17.270Z","projectId":"01a11d4c-81d7-7364-af44-443c81831cf2","runId":"01a11d4c-880b-723c-bd4b-39328c7eebef","plannedField":"authentication.needed","modelField":"online_ordering.enabled","msg":"requirements model asked about a different field than the planner — sending the questionnaire wording"}
+{"level":40,"time":"2026-10-08T20:55:17.434Z","projectId":"01a11d4c-81d7-7364-af44-443c81831cf2","runId":"01a11d4c-88a6-7027-9c64-7f891a41c023","plannedField":"payments.needed","modelField":"authentication.needed","msg":"requirements model asked about a different field than the planner — sending the questionnaire wording"}
+{"level":40,"time":"2026-10-08T20:55:17.572Z","projectId":"01a11d4c-81d7-7364-af44-443c81831cf2","runId":"01a11d4c-8939-79c0-9bf3-2e982c4a4276","plannedField":"products_services.description","modelField":"payments.needed","msg":"requirements model asked about a different field than the planner — sending the questionnaire wording"}
+{"level":40,"time":"2026-10-08T20:55:17.688Z","projectId":"01a11d4c-81d7-7364-af44-443c81831cf2","runId":"01a11d4c-89ae-7366-b13b-725eb57208e5","plannedField":"menu.kind","modelField":"products_services.description","msg":"requirements model asked about a different field than the planner — sending the questionnaire wording"}
+{"level":40,"time":"2026-10-08T20:55:17.809Z","projectId":"01a11d4c-81d7-7364-af44-443c81831cf2","runId":"01a11d4c-8a25-747d-bbf3-dd419480cdd1","plannedField":"delivery.enabled","modelField":"menu.kind","msg":"requirements model asked about a different field than the planner — sending the questionnaire wording"}
+{"level":40,"time":"2026-10-08T20:55:17.926Z","projectId":"01a11d4c-81d7-7364-af44-443c81831cf2","runId":"01a11d4c-8a9c-77f1-885a-c0bc411a4814","plannedField":"delivery.zone","modelField":"delivery.enabled","msg":"requirements model asked about a different field than the planner — sending the questionnaire wording"}
+{"level":40,"time":"2026-10-08T20:55:18.043Z","projectId":"01a11d4c-81d7-7364-af44-443c81831cf2","runId":"01a11d4c-8b11-7d60-b2c3-8fe155c190e0","plannedField":"branches.count","modelField":"delivery.zone","msg":"requirements model asked about a different field than the planner — sending the questionnaire wording"}
+{"level":40,"time":"2026-10-08T20:55:18.156Z","projectId":"01a11d4c-81d7-7364-af44-443c81831cf2","runId":"01a11d4c-8b82-7be2-b054-7cf12fced9de","plannedField":"admin_panel.needed","modelField":"branches.count","msg":"requirements model asked about a different field than the planner — sending the questionnaire wording"}
+{"level":40,"time":"2026-10-08T20:55:18.270Z","projectId":"01a11d4c-81d7-7364-af44-443c81831cf2","runId":"01a11d4c-8bf4-7c65-8f9f-0b7c5e4a3671","plannedField":"admin_panel.roles","modelField":"admin_panel.needed","msg":"requirements model asked about a different field than the planner — sending the questionnaire wording"}
+{"level":40,"time":"2026-10-08T20:55:18.384Z","projectId":"01a11d4c-81d7-7364-af44-443c81831cf2","runId":"01a11d4c-8c66-70f1-b6ee-fca21253b3a7","plannedField":"design.style","modelField":"admin_panel.roles","msg":"requirements model asked about a different field than the planner — sending the questionnaire wording"}
+{"level":40,"time":"2026-10-08T20:55:18.493Z","projectId":"01a11d4c-81d7-7364-af44-443c81831cf2","runId":"01a11d4c-8cd4-7224-8086-47c511ef31b4","plannedField":"content.languages","modelField":"design.style","msg":"requirements model asked about a different field than the planner — sending the questionnaire wording"}
+{"level":40,"time":"2026-10-08T20:55:18.610Z","projectId":"01a11d4c-81d7-7364-af44-443c81831cf2","runId":"01a11d4c-8d45-7ad0-b319-da56877e81ed","plannedField":"branches.hours","modelField":"content.languages","msg":"requirements model asked about a different field than the planner — sending the questionnaire wording"}
+{"level":40,"time":"2026-10-08T20:55:18.723Z","projectId":"01a11d4c-81d7-7364-af44-443c81831cf2","runId":"01a11d4c-8dba-7d49-95dd-6a1ddb035212","plannedField":"seo.needed","modelField":"branches.hours","msg":"requirements model asked about a different field than the planner — sending the questionnaire wording"}
+{"level":40,"time":"2026-10-08T20:55:18.839Z","projectId":"01a11d4c-81d7-7364-af44-443c81831cf2","runId":"01a11d4c-8e2c-7f29-a587-1709883fb031","plannedField":"seo.keywords","modelField":"seo.needed","msg":"requirements model asked about a different field than the planner — sending the questionnaire wording"}
+{"level":40,"time":"2026-10-08T20:55:18.950Z","projectId":"01a11d4c-81d7-7364-af44-443c81831cf2","runId":"01a11d4c-8e9c-7c3e-ace3-78a1f7a85f5d","plannedField":"integrations.list","modelField":"seo.keywords","msg":"requirements model asked about a different field than the planner — sending the questionnaire wording"}
+{"level":40,"time":"2026-10-08T20:55:19.065Z","projectId":"01a11d4c-81d7-7364-af44-443c81831cf2","runId":"01a11d4c-8f0e-7c2b-b94e-c3ee79dce383","plannedField":"security.requirements","modelField":"integrations.list","msg":"requirements model asked about a different field than the planner — sending the questionnaire wording"}
+{"level":40,"time":"2026-10-08T20:55:19.193Z","projectId":"01a11d4c-81d7-7364-af44-443c81831cf2","runId":"01a11d4c-8f8e-7f47-b62e-df1279dd6cff","plannedField":"hosting.preference","modelField":"security.requirements","msg":"requirements model asked about a different field than the planner — sending the questionnaire wording"}
+{"level":40,"time":"2026-10-08T20:55:19.311Z","projectId":"01a11d4c-81d7-7364-af44-443c81831cf2","runId":"01a11d4c-9005-73b1-ad93-5d13db3fff82","plannedField":"domain.name","modelField":"hosting.preference","msg":"requirements model asked about a different field than the planner — sending the questionnaire wording"}
+{"level":40,"time":"2026-10-08T20:55:19.426Z","projectId":"01a11d4c-81d7-7364-af44-443c81831cf2","runId":"01a11d4c-9077-7317-824a-82ca644d3f1e","plannedField":"budget.range","modelField":"domain.name","msg":"requirements model asked about a different field than the planner — sending the questionnaire wording"}
+{"level":40,"time":"2026-10-08T20:55:19.540Z","projectId":"01a11d4c-81d7-7364-af44-443c81831cf2","runId":"01a11d4c-90ea-7fbf-b673-3dd2691f0294","plannedField":"deadline.expected","modelField":"budget.range","msg":"requirements model asked about a different field than the planner — sending the questionnaire wording"}
+turns=30  state=CLIENT_REVIEW  completeness=100%
+
+=== 2. Specification (T06/T07) and the two-step client approval (Phase 3) ===
+spec v1 status=IN_REVIEW  SPEC-REQ: 30
+{"level":40,"time":"2026-10-08T20:55:19.885Z","task":"Audit specification v1 of a RESTAURANT website project.\nThis","provider":"openrouter","promptTokens":9149,"reservedTokens":11649,"budgetTokens":8000,"fits":false,"overBy":3649,"msg":"prompt exceeds the 8000 TPM heuristic (Groq free-tier budget; provider=openrouter) — the request still goes out; trim the prompt if the provider 429s"}
+client approved → v1 LOCKED, state=READY_FOR_BUILD
+
+=== 7. Approval enqueues SPEC_AUDIT → T11, the Spec Auditor runs (§20) ===
+audit attempts: 1   final state: READY_FOR_BUILD
+  attempt 1/3  provider=openrouter model=cohere/north-mini-code:free  PASS  score=100  structuralForcedFail=false  modelSaid=PASS  checks=ambiguity:PASS consistency:PASS completeness:PASS clientAlignment:PASS codingReadiness:PASS
+  spec v1  status=LOCKED     change=""
+transitions: T01 → T02 → T03 → T05 → T06 → T07 → T10 → T11 → T12
+
+=== 8. PASS → T12 READY_FOR_BUILD: the build may start from a locked, audited specification ===
+current spec: v1 status=LOCKED (locked = immutable, §34)
+open human tasks: 0
+
+=== 11. Audit trail ===
+events: SPEC_GENERATED×1, SPEC_LOCKED×1, SPEC_AUDIT_RESULT×1, APPROVAL_RECORDED×1, TASK_CREATED×0
+spec-audit artifact: /tmp/wpp-phase4-4IRNm0/projects/01a11d4c-81d7-7364-af44-443c81831cf2/spec-audit/v1-a1.md
+  **Verdict: PASS** — score 100/100 (auditor openrouter/cohere/north-mini-code:free) | checks: completeness=PASS consistency=PASS ambiguity=PASS codingReadiness=PASS clientAlignment=PASS
+agent runs: 1 audit run(s) of 36 total
+jobs: [{"status":"DONE","n":66},{"status":"PENDING","n":1}]
+LLM calls: 35 total, 0 audit, 3 specification
+client messages during the audit loop: 0 (0 = the loop never wakes the client)
+
+DONE — spec audit (pass) → READY_FOR_BUILD

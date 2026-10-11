@@ -1,0 +1,33 @@
+
+> wpp@0.1.0 demo:live
+> tsx scripts/live-requirements-demo.ts
+
+=== Live requirements interview over HTTP (simulator channel) ===
+client → project 01a11c08-4f91-7c98-95c2-f2b0019ebd0f  state=INTAKE
+
+  Q1 [business_purpose.purpose] Saytingiz orqali Osh Baraka restoranining asosiy maqsadi nima? Masalan, mijozlarni jalb qilish, onlayn buyurtmalarni qabul qilish va hokazo.
+  A1 Mijozlar restoranimizni topib, menyuni ko‘rib, stol bron qilishi uchun
+
+  Q2 [target_audience.primary] Rahmat, maqsadingizni tushundim!
+  A2 Toshkentdagi 25-45 yoshli oilalar va ofis xodimlari
+
+  Q3 [target_audience.languages] Rahmat, ma'lumotni olaman!
+  A3 O‘zbek, Rus
+
+  Q4 [website_type.type] Restoraningizning ish vaqtlari qanday?
+  A4 RESTAURANT
+
+  Q5 [pages.list] Rahmat, tushundim!
+  A5 Bosh sahifa, Menyu, Biz haqimizda, Filiallar, Aloqa
+no further question arrived — stopping the driver
+
+=== Result (from GET /api/v1/projects/:id/requirements) ===
+state: REQUIREMENTS_IN_PROGRESS  type: RESTAURANT  turns: 5
+completeness: 12.5%  fields: 39
+mandatory confirmed: 3/24
+open contradictions: 0
+
+outbound messages: 5
+
+=== Phase 3: specification and the two-step client approval ===
+DRIVER EXIT=143

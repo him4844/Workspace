@@ -1,0 +1,66 @@
+
+> wpp@0.1.0 demo:live
+> tsx scripts/live-requirements-demo.ts
+
+=== Live requirements interview over HTTP (simulator channel) ===
+client → project 01a11c80-662f-7dc7-b38b-c34c1fa797a6  state=INTAKE
+
+  Q1 [business_purpose.purpose] Salom! "Osh Baraka" restorani uchun sayt yaratishda yordam berishdan xursandmiz.
+  A1 Mijozlar restoranimizni topib, menyuni ko‘rib, stol bron qilishi uchun
+
+  Q2 [target_audience.primary] Asosiy mijozlaringiz kimlar? (yoshi, shahri, qiziqishi bo'yicha bir-ikki guruh)
+  A2 Toshkentdagi 25-45 yoshli oilalar va ofis xodimlari
+
+  Q3 [target_audience.languages] Mijozlar asosan qaysi tilda muloqot qiladi?
+  A3 O‘zbek, Rus
+
+  Q4 [website_type.type] Ajoyib! O‘zbek va rus tillarini belgilab qo‘ydim.
+  A4 RESTAURANT
+
+  Q5 [pages.list] Saytda qanday sahifalar bo'lishini xohlaysiz?
+  A5 Bosh sahifa, Menyu, Biz haqimizda, Filiallar, Aloqa
+
+  Q6 [features.core] Saytning eng zarur 2-3 funksiyasi nima? (masalan: onlayn buyurtma, bron, ariza formasi, chat)
+  A6 stol bron qilish, menyu ko‘rish, xarita va manzil
+
+  Q7 [reservations.enabled] Stol bron qilish kerakmi?
+  A7 yes
+
+  Q8 [online_ordering.enabled] Saytda onlayn buyurtma (savat bilan) kerakmi yoki telefon orqali buyurtma yetarlimi?
+  A8 phone
+
+  Q9 [authentication.needed] Saytda foydalanuvchi profili (login/parol) kerakmi?
+  A9 no
+
+  Q10 [payments.needed] Saytda onlayn to'lov kerakmi yoki buyurtma to'lovsiz qabul qilinadimi?
+  A10 no
+
+  Q11 [products_services.description] Nima sotasiz yoki qanday xizmat ko'rsatasiz? Asosiy toifalarni sanab o'ting.
+  A11 O‘zbek va turk oshxonasi: palov, kabob, shashlik, somsa, ichimliklar
+
+  Q12 [menu.kind] Ajoyib, taomlar haqida ma'lumotni yozib oldim!
+  A12 Rasm bilan, narxlar bilan
+
+  Q13 [delivery.enabled] Yetkazib berish xizmati bormi (o'zingiz yoki agregator orqali)?
+  A13 own
+
+  Q14 [branches.count] Nechta filial yoki manzil bor?
+  A14 2 ta filial
+
+  Q15 [admin_panel.needed] Kontentni o'zingiz tahrirlash uchun admin panel kerakmi?
+  A15 yes
+
+  Q16 [design.style] Dizayn uslubi qanday bo'lsin? Ranglar yoki namuna sayt bormi?
+  A16 Yorug‘ va minimal: oq fon, to‘q sariq urg‘u, menyu rasmlari katta
+
+  Q17 [content.languages] Sayt qaysi tillarda bo'lishi kerak?
+  A17 O‘zbek, Rus
+
+  Q18 [branches.hours] Tillar tanlovini yozib oldim!
+  A18 Har kuni 10:00–23:00
+
+  Q19 [seo.needed] Google'da topilish uchun SEO sozlamalari kerakmi?
+  A19 yes
+
+  Q20 [integrations.list] Boshqa tizimlar bilan bog'lash kerakmi? (Instagram, Telegram, CRM, Google Maps, to'lov, yetkazib berish)
+  A20 Instagram, Google Maps, Telegram

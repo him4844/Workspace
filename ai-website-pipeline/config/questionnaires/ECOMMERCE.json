@@ -1,0 +1,187 @@
+{
+  "schemaVersion": "1.0.0",
+  "code": "ECOMMERCE",
+  "version": 1,
+  "type": "PACKAGE",
+  "appliesToProjectType": "ECOMMERCE",
+  "title": "E-commerce savol paketi (SPEC §7)",
+  "description": "Onlayn do'kon uchun majburiy savollar: katalog, savat, to'lov, yetkazib berish, boshqaruv.",
+  "fields": [
+    {
+      "path": "catalog.products_count",
+      "category": "products_services",
+      "question": "Katalogda taxminan nechta mahsulot bo'ladi?",
+      "quickReplies": [
+        "1-50",
+        "50-500",
+        "500+"
+      ],
+      "mandatory": true,
+      "priority": "MUST",
+      "valueType": "text",
+      "order": 82,
+      "clarifyPrompt": "Katalogni aniqlashtiraylik: mahsulotlar Excel/1C dan import qilinadimi yoki qo'lda kiritiladimi?"
+    },
+    {
+      "path": "catalog.categories",
+      "category": "products_services",
+      "question": "Mahsulot toifalari qanday bo'ladi? (asosiylarini sanang)",
+      "mandatory": true,
+      "priority": "MUST",
+      "valueType": "list",
+      "order": 83
+    },
+    {
+      "path": "catalog.variants",
+      "category": "products_services",
+      "question": "Mahsulotning variantlari bormi? (o'lcham, rang, hajm)",
+      "quickReplies": [
+        "Ha, bor",
+        "Yo'q"
+      ],
+      "mandatory": true,
+      "priority": "MUST",
+      "valueType": "choice",
+      "options": [
+        "yes",
+        "no"
+      ],
+      "order": 84
+    },
+    {
+      "path": "search.filtering",
+      "category": "features",
+      "question": "Qidiruv va filtr (narx, toifa, brend bo'yicha) kerakmi?",
+      "quickReplies": [
+        "Ha, ikkisi",
+        "Faqat filtr",
+        "Kerak emas"
+      ],
+      "mandatory": true,
+      "priority": "MUST",
+      "valueType": "choice",
+      "options": [
+        "both",
+        "filter",
+        "no"
+      ],
+      "order": 55
+    },
+    {
+      "path": "cart.checkout_flow",
+      "category": "features",
+      "question": "Buyurtma qanday yakunlanadi — savat va checkout formasi bilanmi?",
+      "quickReplies": [
+        "Savat + forma",
+        "Tez buyurtma"
+      ],
+      "mandatory": true,
+      "priority": "MUST",
+      "valueType": "choice",
+      "options": [
+        "cart",
+        "quick"
+      ],
+      "order": 56,
+      "clarifyPrompt": "Checkout turini tanlaylik: odatiy savat orqali buyurtmami yoki tezkor buyurtma formasimi? Yetkazish manzili va narxini qaysi bosqichda olamiz?"
+    },
+    {
+      "path": "payments.methods",
+      "category": "payments",
+      "question": "Qaysi to'lov usullari kerak?",
+      "quickReplies": [
+        "Payme",
+        "Click",
+        "Uzum",
+        "Yetkazishda naqd"
+      ],
+      "mandatory": true,
+      "priority": "MUST",
+      "valueType": "list",
+      "order": 72,
+      "clarifyPrompt": "To'lov usullarini aniqlashtiraylik: Click/Payme kabi onlayn to'lov, karta, naqd pul yoki bank o'tkazmasidan qaysilari kerak?"
+    },
+    {
+      "path": "delivery.options",
+      "category": "products_services",
+      "question": "Yetkazib berish variantlari qanday? (kuryer, pochta, olib ketish)",
+      "quickReplies": [
+        "Kuryer",
+        "Olib ketish",
+        "Pochta"
+      ],
+      "mandatory": true,
+      "priority": "MUST",
+      "valueType": "list",
+      "order": 87,
+      "clarifyPrompt": "Yetkazib berishni aniqlashtiraylik: hudud, muddat va narx qanday belgilanadi?"
+    },
+    {
+      "path": "inventory.tracking",
+      "category": "admin_panel",
+      "question": "Ombor qoldig'ini hisobga olish kerakmi?",
+      "quickReplies": [
+        "Ha",
+        "Yo'q",
+        "Keyinroq"
+      ],
+      "mandatory": true,
+      "priority": "MUST",
+      "valueType": "choice",
+      "options": [
+        "yes",
+        "no"
+      ],
+      "order": 92,
+      "defaultSuggestion": "oddiy qoldiq soni (sotilganda kamayadi)",
+      "clarifyPrompt": "Ombor bilan integratsiya bormi (1C, MoySklad) yoki saytda qo'lda yuritiladimi?"
+    },
+    {
+      "path": "discounts.promo_codes",
+      "category": "features",
+      "question": "Chegirma va promokodlar kerakmi?",
+      "quickReplies": [
+        "Ha",
+        "Yo'q"
+      ],
+      "mandatory": false,
+      "priority": "NICE_TO_HAVE",
+      "valueType": "choice",
+      "options": [
+        "yes",
+        "no"
+      ],
+      "order": 57
+    },
+    {
+      "path": "orders.management",
+      "category": "admin_panel",
+      "question": "Buyurtmalarni admin panelda qanday boshqarish kerak? (statuslar, chop etish, SMS/xabar)",
+      "mandatory": true,
+      "priority": "MUST",
+      "valueType": "text",
+      "order": 93,
+      "clarifyPrompt": "Buyurtma statuslarini aniqlashtiraylik: yangi → to'landi → yuborildi → yetkazildi, yoki boshqacha?"
+    },
+    {
+      "path": "customer_accounts.enabled",
+      "category": "authentication",
+      "question": "Mijoz shaxsiy kabineti (buyurtmalar tarixi) kerakmi?",
+      "quickReplies": [
+        "Ha",
+        "Yo'q",
+        "Bilmayman"
+      ],
+      "mandatory": true,
+      "priority": "MUST",
+      "valueType": "choice",
+      "options": [
+        "yes",
+        "no"
+      ],
+      "order": 62,
+      "defaultSuggestion": "kabinet keyingi bosqichda, hozir mehmon sifatida buyurtma",
+      "clarifyPrompt": "Kabinetni aniqlashtiraylik: mijoz nimalarni o'zi ko'rishni xohlaydi (tarix, sevimlilar, manzillar)?"
+    }
+  ]
+}
